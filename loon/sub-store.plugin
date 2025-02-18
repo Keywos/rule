@@ -1,0 +1,19 @@
+#!name=Sub-Store Cache
+#!desc=高级订阅管理工具 使用前请在本插件的详情页面为[PROXY]项分配代理策略。
+#!openUrl = https://sub.store
+#!author = Peng-YM
+#!homepage = https://github.com/Keywos/Sub-Store
+#!icon = https://raw.githubusercontent.com/Keywos/rule/main/tv/app/144px/substore.png
+#https://github.com/xream/Sub-Store/tree/feature/scriptResourceCache
+#!select = 节点缓存有效期,1分钟,5分钟,10分钟,30分钟,1小时,2小时,3小时,6小时,12小时,24小时,48小时,72小时,参数传入
+
+[Rule]
+DOMAIN, sub-store.vercel.app, PROXY
+DOMAIN, ip-api.com, PROXY
+
+[MITM]
+hostname=sub.store
+
+[Script]
+http-request https?:\/\/sub\.store script-path=https://raw.githubusercontent.com/Keywos/rule/main/Sub-Store/sub-store.min.js, requires-body=true, timeout=120, tag=Sub-Store-Cache  
+cron "0 0 * * *" script-path=https://raw.githubusercontent.com/Keywos/rule/main/Sub-Store/cron-sync-artifacts.min.js, tag=Sub-Store Sync

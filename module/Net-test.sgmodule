@@ -1,0 +1,8 @@
+#!name=Connectivity_Test
+#!desc=网络连通性测试 Baidu,Bilibili,Google,YouTube少了e是为了对齐,Github
+
+[Script]
+Connectivity_Test = type=generic,timeout=3,script-path=https://raw.githubusercontent.com/Keywos/rule/main/JS/ConnectivityTest.js,argument=title=Connectivity Test
+
+[Panel]
+Connectivity_Test = script-name=Connectivity_Test,update-interval=1

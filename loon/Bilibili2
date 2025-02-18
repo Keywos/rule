@@ -1,0 +1,25 @@
+
+
+#!name = Bilibili Test2
+#!desc =  测试功能 
+#!openUrl = 
+#!author = Maasea
+#!homepage = 
+#!icon = https://gitlab.com/lodepuly/iconlibrary/-/raw/master/App_icon/120px/Bilibili.png
+#!select = CDN节点,阿里云,腾讯云,金山云,七牛云,百度云
+#!select = 通知,开,关
+# https://raw.githubusercontent.com/Maasea/sgmodule/master/Bilibili.Helper.sgmodule
+
+
+[Script]
+#http-response ^https:\/\/grpc\.biliapi\.net\/bilibili\.community\.service\.dm\.v1\.DM\/DmView script-path=https://github.com/Keywos/rule/raw/main/JS/Blinew.js, requires-body=true, binary-body-mode=true, timeout=10, tag=bilibili_dmView
+
+#http-response ^https:\/\/grpc\.biliapi\.net\/bilibili\.app\.interface\.v1\.Teenagers\/ModeStatus script-path=https://github.com/Keywos/rule/raw/main/JS/Blinew.js, requires-body=true, binary-body-mode=true, timeout=10, tag=bilibili_teenager
+
+#http-response ^https:\/\/grpc\.biliapi\.net\/bilibili\.app\.playurl\.v1\.PlayURL\/PlayView script-path=https://github.com/Keywos/rule/raw/main/JS/Blinew.js, requires-body=true, binary-body-mode=true, timeout=10, tag=bilibili_playView
+
+[MITM]
+
+hostname = grpc.biliapi.net
+
+

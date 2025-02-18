@@ -1,0 +1,33 @@
+#!name=GroupAuto
+#!desc=优选节点: 根据 httpApi 返回的 (速度:持久化缓存) (平均延时:持久化缓存) 优选
+
+# 作用: 
+#  如果策略组 节点变更 会重新缓存结果 重新取值
+#  如果有节点偶尔ping不通 那么大概率不会选中他 
+#  如果某个节点虽然延迟低 但是速度很差 也不会选他
+# 策略: 
+#  根据 api 返回的节点 速度, 延时 (持久化缓存) 对节点进行优选
+
+# 面板说明:
+#  继承: Tokyo: 40C 6.54M 61   [Tokyo]代表优选的节点, [40C]代表次数, [6.54M]代表最高速度, [61]表示综合评分按速度和延时非线性改变
+#  GroupAuto VPS'4   17:41    [VPS]代表优选的策略组名  ['4]代表策略组中有4个节点
+# ♳,♴,♵,♶,♷,♸,♹,代表清理过超过30个数量的缓存
+
+# 必选参数:
+# group=          你的策略组名(需要填写手动选择的策略组select)
+
+# 可选参数:
+# avgnumber=30    缓存节点测试次数， 超过会清理
+# tolerance=10    容差10ms 小于10ms则不切换节点
+# timecache=18    缓存到期时间(小时) 或 超过40个数据会清理旧的数据
+# push            加参数为开启通知, 不加参数则不通知
+
+[Panel]
+GroupAuto = script-name=GroupAuto,update-interval=6
+
+[Script]
+# 面板 运行 (面板与定时任务可同时存在)
+GroupAuto = type=generic,timeout=15,script-path=https://raw.githubusercontent.com/Keywos/rule/main/JS/ProGroup.js, argument=tolerance=10&timecache=18&color=#6699FF&icon=speedometer&group=Proxy
+
+# 定时自动运行(可选需取消#注释) 30分钟一次,每天2到7点不运行
+Cron_GroupAuto = type=cron, cronexp="*/30 0,1,7-23 * * *", timeout=15,wake-system=0,script-path=https://raw.githubusercontent.com/Keywos/rule/main/JS/ProGroup.js, argument=tolerance=10&timecache=18&group=Proxy

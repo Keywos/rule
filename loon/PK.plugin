@@ -1,0 +1,7 @@
+#!name=PikPak
+#!desc=仅供测试
+#!input = 邀请码
+#!icon = https://raw.githubusercontent.com/Keywos/rule/main/tv/app/144px/Pikpak.png
+
+[Script]
+cron "0 30 19 * * *" script-path=Pikpak.js, timeout=20, tag=Pk

@@ -1,0 +1,10 @@
+#!name=实时油价信息
+#!desc=定时监控每日油价（通知）地区可以填入省份拼音，如果有同音地区 就去下方url找对应的地区 例如http://m.qiyoujiage.com/shanxi-3/xian.shtml 就填写 shanxi-3/xian 在地区里
+#!category=Panels
+#!arguments=interval:"0 8,17 * * *",wake-system:1,timeout:120,diqu:"guangdong/shenzhen"
+
+# 持久化适合远程引用不添加本地模块
+# 工具>脚本编辑器>左下角齿轮图标>$persistentStore 添加key 为 yj 里面内容为地区
+[Script]
+
+YJCRON=type=cron,cronexp={{{interval}}},wake-system={{{wake-system}}},timeout={{{timeout}}},script-path=https://raw.githubusercontent.com/Keywos/rule/main/JS/surgepushYJ.js,argument={{{diqu}}}

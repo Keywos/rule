@@ -1,0 +1,20 @@
+#!name = IT之家去广告
+#!desc = 可自定义
+#!openUrl = 
+#!author = @Key
+#!homepage = https://github.com/Keywos
+#!icon = https://github.com/Keywos/rule/raw/main/tv/app/144px/ithome.png
+#!select = 去除轮播图广告,开启,关闭
+#!select = 去除整个轮播图,开启,关闭
+#!select = 去除置顶,开启,关闭
+#!date = 2024-01-27 20:57:40
+
+[Rewrite]
+^https?:\/\/api\.zuihuimai\.com\/static\/.*\/hongbao reject
+^https?:\/\/dat\.ruanmei\.com\/ithome\/money\/acd\.json$ reject
+
+[Script]
+http-response ^https:\/\/napi\.ithome\.com\/api\/(?:news\/index|topmenu\/getfeeds\?|api\/douyin\/GetLiveInfo) script-path = https://raw.githubusercontent.com/Keywos/rule/main/script/ithome/js/index.js, requires-body = true, tag = IT之家去广告
+  
+[MITM]
+hostname = napi.ithome.com, api.zuihuimai.com, dat.ruanmei.com

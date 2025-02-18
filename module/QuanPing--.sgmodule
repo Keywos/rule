@@ -1,0 +1,16 @@
+#!name=网页全屏
+#!desc=使Chat GPT Bing Ai全屏, 用法 进入对应的网页点击分享,添加到主屏幕 即可进入全屏模式, 必应需要进入bingai后在添加到主屏幕
+
+[Header Rewrite]
+
+# 必应ai
+^https:\/\/www\.bing\.com\/(search|new) header-replace-regex User-Agent \w+\/[\d\.]+$ "AppleWebKit/537.36 Chrome/110.0 Safari/537.36 Edg/110.0"
+
+
+[Script]
+
+QuanPing = type=http-response,pattern=^https:\/\/(chat\.openai\.com\/$|www\.bing\.com(\/$|\/search)),requires-body=1,script-path=https://github.com/Keywos/rule/raw/main/JS/qp.js,max-size=0
+
+
+[MITM]
+hostname = %APPEND% chat.openai.com, www.bing.com

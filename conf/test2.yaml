@@ -1,0 +1,294 @@
+#Stash
+dns: 
+  default-nameserver:
+  - 114.114.115.115
+  - 119.28.28.28
+  - 223.6.6.6
+  - system
+  nameserver:
+  - https://dns.alidns.com/dns-query
+  - https://doh.pub/dns-query
+log-level: warning
+mode: rule
+proxies:
+proxy-groups:
+- icon: https://raw.githubusercontent.com/Orz-3/face/master/Final.png
+  include-all: true
+  interval: 120
+  lazy: true
+  name: Proxy
+  proxies:
+  type: select
+  url: http://cp.cloudflare.com/generate_204
+- icon: https://raw.githubusercontent.com/Orz-3/face/master/Bili.png
+  name: bilibili
+  proxies:
+  - DIRECT
+  - HK 香港
+  - TW 台湾
+  type: select
+- icon: https://raw.githubusercontent.com/Orz-3/face/master/Music.png
+  name: Spotify
+  proxies:
+  - Proxy
+  - IN 印度
+  - HK 香港
+  - TW 台湾
+  - SG 新加坡
+  - JP 日本
+  - US 美国
+  type: select
+- icon: https://raw.githubusercontent.com/Orz-3/face/master/YouTube.png
+  name: YouTube
+  proxies:
+  - Proxy
+  - US 美国
+  - HK 香港
+  - TW 台湾
+  - SG 新加坡
+  - JP 日本
+  type: select
+- icon: https://raw.githubusercontent.com/Orz-3/face/master/Apple.png
+  name: Apple
+  proxies:
+  - DIRECT
+  - Proxy
+  type: select
+- icon: https://raw.githubusercontent.com/Orz-3/face/master/Auto.png
+  name: Disney+
+  proxies:
+  - Proxy
+  - HK 香港
+  - TW 台湾
+  - SG 新加坡
+  - JP 日本
+  - US 美国
+  type: select
+- icon: https://raw.githubusercontent.com/Orz-3/face/master/Netflix.png
+  name: Netflix
+  proxies:
+  - Proxy
+  - HK 香港
+  - TW 台湾
+  - SG 新加坡
+  - JP 日本
+  - US 美国
+  type: select
+- filter: "港|\U0001F1ED\U0001F1F0|HK|(?i)Hong"
+  icon: https://raw.githubusercontent.com/Orz-3/face/master/HK.png
+  include-all: true
+  interval: 120
+  lazy: true
+  name: HK 香港
+  tolerance: 50
+  type: fallback
+  url: http://cp.cloudflare.com/generate_204
+- filter: "台|\U0001F1E8\U0001F1F3|\U0001F1F9\U0001F1FC|湾|TW|(?i)Taiwan"
+  icon: https://raw.githubusercontent.com/Orz-3/face/master/TW.png
+  include-all: true
+  interval: 120
+  lazy: true
+  name: TW 台湾
+  tolerance: 50
+  type: fallback
+  url: http://cp.cloudflare.com/generate_204
+- filter: "新加坡|坡|狮城|\U0001F1F8\U0001F1EC|SG|(?i)Singapore"
+  icon: https://raw.githubusercontent.com/Orz-3/face/master/SG.png
+  include-all: true
+  interval: 120
+  lazy: true
+  name: SG 新加坡
+  tolerance: 50
+  type: fallback
+  url: http://cp.cloudflare.com/generate_204
+- filter: "日|\U0001F1EF\U0001F1F5|东京|JP|(?i)Japan"
+  icon: https://raw.githubusercontent.com/Orz-3/face/master/JP.png
+  include-all: true
+  interval: 120
+  lazy: true
+  name: JP 日本
+  tolerance: 50
+  type: fallback
+  url: http://cp.cloudflare.com/generate_204
+- filter: "美|\U0001F1FA\U0001F1F2|US|(?i)States|American"
+  icon: https://raw.githubusercontent.com/Orz-3/face/master/US.png
+  include-all: true
+  interval: 120
+  lazy: true
+  name: US 美国
+  tolerance: 50
+  type: fallback
+  url: http://cp.cloudflare.com/generate_204
+- filter: "印度|ind"
+  icon: https://raw.githubusercontent.com/Orz-3/face/master/UN.png
+  include-all: true
+  interval: 120
+  lazy: true
+  name: IN 印度
+  tolerance: 50
+  type: fallback
+  url: http://cp.cloudflare.com/generate_204
+
+rule-providers:
+  ADBlock:
+    behavior: classical
+    interval: 86400
+    url: https://github.com/chengkongyiban/stash/raw/main/rule-set/ADBlock.yaml
+  ASN_China:
+    behavior: classical
+    interval: 86400
+    url: https://raw.githubusercontent.com/chengkongyiban/stash/main/rule-set/ASN_China.yaml
+  Adblock4limbo:
+    behavior: classical
+    interval: 86400
+    url: https://raw.githubusercontent.com/limbopro/Adblock4limbo/main/Adblock4limbo_surge.listr_parser.list
+  Advertising:
+    behavior: classical
+    interval: 86400
+    url: https://github.com/chengkongyiban/stash/raw/main/rule-set/Advertising.yaml
+  AliPay:
+    behavior: classical
+    interval: 86400
+    url: https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/Clash/AliPay/AliPay.yaml
+  Apple:
+    behavior: classical
+    interval: 86400
+    url: https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/Clash/Apple/Apple.yaml
+  DouYin:
+    behavior: classical
+    interval: 86400
+    url: https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/Clash/DouYin/DouYin.yaml
+  GaoDe:
+    behavior: classical
+    interval: 86400
+    url: https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/Clash/GaoDe/GaoDe.yaml
+  JingDong:
+    behavior: classical
+    interval: 86400
+    url: https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/Clash/JingDong/JingDong.yaml
+  KugouKuwo:
+    behavior: classical
+    interval: 86400
+    url: https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/Clash/KugouKuwo/KugouKuwo.yaml
+  Lan:
+    behavior: classical
+    interval: 86400
+    url: https://github.com/chengkongyiban/stash/raw/main/rule-set/Lan.yaml
+  MeiTuan:
+    behavior: classical
+    interval: 86400
+    url: https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/Clash/MeiTuan/MeiTuan.yaml
+  SMZDM:
+    behavior: classical
+    interval: 86400
+    url: https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/Clash/SMZDM/SMZDM.yaml
+  Tencent:
+    behavior: classical
+    interval: 86400
+    url: https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/Clash/Tencent/Tencent.yaml
+  TikTok:
+    behavior: classical
+    interval: 86400
+    url: https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/Clash/TikTok/TikTok.yaml
+  Unbreak:
+    behavior: classical
+    interval: 86400
+    url: https://github.com/DivineEngine/Profiles/raw/master/Clash/RuleSet/Unbreak.yaml
+  WeChat:
+    behavior: classical
+    interval: 86400
+    url: https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/Clash/WeChat/WeChat.yaml
+  WeiboLiteAd:
+    behavior: classical
+    interval: 86400
+    url: https://github.com/chengkongyiban/stash/raw/main/rule-set/WeiboLiteAd.yaml
+  bilibili:
+    behavior: classical
+    interval: 86400
+    url: https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/Clash/BiliBili/BiliBili.yaml
+  defaultDirect:
+    behavior: classical
+    interval: 86400
+    url: https://github.com/chengkongyiban/stash/raw/main/rule-set/defaultDirect.yaml
+  defaultProxy:
+    behavior: classical
+    interval: 86400
+    url: https://github.com/chengkongyiban/stash/raw/main/rule-set/defaultProxy.yaml
+  disney:
+    behavior: classical
+    interval: 86400
+    type: http
+    url: https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/Clash/Disney/Disney.yaml
+  facebook:
+    behavior: classical
+    interval: 86400
+    url: https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/Clash/Facebook/Facebook.yaml
+  github:
+    behavior: classical
+    interval: 86400
+    url: https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/Clash/GitHub/GitHub.yaml
+  google:
+    behavior: classical
+    interval: 86400
+    url: https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/Clash/Google/Google.yaml
+  instagram:
+    behavior: classical
+    interval: 86400
+    url: https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/Clash/Instagram/Instagram.yaml
+  netflix:
+    behavior: classical
+    interval: 86400
+    url: https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/Clash/Netflix/Netflix.yaml
+  spotify:
+    behavior: classical
+    interval: 86400
+    url: https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/Clash/Spotify/Spotify.yaml
+  telegram:
+    behavior: classical
+    interval: 86400
+    url: https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/Clash/Telegram/Telegram.yaml
+  twitter:
+    behavior: classical
+    interval: 86400
+    url: https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/Clash/Twitter/Twitter.yaml
+  youtube:
+    behavior: classical
+    interval: 86400
+    url: https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/Clash/YouTube/YouTube.yaml
+rules:
+- SCRIPT,quic,REJECT
+- RULE-SET,Unbreak,DIRECT
+- RULE-SET,Advertising,REJECT
+- RULE-SET,WeiboLiteAd,REJECT
+- RULE-SET,Adblock4limbo,REJECT
+- RULE-SET,ADBlock,REJECT
+- RULE-SET,netflix,Netflix
+- RULE-SET,disney,Disney+
+- RULE-SET,spotify,Spotify
+- RULE-SET,github,Proxy
+- RULE-SET,telegram,Proxy
+- RULE-SET,youtube,YouTube
+- RULE-SET,google,Proxy
+- RULE-SET,twitter,Proxy
+- RULE-SET,instagram,Proxy
+- RULE-SET,facebook,Proxy
+- RULE-SET,TikTok,Proxy
+- RULE-SET,bilibili,bilibili
+- RULE-SET,AliPay,DIRECT
+- RULE-SET,Apple,Apple
+- RULE-SET,DouYin,DIRECT
+- RULE-SET,GaoDe,DIRECT
+- RULE-SET,JingDong,DIRECT
+- RULE-SET,KugouKuwo,DIRECT
+- RULE-SET,MeiTuan,DIRECT
+- RULE-SET,SMZDM,DIRECT
+- RULE-SET,Tencent,DIRECT
+- RULE-SET,WeChat,DIRECT
+- RULE-SET,defaultDirect,DIRECT
+- RULE-SET,defaultProxy,Proxy
+- RULE-SET,Lan,DIRECT
+- RULE-SET,ASN_China,DIRECT
+- MATCH,Proxy
+script:
+  shortcuts:
+    quic: network == 'udp' and dst_port == 443

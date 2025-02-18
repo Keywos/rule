@@ -1,0 +1,597 @@
+#EXTM3U
+
+#EXTINF:-1,CCTV-1 综合 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/CCTV-1H265_4000.m3u8
+#EXTINF:-1,CCTV-2 财经 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/CCTV-2H265_4000.m3u8
+#EXTINF:-1,CCTV-3 综艺 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/CCTV-3H265_4000.m3u8
+#EXTINF:-1,CCTV-4 中文国际 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/CCTV-4H265_4000.m3u8
+#EXTINF:-1,CCTV-5 体育 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/CCTV-5H265_4000.m3u8
+#EXTINF:-1,CCTV-5⁺ 体育赛事 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/CCTV-5plusH265_4000.m3u8
+#EXTINF:-1,CCTV-6 电影 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/CCTV-6H265_4000.m3u8
+#EXTINF:-1,CCTV-7 国防军事 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/CCTV-7H265_4000.m3u8
+#EXTINF:-1,CCTV-8 电视剧 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/CCTV-8H265_4000.m3u8
+#EXTINF:-1,CCTV-9 纪录 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/CCTV-9H265_4000.m3u8
+#EXTINF:-1,CCTV-10 科教 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/CCTV-10H265_4000.m3u8
+#EXTINF:-1,CCTV-11 戏曲 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/CCTV-11-H265_4000.m3u8
+#EXTINF:-1,CCTV-12 社会与法 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/CCTV-12H265_4000.m3u8
+#EXTINF:-1,CCTV-13 新闻 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/CCTV-xw_4000.m3u8
+#EXTINF:-1,CCTV-14 少儿 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/CCTV-14H265_4000.m3u8
+#EXTINF:-1,CCTV-15 音乐 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/CCTV-15-yyH265_4000.m3u8
+#EXTINF:-1,CCTV-16 奥林匹克 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/CCTV-16_4000.m3u8
+#EXTINF:-1,CCTV-16 奥林匹克 4K
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/CCTV-16-4K_8000.m3u8
+#EXTINF:-1,CCTV-17 农业农村 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/CCTV-17_4000.m3u8
+#EXTINF:-1,CCTV-4K 超高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/ys4Kcq_2000.m3u8
+
+#EXTINF:-1,CETV-1 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/CETV-1H264_4000.m3u8
+#EXTINF:-1,凤凰中文 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/test1_4000.m3u8
+#EXTINF:-1,凤凰资讯 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/test2_4000.m3u8
+#EXTINF:-1,黑龙江卫视 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/hljwsH265_4000.m3u8
+#EXTINF:-1,吉林卫视 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/jlwsH265_4000.m3u8
+#EXTINF:-1,辽宁卫视 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/lnwsHDH264_4000.m3u8
+#EXTINF:-1,青海卫视 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/qhwsH264_2000.m3u8
+#EXTINF:-1,北京卫视 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/bjwsH265_4000.m3u8
+#EXTINF:-1,天津卫视 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/tjwsH265_4000.m3u8
+#EXTINF:-1,河南卫视 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/hnws35_4000.m3u8
+#EXTINF:-1,梨园频道 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/ly_4000.m3u8
+#EXTINF:-1,文物宝库 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/wwbk_4000.m3u8
+#EXTINF:-1,武术世界 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/wssj_4000.m3u8
+#EXTINF:-1,山东卫视 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/sdwsH265_4000.m3u8
+#EXTINF:-1,江苏卫视 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/jswsH265_4000.m3u8
+#EXTINF:-1,东方卫视 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/dfwsH265_4000.m3u8
+#EXTINF:-1,安徽卫视 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/ahwsH265_4000.m3u8
+#EXTINF:-1,湖北卫视 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/hbwsH265_4000.m3u8
+#EXTINF:-1,湖南卫视 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/hnwsH265_4000.m3u8
+#EXTINF:-1,金鹰纪实 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/jyjsHDH265_4000.m3u8
+#EXTINF:-1,金鹰卡通 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/jykt_2000.m3u8
+#EXTINF:-1,快乐垂钓 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/fyzqklcdHDH265_4000.m3u8
+#EXTINF:-1,茶频道 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/cpd_4000.m3u8
+#EXTINF:-1,浙江卫视 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/zjwsH265_4000.m3u8
+#EXTINF:-1,江西卫视 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/jxwsH265_4000.m3u8
+#EXTINF:-1,东南卫视 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/dnwsfjwsH265_4000.m3u8
+#EXTINF:-1,四川卫视 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/scwsH265_4000.m3u8
+#EXTINF:-1,重庆卫视 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/cqwsH265_4000.m3u8
+#EXTINF:-1,贵州卫视 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/gzwsH265_4000.m3u8
+#EXTINF:-1,广东卫视 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/gdwsH265_4000.m3u8
+#EXTINF:-1,深圳卫视 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/szwsH265_4000.m3u8
+
+#EXTINF:-1,四川经济 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/SCTV-2-H265_4000.m3u8
+#EXTINF:-1,四川新闻 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/SCTV-4H265_4000.m3u8
+#EXTINF:-1,四川科教 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/SCTV-ggSCTV-8_4000.m3u8
+#EXTINF:-1,四川乡村 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/SCTV-kjSCTV-9-_4000.m3u8
+#EXTINF:-1,四川峨嵋电影 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/emdygqH265_4000.m3u8
+#EXTINF:-1,四川影视文艺 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/SCTV-5-scysH265_4000.m3u8
+#EXTINF:-1,四川文化旅游 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/SCTV-3-H265_4000.m3u8
+#EXTINF:-1,四川妇女儿童 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/SCTV-7-_4000.m3u8
+#EXTINF:-1,4K超高清电影 4K
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/emdy4k_8000.m3u8
+
+#EXTINF:-1,CHC家庭影院 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/jbtygqCHCjtyyH265_4000.m3u8
+#EXTINF:-1,CHC高清电影 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/lnwsCHC-HDH265_4000.m3u8
+#EXTINF:-1,CHC动作电影 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/wqCHCdzdyH265_4000.m3u8
+#EXTINF:-1,CBN每日影院 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/mryy_4000.m3u8
+#EXTINF:-1,CBN幸福剧场 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/xfjc_4000.m3u8
+#EXTINF:-1,CBN幸福娱乐 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/xfyl_4000.m3u8
+#EXTINF:-1,CBN风尚生活 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/fssh_4000.m3u8
+
+#EXTINF:-1,新视觉 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/ycxsjH265_4000.m3u8
+#EXTINF:-1,乐游 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/qjs-HDH265_4000.m3u8
+#EXTINF:-1,东方财经 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/dfcj_4000.m3u8
+#EXTINF:-1,金色学堂 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/jspd_4000.m3u8
+#EXTINF:-1,都市剧场 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/yxfydsjcHDH265_4000.m3u8
+#EXTINF:-1,动漫秀场 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/yybb-dmxc-H265_4000.m3u8
+#EXTINF:-1,劲爆体育 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/lqhxjcHDH265_4000.m3u8
+#EXTINF:-1,魅力足球 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/mlyy_4000.m3u8
+#EXTINF:-1,生活时尚 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/shssH265_4000.m3u8
+#EXTINF:-1,法治天地 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/fztx_4000.m3u8
+#EXTINF:-1,欢笑剧场 4K
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/hxjc-4k_8000.m3u8
+
+#EXTINF:-1,甘孜综合 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/gzxwzh_2000.m3u8
+#EXTINF:-1,剑阁综合 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/jgxwzhH265_4000.m3u8
+#EXTINF:-1,峨眉综合 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/emsxw_2000.m3u8
+#EXTINF:-1,平昌综合 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/pcxw_2000.m3u8
+#EXTINF:-1,宣汉综合 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/xhxwzh_2000.m3u8
+#EXTINF:-1,新都综合 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/xdzhpd_2000.m3u8
+#EXTINF:-1,利州综合 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/lzxwzh_2000.m3u8
+#EXTINF:-1,彭州综合 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/pzxwzh_2000.m3u8
+#EXTINF:-1,庐山综合 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/lszh_2000.m3u8
+#EXTINF:-1,彭山综合 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/pszh_2000.m3u8
+#EXTINF:-1,船山综合 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/csxw_2000.m3u8
+#EXTINF:-1,屏山综合 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/psxwzh_2000.m3u8
+#EXTINF:-1,南充综合 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/ncxwzh_2000.m3u8
+#EXTINF:-1,南充公共 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/ncgg_4000.m3u8
+#EXTINF:-1,西充综合 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/xczh_2000.m3u8
+#EXTINF:-1,朝天综合 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/ctxwzh_2000.m3u8
+#EXTINF:-1,宝兴综合 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/bxdst_2000.m3u8
+#EXTINF:-1,昭化综合 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/zhxwzh_2000.m3u8
+#EXTINF:-1,北川综合 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/bcxwHD_2000.m3u8
+#EXTINF:-1,沐川综合 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/mcxw_2000.m3u8
+#EXTINF:-1,通江综合 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/tjxwH265_4000.m3u8
+#EXTINF:-1,蒲江综合 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/pjxw_4000.m3u8
+#EXTINF:-1,米易综合 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/myxwzh_2000.m3u8
+#EXTINF:-1,马边综合 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/mbxwzh_2000.m3u8
+#EXTINF:-1,涪城综合 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/fcgq_2000.m3u8
+#EXTINF:-1,荣县综合 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/rxzh_2000.m3u8
+#EXTINF:-1,青神综合 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/qszh_2000.m3u8
+#EXTINF:-1,越西综合 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/yxt_4000.m3u8
+#EXTINF:-1,崇州综合 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/czyt_4000.m3u8
+#EXTINF:-1,邛崃综合 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/qlds1t_2000.m3u8
+#EXTINF:-1,温江综合 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/wjytH264_2000.m3u8
+#EXTINF:-1,梓潼综合 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/ztgq_2000.m3u8
+#EXTINF:-1,平武综合 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/pwgq_4000.m3u8
+#EXTINF:-1,安州综合 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/azgq_2000.m3u8
+#EXTINF:-1,盐亭综合 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/ytzh_2000.m3u8
+#EXTINF:-1,三台综合 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/stxwHD_2000.m3u8
+#EXTINF:-1,苍溪综合 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/cxxwgqH265_4000.m3u8
+#EXTINF:-1,峨边综合 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/ebdst_2000.m3u8
+#EXTINF:-1,旺苍综合 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/wcxwzhH265_4000.m3u8
+#EXTINF:-1,长宁综合 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/znzh_2000.m3u8
+#EXTINF:-1,资中综合 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/zzzh_2000.m3u8
+#EXTINF:-1,隆昌综合 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/lcxw_2000.m3u8
+#EXTINF:-1,安岳综合 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/ayxwzh_4000.m3u8
+#EXTINF:-1,泸定综合 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/ldxw_4000.m3u8
+#EXTINF:-1,松潘综合 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/spxwzhpdH264_2000.m3u8
+#EXTINF:-1,中江综合 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/zjxwzh_2000.m3u8
+#EXTINF:-1,南溪综合 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/nxt_2000.m3u8
+#EXTINF:-1,阿坝综合 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/abxwzhpdgq_2000.m3u8
+#EXTINF:-1,阿坝文艺 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/wypdgqH265_4000.m3u8
+#EXTINF:-1,眉山综合 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/msxwzhgq_2000.m3u8
+#EXTINF:-1,眉山公共 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/msgg_2000.m3u8
+#EXTINF:-1,恩阳新闻 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/eyxw_2000.m3u8
+#EXTINF:-1,天泉新闻 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/tqzh_2000.m3u8
+#EXTINF:-1,珙县新闻 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/gxzh_2000.m3u8
+#EXTINF:-1,仁和新闻 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/rhxwH264_2000.m3u8
+#EXTINF:-1,巴州电视 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/bzxw_4000.m3u8
+#EXTINF:-1,金口河综合 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/jkhdst_2000.m3u8
+#EXTINF:-1,青白江综合 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/qbjxwzh_2000.m3u8
+#EXTINF:-1,大邑电视台 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/dyytH265_4000.m3u8
+#EXTINF:-1,兴文电视台 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/xwt_2000.m3u8
+#EXTINF:-1,荥经电视台 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/xjdst_2000.m3u8
+#EXTINF:-1,南江电视台 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/njxw_2000.m3u8
+#EXTINF:-1,盐边电视台 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/ybtgq_2000.m3u8
+#EXTINF:-1,名山电视台 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/msdstH265_2000.m3u8
+#EXTINF:-1,金堂电视台 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/jtzhpd_2000.m3u8
+#EXTINF:-1,成都高新区 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/cdgxdstgq_2000.m3u8
+#EXTINF:-1,成都新闻综合 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/CDTV-1_4000.m3u8
+#EXTINF:-1,成都每日购物 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/mrgw_4000.m3u8
+#EXTINF:-1,什邡新闻综合 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/sfx_2000.m3u8
+#EXTINF:-1,开江新闻综合 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/kjxwzh_2000.m3u8
+#EXTINF:-1,夹江新闻综合 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/jjxw_2000.m3u8
+#EXTINF:-1,攀钢新闻综合 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/pgxwzh_2000.m3u8
+#EXTINF:-1,大英新闻综合 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/dyxwzhH265_4000.m3u8
+#EXTINF:-1,洪雅新闻综合 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/hyzh_2000.m3u8
+#EXTINF:-1,渠县新闻综合 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/qxxwzh_2000.m3u8
+#EXTINF:-1,郫县新闻综合 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/pxds1_2000.m3u8
+#EXTINF:-1,蓬溪新闻综合 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/pxxw_2000.m3u8
+#EXTINF:-1,资阳新闻综合 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/zyxwzh_2000.m3u8
+#EXTINF:-1,达川新闻综合 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/dcxwzh_2000.m3u8
+#EXTINF:-1,凉山新闻综合 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/lsxwHDH265_4000.m3u8
+#EXTINF:-1,凉山彝语综合 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/yyzh_2000.m3u8
+#EXTINF:-1,古蔺新闻综合 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/glxwzhgq_2000.m3u8
+#EXTINF:-1,井研新闻综合 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/jyxwzh162_2000.m3u8
+#EXTINF:-1,宜宾新闻综合 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/ybytH264_2000.m3u8
+#EXTINF:-1,宜宾公共频道 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/ybetH264_2000.m3u8
+#EXTINF:-1,宜宾精品导视 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/ybds_2000.m3u8
+#EXTINF:-1,乐山新闻综合 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/lsxwzh_4000.m3u8
+#EXTINF:-1,乐山文旅生活 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/lsggpd_4000.m3u8
+#EXTINF:-1,达州新闻综合 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/dzxwzh_2000.m3u8
+#EXTINF:-1,达州文化生活 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/dzgg_2000.m3u8
+#EXTINF:-1,达州通川 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/tcq_2000.m3u8
+#EXTINF:-1,达州导视 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/dzds_2000.m3u8
+#EXTINF:-1,绵阳新闻综合 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/myytH265_4000.m3u8
+#EXTINF:-1,绵阳科技 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/myetH265_4000.m3u8
+#EXTINF:-1,雅安新闻综合 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/yazh_2000.m3u8
+#EXTINF:-1,雅安公共 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/yagg_2000.m3u8
+#EXTINF:-1,广元综合 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/gyzhH265_4000.m3u8
+#EXTINF:-1,广元文化生活 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/gyggH265_4000.m3u8
+#EXTINF:-1,自贡综合 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/zgxw_4000.m3u8
+#EXTINF:-1,自贡文化生活 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/zggg_4000.m3u8
+#EXTINF:-1,遂宁综合 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/snxwzhHDH265_4000.m3u8
+#EXTINF:-1,遂宁文化生活 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/sngggq_2000.m3u8
+#EXTINF:-1,巴中综合 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/bzytH265_4000.m3u8
+#EXTINF:-1,巴中文旅生活 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/bzetH264_2000.m3u8
+#EXTINF:-1,攀枝花新闻综合 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/pzhytH265_4000.m3u8
+#EXTINF:-1,新津 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/xjzh_4000.m3u8
+#EXTINF:-1,木里 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/mltHD_4000.m3u8
+#EXTINF:-1,岳池 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/ycxw_2000.m3u8
+#EXTINF:-1,万源 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/wyxwzh_2000.m3u8
+#EXTINF:-1,雁江 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/yjxw_2000.m3u8
+#EXTINF:-1,营山 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/ysxw_2000.m3u8
+#EXTINF:-1,西昌 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/xctHD_2000.m3u8
+#EXTINF:-1,康定 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/gzkdxwzh_2000.m3u8
+#EXTINF:-1,小金 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/xjdst_2000.m3u8
+#EXTINF:-1,高县-1 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/gxt_2000.m3u8
+#EXTINF:-1,五通桥 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/wtqxwzh_2000.m3u8
+
+#EXTINF:-1,沙湾融媒 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/swxwzh_2000.m3u8
+#EXTINF:-1,精品导视 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/jpdsH265_4000.m3u8
+#EXTINF:-1,川网导视 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/cwdsHDH264_4000.m3u8
+#EXTINF:-1,央广购物 高清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/yggwgq_4000.m3u8
+
+#EXTINF:-1,中国天气 标清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/zgqx_4000.m3u8
+#EXTINF:-1,摄影频道 标清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/sy_4000.m3u8
+#EXTINF:-1,天元围棋 标清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/tywq_2000.m3u8
+#EXTINF:-1,四海钓鱼 标清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/shdy_4000.m3u8
+#EXTINF:-1,车迷频道 标清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/cmpdH264_2000.m3u8
+#EXTINF:-1,百姓健康 标清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/bxjkH264_2000.m3u8
+#EXTINF:-1,先锋乒羽 标清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/xfpy_4000.m3u8
+#EXTINF:-1,嘉佳卡通 标清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/jjkt_2000.m3u8
+#EXTINF:-1,卡酷少儿 标清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/kkkt_4000.m3u8
+#EXTINF:-1,纪实科教 标清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/bjjs_2000.m3u8
+#EXTINF:-1,重庆气摩 标清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/qmpdH264_2000.m3u8
+#EXTINF:-1,家庭理财 标清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/jtlc_4000.m3u8
+#EXTINF:-1,书画频道 标清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/sh_4000.m3u8
+#EXTINF:-1,证劵服务 标清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/jz_2000.m3u8
+#EXTINF:-1,中央新影-老故事 标清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/lgs_2000.m3u8
+#EXTINF:-1,中央新影-中学生 标清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/zxs_4000.m3u8
+#EXTINF:-1,中央新影-发现之旅 标清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/fxzl_2000.m3u8
+
+#EXTINF:-1,广西卫视 标清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/gxws_4000.m3u8
+#EXTINF:-1,陕西卫视 标清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/sxws_4000.m3u8
+#EXTINF:-1,山西卫视 标清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/sxws42_4000.m3u8
+#EXTINF:-1,云南卫视 标清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/ynws_4000.m3u8
+#EXTINF:-1,甘肃卫视 标清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/gsws_4000.m3u8
+#EXTINF:-1,新疆卫视 标清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/xjws_4000.m3u8
+#EXTINF:-1,西藏卫视 标清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/xzwsH264_2000.m3u8
+#EXTINF:-1,海南卫视 标清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/hnws_4000.m3u8
+#EXTINF:-1,兵团卫视 标清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/btws_4000.m3u8
+#EXTINF:-1,康巴卫视 标清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/kbwsH264_2000.m3u8
+#EXTINF:-1,内蒙古卫视 标清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/nmgws_4000.m3u8
+#EXTINF:-1,山东教育卫视 标清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/sdjy_4000.m3u8
+#EXTINF:-1,江苏财富天下 标清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/cftx_4000.m3u8
+#EXTINF:-1,成都经济 标清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/CDTV-2_4000.m3u8
+#EXTINF:-1,成都生活 标清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/CDTV-3_4000.m3u8
+#EXTINF:-1,成都影视 标清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/CDTV-4_4000.m3u8
+#EXTINF:-1,成都公共 标清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/CDTV-5_4000.m3u8
+#EXTINF:-1,川广融媒 标清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/cgrh_2000.m3u8
+#EXTINF:-1,丹棱综合 标清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/dlxwzhH265_4000.m3u8
+#EXTINF:-1,南部综合 标清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/nbxw_2000.m3u8
+#EXTINF:-1,安居综合 标清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/ajxw_2000.m3u8
+#EXTINF:-1,富顺综合 标清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/fszh_2000.m3u8
+#EXTINF:-1,广汉综合 标清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/ghxwzh_2000.m3u8
+#EXTINF:-1,武胜综合 标清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/wsxw_2000.m3u8
+#EXTINF:-1,汉源综合 标清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/hyxwzh_2000.m3u8
+#EXTINF:-1,雅安雨城 标清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/ycpd_2000.m3u8
+#EXTINF:-1,青川综合 标清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/qcxwzhH265_4000.m3u8
+#EXTINF:-1,龙泉综合 标清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/lqxw_2000.m3u8
+#EXTINF:-1,宁南综合 标清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/nnt_4000.m3u8
+#EXTINF:-1,普格综合 标清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/pgt_4000.m3u8
+#EXTINF:-1,冕宁综合 标清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/mnxw_2000.m3u8
+#EXTINF:-1,江油综合 标清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/jyxwHD_2000.m3u8
+#EXTINF:-1,双流综合 标清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/slgq_2000.m3u8
+#EXTINF:-1,泸县综合 标清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/lxxwzh_2000.m3u8
+#EXTINF:-1,筠连综合 标清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/ylyt_2000.m3u8
+#EXTINF:-1,东兴综合 标清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/dxxwzh_4000.m3u8
+#EXTINF:-1,华蓥综合 标清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/hyxw_2000.m3u8
+#EXTINF:-1,射洪综合 标清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/shzhH264_2000.m3u8
+#EXTINF:-1,合江综合 标清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/hjxw_2000.m3u8
+#EXTINF:-1,犍为综合 标清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/qwxwzh_2000.m3u8
+#EXTINF:-1,蓬安综合 标清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/pazh_2000.m3u8
+#EXTINF:-1,内江综合 标清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/njzh_4000.m3u8
+#EXTINF:-1,内江公共 标清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/njgg_4000.m3u8
+#EXTINF:-1,泸州综合 标清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/lzxw_2000.m3u8
+#EXTINF:-1,泸州公共 标清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/lzgg_2000.m3u8
+#EXTINF:-1,会理新闻 标清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/hlyt_4000.m3u8
+#EXTINF:-1,井研新闻综合 标清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/jyxwzh_2000.m3u8
+#EXTINF:-1,仪陇新闻综合 标清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/ylxw_2000.m3u8
+#EXTINF:-1,叙州新闻综合 标清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/ybx_2000.m3u8
+#EXTINF:-1,简阳新闻综合 标清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/jyxwzh_2000.m3u8
+#EXTINF:-1,广安新闻综合 标清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/gaxwzh_2000.m3u8
+#EXTINF:-1,广安公共频道 标清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/gagg_2000.m3u8
+#EXTINF:-1,广安区电视台 标清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/gaqxw_2000.m3u8
+#EXTINF:-1,马尔康综合 标清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/mekxwzhpd_2000.m3u8
+#EXTINF:-1,德昌电视台 标清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/dcxw_4000.m3u8
+#EXTINF:-1,江安电视台 标清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/jat_2000.m3u8
+#EXTINF:-1,叙永电视台 标清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/xyxw_2000.m3u8
+#EXTINF:-1,攀枝花文旅生活 标清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/pzhggpd_2000.m3u8
+#EXTINF:-1,都江堰 标清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/djyzh_4000.m3u8
+#EXTINF:-1,纳溪-1 标清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/nxxw_2000.m3u8
+#EXTINF:-1,绵竹 标清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/mzxwzh_2000.m3u8
+#EXTINF:-1,罗江 标清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/ljxwzh_2000.m3u8
+#EXTINF:-1,金牛 标清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/jnyx_2000.m3u8
+#EXTINF:-1,邻水 标清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/lsxw_2000.m3u8
+#EXTINF:-1,石棉 标清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/smxwzh_2000.m3u8
+#EXTINF:-1,前锋 标清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/qfxw_2000.m3u8
+#EXTINF:-1,喜德 标清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/xdxw_4000.m3u8
+#EXTINF:-1,黑水 标清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/hsxwzhpdH264_2000.m3u8
+#EXTINF:-1,CETV-2 标清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/CETV-2_4000.m3u8
+#EXTINF:-1,CETV-4 标清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/CETV-4H264_2000.m3u8
+#EXTINF:-1,CGTN-英语 标清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/CGTN_4000.m3u8
+#EXTINF:-1,CGTN-西语 标清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/xbyy_2000.m3u8
+#EXTINF:-1,CGTN-法语 标清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/fy_2000.m3u8
+#EXTINF:-1,CGTN-俄语 标清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/ey_2000.m3u8
+
+#EXTINF:-1,优购物 标清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/ygw.m3u8
+#EXTINF:-1,家有购物 标清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/jygw.m3u8
+#EXTINF:-1,家家购物 标清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/jjgw.m3u8
+#EXTINF:-1,聚鲨环球精选 标清
+http://[240e:978:905:5011::25]/livehkkp.chinamcache.com/live/hqgw.m3u8

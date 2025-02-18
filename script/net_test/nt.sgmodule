@@ -1,0 +1,14 @@
+#!name= 测试加解密耗时
+#!desc= 访问 http://neteasems.test  https://app.linkey.store/netms  https://🍉.eu.org/netms 查看
+#!category= Key
+#!date = 2024-01-26 03:02:13
+#!icon = https://raw.githubusercontent.com/Keywos/rule/main/tv/app/144px/Netease.png
+
+
+[Script]
+NT二进制模式 = type=http-request, pattern=^https?:\/\/neteasems\.test\/binary, requires-body=1, timeout=50, binary-body-mode=1, script-path=https://raw.githubusercontent.com/Keywos/rule/main/script/net_test/js/ntbm.js
+
+加解密耗时 = type=http-request, pattern=^https?:\/\/neteasems\.test, requires-body=1, timeout=300, script-path=https://raw.githubusercontent.com/Keywos/rule/main/script/net_test/js/nt.js
+
+[MITM]
+hostname = %APPEND% neteasems.test

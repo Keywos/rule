@@ -1,0 +1,102 @@
+#!name=KEYAD
+#!desc=开屏: 高德地图,中国移动,网易云音乐,云闪付,555,大师兄,12306,淘宝
+#!icon=https://raw.githubusercontent.com/Keywos/Qure/main/loon2.png
+#!author=Github-Keywos
+#!homepage=https://github.com/Keywos/rule
+#https://cdn.jsdelivr.net/gh/Keywos/rule@main/loon/keyad.plugin
+#暂停更新
+[Rule]
+DOMAIN-SUFFIX,pos.baidu.com,REJECT
+DOMAIN-SUFFIX,statics.woozooo.com,REJECT
+DOMAIN,aid.m.taobao.com,REJECT
+DOMAIN,h-adashx.ut.taobao.com,REJECT
+DOMAIN-SUFFIX,m.ykimg.com,REJECT-DROP
+DOMAIN-SUFFIX,ulogs.umeng.com,REJECT-DROP
+
+[Rewrite]
+
+# 网易
+^https?:\/\/iadmusicmatvideo.music.126.net - reject
+^https?:\/\/iadmusicmat.music.126.net - reject
+^https?:\/\/interface3?\.music\.163\.com\/eapi\/eapi\/ad\/ reject-dict
+
+^https?:\/\/httpdns.n.netease.com\/ - reject
+#1
+^https?:\/\/interface3?\.music\.163\.com\/eapi\/(community\/friends\/fans-group\/artist\/group\/get|user\/sub\/artist|music\/songshare\/text\/recommend\/get|mine\/applet\/redpoint|resniche\/position\/play\/new\/get) reject-dict
+#2
+^https?:\/\/interface3?\.music\.163.com\/eapi\/(comment\/(feed\/inserted|hotcomment\/collect|tips\/v2\/get)|v\d\/content\/exposure\/comment\/banner) reject-dict
+#3
+^https?:\/\/interface3?\.music\.163.com\/eapi\/(mlivestream\/entrance\/playpage|link\/(position\/show\/(strategy|resource)|scene\/show)) reject-dict
+#4
+^https?:\/\/interface3?\.music\.163.com\/eapi\/(ad|vipcenter\/tspopup\/get|vipauth\/app\/auth|music-vip-membership\/client\/vip\/info|zone\/songplay\/entry\/get) reject-dict
+#5
+^https?:\/\/interface3?\.music\.163.com\/w?e?api\/(search\/(chart|default|rcmd\/keyword|specialkeyword)|(resource-exposure\/|middle\/clientcfg\/config)|activity\/bonus\/playpage\/time\/query) reject-dict
+#6
+^https?:\/\/interface3?\.music\.163\.com\/eapi\/(side-bar\/mini-program\/music-service\/account|delivery\/batch-deliver) reject-dict
+
+#555横幅
+^https:\/\/vip7\.fzwdyy\.cn:8083\/api\/(getAdvertInfo|getGOOGAdvert) - reject
+^https:\/\/vpic\.cms\.qq\.com\/nj_vpic reject
+
+^https:\/\/a\.weilai555\.com:1000\/api\/v1\/advert\/config\? reject
+
+#tf
+^https?:\/\/run\.api\.qyfxgd\.cn\/api\/v\d\/advert\/config reject
+#Loon 3.0.8
+^https?:\/\/run\.api\.qyfxgd\.cn(:\d+)?\/api\/v\d\/advert\/config reject
+#大师兄
+^https?:\/\/sdk\.alibaba\.com\.ailbaba\.me\/(dsx|xgapp)\.php\/v\d\/(top_notice\?|app_config|search_hot|version|advert\?position=[^2]+) reject-dict
+
+#淘宝
+#^https:\/\/(heic|gw)\.alicdn\.com\/imgextra\/i\d\/.+-tps-(702-758|1125-1602)\.(heic|jpg|png) reject-dict
+
+#爱思
+^https?:\/\/list-app-m\.i4\.cn\/getopfstadinfo\.xhtml reject
+
+#云闪付
+^https:\/\/wallet\.95516\.com\/s\/wl\/icon\/long - reject
+^https:\/\/m\.360buyimg\.com\/(mobilecms|babel)\/.+\.jpg$ reject
+
+#拼多多
+^https:\/\/commimg-1\.pddpic\.com\/oms_img_ng\/.+\.jpeg - reject
+^https:\/\/lf3-beecdn\.bytetos\.com\/obj\/.+\.png$ reject
+
+#京东
+#^https:\/\/m\.360buyimg\.com\/(mobilecms|babel)\/.+\.jpg$ reject
+
+# 松果出行
+^https:\/\/api\.songguo7\.com\/(\w{3})?mp\/v2\/misc\/(toast|user_operate_info|unlock_without_order|unlock_operate_info|running_operate_info|lock_operate_info) reject-dict
+
+#高德地图 
+^https?:\/\/m\d\.amap\.com\/ws\/valueadded\/ reject
+^https?:\/\/optimus-ads\.amap\.com\/uploadimg\/ reject
+^https:\/\/sns\.amap\.com\/ws\/msgbox\/pull reject-dict
+^https:\/\/m5\.amap\.com\/ws\/shield\/dsp\/app\/startup\/init\? reject-dict
+^https?:\/\/m5\.amap\.com\/ws\/asa\/ads_attribution reject-dict
+
+#中国移动
+^https?:\/\/client.app\.coc\.10086\.cn\/biz-orange\/DN\/init\/startInit reject-200
+^https?:\/\/client\.app\.coc\.10086\.cn\/biz-orange\/DN\/explorePage\/getAdverList reject-200
+
+#微博
+^https:\/\/sdkapp\.uve\.weibo\.com\/interface\/sdk\/(get-lbs-cell-info\.php$|sdkconfig\.php\?) reject
+
+^https:\/\/boot\.biz\.weibo\.com\/v1\/ad\/realtime$ reject-dict
+
+#ysgc
+^https:\/\/i\.imgtg\.com\/.+\.gif$ reject-img
+
+^https:\/\/static\.yximgs\.com\/.+\.gif$ reject-img
+[Script]
+#12306
+http-request ^https?:\/\/ad\.12306\.cn\/ad\/ser\/getAdList script-path=https://cdn.jsdelivr.net/gh/keywos/rule@master/JS/12306.js, requires-body=true, timeout=10, tag=12306
+
+#高德ua
+#http-response amdc\.m\.taobao\.com script-path=https://cdn.jsdelivr.net/gh/keywos/rule@master/JS/ua.js,requires-body=true, timeout=10, tag=amap ua
+
+[Host]
+#iosapps.itunes.apple.com = 17.253.85.201
+#token.safebrowsing.apple = 17.253.85.207
+
+[MITM]
+hostname = interface.music.163.com, interface3.music.163.com, sdk.alibaba.com.ailbaba.me, vip7.fzwdyy.cn, vpic.cms.qq.com, client.app.coc.10086.cn,api.songguo7.com, wallet.95516.com, commimg-1.pddpic.com,  list-app-m.i4.cn, rescdn.qqmail.com,api.aliyundrive.com, m5*.amap.com, sns.amap.com, optimus-ads.amap.com, ad.12306.cn, httpdns.n.netease.com, 163jiasu.com, boot.biz.weibo.com, sdkapp.uve.weibo.com, i.imgtg.com, static.yximgs.com, run.api.qyfxgd.cn, a.weilai555.com:1000

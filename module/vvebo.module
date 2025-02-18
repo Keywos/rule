@@ -1,0 +1,12 @@
+#!name= Vvebo 个人页修复
+#!desc= 转自 @suiyuran 
+#方法来自 sspai.com/post/83704
+
+
+[Script]
+Vvebo-request = type=http-request,pattern=^https:\/\/api\.weibo\.cn\/2\/(users\/show\?|statuses\/user_timeline\?),requires-body=1,script-path=https://raw.githubusercontent.com/Keywos/rule/main/JS/vv.js
+
+Vvebo_response = type=http-response,pattern=^https:\/\/api\.weibo\.cn\/2\/profile\/statuses\/tab\?,requires-body=1,script-path=https://raw.githubusercontent.com/Keywos/rule/main/JS/vv.js
+
+[MITM]
+hostname = %INSERT% api.weibo.cn

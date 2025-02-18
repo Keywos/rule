@@ -1,0 +1,19 @@
+#!name = 菜鸟
+#!desc = 过滤广告
+#!icon = https://raw.githubusercontent.com/Keywos/rule/main/tv/app/144px/Cainiao.png
+
+[Script]
+http-response ^https?:\/\/(cn-acs\.m\.cainiao|guide-acs\.m\.taobao)\.com\/gw\/mtop\.cainiao\.guoguo\.nbnetflow\.ads\.m?show script-path=https://raw.githubusercontent.com/Keywos/rule/main/JS/cainiao.js, requires-body=true, timeout=10, tag=菜鸟tb
+http-response ^https?:\/\/cn-acs\.m\.cainiao\.com\/gw\/mtop\.cainiao\.nbpresentation\.(homepage\.merge|pickup\.empty\.page|protocol\.homepage)\.get\.cn script-path=https://raw.githubusercontent.com/Keywos/rule/main/JS/cainiao.js, requires-body=true, timeout=10, tag=菜鸟cn
+http-response ^http:\/\/amdc\.m\.taobao\.com\/amdc\/mobileDispatch script-path=https://raw.githubusercontent.com/Keywos/rule/main/JS/ua.js, timeout=10, tag=菜鸟ua
+
+[Rewrite]
+^https?:\/\/guide-acs\.m\.taobao\.com\/gw\/mtop\.cainiao\.(nbmensa\.research\.researchservice\.consultmerge|adx\.flyad\.getad) reject-dict
+
+^https:\/\/cn-acs\.m\.cainiao\.com\/gw\/mtop\.com\.cainiao\.longquan\.place\.getpageresourcecontent\.cn\/\d\. reject-dict
+
+^https:\/\/cn-acs\.m\.cainiao\.com\/gw\/mtop\.cainiao\.(guoguo\.nbnetflow\.ads\.index\.cn\/\d\.|adkeyword\.get\.cn\/1\d\.|nbmensa\.research\.researchservice\.(acquire|event|close)\.cn\/\d\.) reject-dict
+
+[MITM]
+hostname = cn-acs.m.cainiao.com, guide-acs.m.taobao.com
+

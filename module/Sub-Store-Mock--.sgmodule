@@ -1,0 +1,68 @@
+#!name=Sub-Store Mock-PWA
+#!desc=前端页面加速模块: 提升加载速度/减少资源使用/新主题 需要搭配 SubStore 主程序使用 @key
+#!icon = https://raw.githubusercontent.com/Keywos/rule/main/tv/app/144px/substore.png
+
+# 关于： Sub Store https://github.com/Keywos/Sub-Store-PWA
+# 前端： V 2.14.6
+# Mock 模块: https://raw.githubusercontent.com/Keywos/Sub-Store-PWA/main/module/Sub-Store-Mock.sgmodule
+# 在线版: https://keywos.vercel.app https://keywos.eu.org 
+
+# 更新日志： 2023-08-15 12:22:20
+ # 更新组件库 NutUI v3.3.8、Picker 问题修复
+ # 解决反复重启并发消耗资源、降低资源占用内存
+ # 移除：Monaco-Editor 组件
+
+ # 添加新主题、Simple 模式 主页与管理页
+ # 自定义后端 HostAPI 更多使用场景
+ # 可选重启时自动下载 Gist 配置文件
+
+ # 优化侧滑返回容易失效的问题
+ # 修复左右滑动组件的时候 没有阻止会上下滑动 容易误触
+ # 脚本操作、正则操作、等平铺放置更容易添加操作
+ # 点击订阅左边的图标才会预览，防止误触预览节点
+ # 首页订阅页面：卡片左滑呼出快捷方式，可设置右滑呼出。
+ # 点击卡片空白处可关闭当前滑块。添加编辑方便修改
+
+ # 首页订阅页面图标默认图标依旧为黑白，自已定图标为彩色
+ # 改进 Service Worker 通过将资源预缓存，更快、流畅地加载网络连接稳定或不可用时仍能够访问程序
+ # 增加预览时候的 V2Ray 入口
+ # 新增长按卡片拖动排序，前端需 v2.14.6+ 后端 v2.14.13+
+# 本地重命名：https://raw.githubusercontent.com/Keywos/rule/main/rename.js
+# Ping清除无效节点：https://raw.githubusercontent.com/Keywos/rule/main/pname.js
+# Api去重、查询ISP等：https://raw.githubusercontent.com/Keywos/rule/main/cname.js
+
+[Map Local]
+# HTML
+^https?:\/\/sub-store\.vercel\.app\/($|index\.html|subs$|my$|edit\/subs\/) data="https://raw.githubusercontent.com/Keywos/Sub-Store-PWA/main/module/index.html" header="Content-Type: text/html; charset=utf-8"
+
+# JS VUE
+^https?:\/\/sub-store\.vercel\.app\/index\.js data="https://raw.githubusercontent.com/Keywos/Sub-Store-PWA/main/module/index.js" header="Content-Type: application/javascript; charset=utf-8"
+^https?:\/\/sub-store\.vercel\.app\/(workbox|manifest\.webmanifest|sw|registerSW)  data="https://raw.githubusercontent.com/Keywos/Sub-Store-PWA/main/module/sw.js" header="Content-Type: application/javascript; charset=utf-8"
+
+# MAIN
+^https?:\/\/sub-store\.vercel\.app\/main\.js data="https://raw.githubusercontent.com/Keywos/Sub-Store-PWA/main/distpwa/main.js" header="Content-Type: application/javascript; charset=utf-8"
+
+# CSS
+^https?:\/\/sub-store\.vercel\.app\/main\.css data="https://raw.githubusercontent.com/Keywos/Sub-Store-PWA/main/distpwa/main.css" header="Content-Type: text/css; charset=utf-8"
+
+# JSON
+^https?:\/\/sub-store\.vercel\.app\/manifest\.json data="https://raw.githubusercontent.com/Keywos/Sub-Store-PWA/main/distpwa/manifest.json" header="Content-Type: application/json; charset=utf-8"
+
+# PNG ICO SVG
+^https?:\/\/sub-store\.vercel\.app\/144x144\.png data="https://raw.githubusercontent.com/Keywos/Sub-Store-PWA/main/distpwa/144x144.png" header="Content-Type: image/png"
+^https?:\/\/sub-store\.vercel\.app\/192x192\.png data="https://raw.githubusercontent.com/Keywos/Sub-Store-PWA/main/distpwa/192x192.png" header="Content-Type: image/png"
+^https?:\/\/sub-store\.vercel\.app\/[^14]\d{1,2}x\d{1,3}\.png data="https://raw.githubusercontent.com/Keywos/Sub-Store-PWA/main/distpwa/256x256.png" header="Content-Type: image/png"
+^https?:\/\/sub-store\.vercel\.app\/apple-touch-icon\.png data="https://raw.githubusercontent.com/Keywos/Sub-Store-PWA/main/distpwa/apple-touch-icon.png" header="Content-Type: image/png"
+^https?:\/\/sub-store\.vercel\.app\/apple-touch-icon-.+\.png data="https://raw.githubusercontent.com/Keywos/Sub-Store-PWA/main/distpwa/apple-touch-icon.png" header="Content-Type: image/png"
+^https?:\/\/sub-store\.vercel\.app\/favicon\.svg$ data="https://raw.githubusercontent.com/Keywos/Sub-Store-PWA/main/distpwa/favicon.svg" header="Content-Type: image/svg+xml"
+^https?:\/\/sub-store\.vercel\.app\/favicon\.ico data="https://raw.githubusercontent.com/Keywos/Sub-Store-PWA/main/distpwa/favicon.ico" header="Content-Type: image/vnd.microsoft.icon"
+^https?:\/\/sub-store\.vercel\.app\/logo\.svg data="https://raw.githubusercontent.com/Keywos/Sub-Store-PWA/main/distpwa/logo.svg" header="Content-Type: image/svg+xml"
+^https?:\/\/sub-store\.vercel\.app\/avatar\.svg data="https://raw.githubusercontent.com/Keywos/Sub-Store-PWA/main/distpwa/avatar.svg" header="Content-Type: image/svg+xml"
+
+# FONT
+^https?:\/\/sub-store\.vercel\.app\/3x_static_iconfont\.ttf data="https://raw.githubusercontent.com/Keywos/Sub-Store-PWA/main/distpwa/3x_static_iconfont.ttf" header="Content-Type: font/ttf"
+^https?:\/\/sub-store\.vercel\.app\/3x_static_iconfont\.woff data="https://raw.githubusercontent.com/Keywos/Sub-Store-PWA/main/distpwa/3x_static_iconfont.woff" header="Content-Type: font/woff"
+# ^https?:\/\/sub-store\.vercel\.app\/3x_static_iconfont\.woff2 data="https://raw.githubusercontent.com/Keywos/Sub-Store-PWA/main/distpwa/3x_static_iconfont.woff2" header="Content-Type: font/woff2"
+
+[MITM]
+hostname = %APPEND% sub.store, sub-store.vercel.app

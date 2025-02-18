@@ -1,0 +1,15 @@
+#!name=Baidu 首页
+#!desc=纯净搜索 @key
+#!openUrl = https://m.baidu.com
+#!author = @Key
+#!homepage = https://github.com/Keywos
+#!icon = https://raw.githubusercontent.com/Keywos/rule/main/tv/app/144px/Baidu.png
+#!date = 2023-09-12 18:19:14
+
+[Script]
+http-response ^https?:\/\/(?:www|m)\.baidu\.com(?:\/|\/\?(tn=&)?from=\w+)?$ script-path=https://raw.githubusercontent.com/Keywos/rule/master/script/baidu_index/js/index.js, requires-body = true, tag = 百度首页
+
+[Mitm]
+hostname = m.baidu.com, www.baidu.com
+
+

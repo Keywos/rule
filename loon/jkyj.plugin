@@ -1,0 +1,12 @@
+#!name=实时油价信息
+#!desc=定时监控每日油价（通知）地区可以填入省份拼音，如果有同音地区 就去下方url找对应的地区 例如http://m.qiyoujiage.com/shanxi-3/xian.shtml 就填写 shanxi-3/xian 在地区里
+#!author = key
+#!openUrl = http://m.qiyoujiage.com/
+#!homepage = https://github.com/Keywos
+#!icon = https://raw.githubusercontent.com/Keywos/rule/main/tv/app/144px/yj.png
+#!input = 地区
+
+
+[Script]
+
+cron "0 18 * * *" script-path=https://github.com/Keywos/rule/raw/main/JS/loonyj.js, tag=每日油价

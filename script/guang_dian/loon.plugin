@@ -1,0 +1,15 @@
+#!name= 中国广电
+#!desc= 去除开屏广告
+#!author= @key
+#!icon=
+#!category= Key
+#!date = 2024-02-24 15:33:13
+
+[General]
+real-ip = *.10099.com.cn
+
+[Script]
+http-response ^https?:\/\/app\.10099\.com\.cn\/contact-web\/api\/version\/getFlashScreenPage script-path=https://raw.githubusercontent.com/Keywos/rule/main/script/guang_dian/js/index.js, requires-body=true, tag=10099
+
+[MITM]
+hostname = app.10099.com.cn

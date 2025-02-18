@@ -1,0 +1,31 @@
+name: "测试加解密耗时"
+desc: "@key"
+category: "Key"
+date: "2024-01-26 03:02:13"
+icon: "https://raw.githubusercontent.com/Keywos/rule/main/tv/app/144px/Netease.png"
+
+http:
+
+  mitm:
+    - "neteasems.test"
+
+  script:
+    - match: ^https?:\/\/neteasems\.test\/binary
+      name: "加解密耗时二进制模式"
+      type: request
+      require-body: true
+      binary-mode: true
+      timeout: 50
+    - match: ^https?:\/\/neteasems\.test
+      name: "加解密耗时"
+      type: request
+      require-body: true
+      timeout: 50
+
+script-providers:
+  "加解密耗时":
+    url: https://raw.githubusercontent.com/Keywos/rule/main/script/net_test/js/nt.js
+    interval: 86400
+  "加解密耗时二进制模式":
+    url: https://raw.githubusercontent.com/Keywos/rule/main/script/net_test/js/ntbm.js
+    interval: 86400

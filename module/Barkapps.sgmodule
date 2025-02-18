@@ -1,0 +1,13 @@
+#!name=Barkapps
+#!desc= 利用Barkapp推送限免app，需要自己下载Bark并找到key填进argument
+#!category=Panels
+#!arguments=interval:"0 10,15,21 * * *",wake-system:1,timeout:120,api-key
+# 持久化缓存每次获取的列表，每个app只会推送一次，持久化数据位置: uuidkey
+
+[MITM]
+hostname = %APPEND% barkapp.key.com
+[Script]
+# 跳转商店
+BarkappREQ = type=http-request,pattern=^https?:\/\/barkapp\.key\.com,script-path=https://raw.githubusercontent.com/Keywos/rule/main/JS/surgepushBarkapps.js,requires-body=true
+# 定时获取
+Barkapps=type=cron,cronexp={{{interval}}},wake-system={{{wake-system}}},timeout={{{timeout}}},script-path=https://raw.githubusercontent.com/Keywos/rule/main/JS/surgepushBarkapps.js,argument={{{api-key}}}

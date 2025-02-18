@@ -1,0 +1,8 @@
+#!name=Youtube Translate
+#!desc=翻译为简体中文
+
+[MITM]
+hostname = %APPEND% www.youtube.com
+
+[Script]
+YouTube-Translate = type=http-response,pattern=^https:\/\/www\.youtube\.com\/api\/timedtext,requires-body=1,max-size=0,timeout=20,script-path=https://raw.githubusercontent.com/Keywos/rule/main/JS/surgeYouTubeFY.js

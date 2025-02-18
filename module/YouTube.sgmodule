@@ -1,0 +1,15 @@
+#!name=1 Youtube Subtrans双语字幕🐶
+#!desc=Youtube subtitles add-ons
+#!system=ios
+
+# 转载自： https://neurogram.notion.site/Dualsub-b8b2c5259ef54b349722717ec25c2853
+
+# 需捷径配置： https://www.icloud.com/shortcuts/8ec4a2a3af514282bf27a11050f39fc2
+
+[Script]
+
+YouTube-Dualsub = type=http-response,pattern=https:\/\/www.youtube.com\/api\/timedtext.+,requires-body=1,max-size=0,timeout=30,script-path=https://raw.githubusercontent.com/Keywos/Rule/main/JS/Dualsub.js
+YouTube-Dualsub-Setting = type=http-request,pattern=https:\/\/setting.youtube.com\/\?action=(g|s)et,requires-body=1,max-size=0,script-path=https://raw.githubusercontent.com/Keywos/Rule/main/JS/Dualsub.js
+
+[MITM]
+hostname = %APPEND% *.youtube.com

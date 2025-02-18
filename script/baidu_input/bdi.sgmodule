@@ -1,0 +1,52 @@
+#!name= 去广告 - 百度输入法
+#!desc= 净化 个人页随机图片 @key @xream
+#!system= ios
+#!category= Key
+
+[Rule]
+DOMAIN-SUFFIX,udpolimenew.baidu.com,REJECT,extended-matching,pre-matching
+DOMAIN-SUFFIX,sofire.baidu.com,REJECT,extended-matching,pre-matching
+DOMAIN,gromore.pangolin-sdk-toutiao.com,REJECT,extended-matching,pre-matching
+[Map Local]
+# ▿▿ 模拟数据 避免反复请求
+^https?:\/\/mbd\.baidu\.com\/ccs\/v1\/start\/confsync\?appname=baidu_input data="{"errno": 0,"logid": "3617169806","data": {"control": {},"service": {},"pubparam": {"bd_version": "12.2.4.16","device_ua": "iphone"}}}" data-type=text
+
+^https?:\/\/h2tcbox\.baidu\.com\/ data="{"error":"0","logid":"11276794627142432359"}" data-type=text
+
+^https?:\/\/olimenew\.baidu\.com data-type=text data="{}"
+
+^https?:\/\/mime\.baidu\.com\/v5\/ss\/list data-type=text data="[]"
+
+# 百度输入法开屏
+^https?:\/\/mime\.baidu\.com\/v5\/start_screen_ads/list data-type=text data="{}"
+
+# 应用内灵感语录 输入页面推荐里语录
+^https?:\/\/mime\.baidu\.com\/sapi\/v1\/lccorpus\/(applist|pannellist) data-type=text data="{}"
+
+# 输入法点击图标 | 收集和分析用户的输入数据
+^https?:\/\/mime\.baidu\.com\/sapi\/v1\/(circle\/joinedlist|lccorpus\/usercorpussync|aihelpactivity\/aihelpresource) data-type=text data="{}"
+
+^https:\/\/mime\.baidu\.com\/v5\/activity\/advertisementnonrealtime\? data-type=text data="{}"
+
+^https?:\/\/mime\.baidu\.com\/commer\/pocket_api\/enterprise_list data-type=text data="{}"
+
+^https?:\/\/mbd\.baidu\.com\/ccs\/v1\/start\/confsync\?appname=baidu_input data-type=text data="{}"
+
+# log
+^https:\/\/mime\.baidu\.com\/v5\/(fb\/st\?logtype|(notiv3|cellloc_noti|noti_cloudswitch_noti)\/info|hotpatch\/check|fb\/custom) data-type=text data="{}"
+
+^https?:\/\/mobads\.baidu\.com\/(cpro\/ui\/mads\.php\?|ads\/) data-type=text data="{}"
+
+^https?:\/\/api-access\.pangolin-sdk-toutiao(\d|-\w)?\.com\/api\/ad\/union\/sdk\/stats\/batch\/\? data-type=text data="{}"
+
+^https:\/\/api-access\.pangolin-sdk-toutiao(\d|-\w)?\.com\/api\/ad\/union\/sdk\/get_ads data-type=text data="{}"
+
+^https?:\/\/mobads-logs\.baidu\.com\/ data-type=text data="{}"
+^https?:\/\/als\.baidu\.com\/elog\/plog data-type=text data="{}"
+^https?:\/\/als\.baidu\.com\/clog/clog data-type=text data="{}"
+
+[Script]
+BDSRF = type=http-response,pattern=^https?:\/\/mime\.baidu\.com\/(imrobot\/v1\/pub\/relation\/get_robot_list|v5\/custom_page\/(layout|getdata)),requires-body=1,max-size=0,script-update-interval=-1,script-path=https://raw.githubusercontent.com/Keywos/rule/master/script/baidu_input/js/index.js
+
+[MITM]
+hostname = %APPEND% imeres.baidu.com, olimenew.baidu.com, mbd.baidu.com, mime.baidu.com, h2tcbox.baidu.com, mobads.baidu.com, api-access.pangolin-sdk-toutiao*com, mobads-logs.baidu.com, als.baidu.com

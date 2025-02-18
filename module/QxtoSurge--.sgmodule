@@ -1,0 +1,21 @@
+#!name=Qx Loon to Surge
+#!desc=将Qx 或 Loon重写转Surge: qx为http...confqx  或 qx?n=name+desc ++++ loon为http...pluginloon
+# 改自 https://github.com/chengkongyiban/stash/blob/main/Rewrite_Parser_Wiki/README.md
+# 或者加参数：
+# n= 修改名字+简介 ，名字和简介以"+"相连，可缺省名字或简介  ?n=名字+说明(名字与说明Surge不能用中文从url传入)
+# y= 根据关键词保留相关重写(即去掉注释) 多关键词以"+"分隔
+# x= 根据关键词排除相关重写(即添加注释) 多关键词以"+"分隔
+# i= 关闭随机插件图标(仅需传入i=即可 仅Loon需要此参数)
+# del= 从转换结果中剔除被注释的重写(仅需传入del=即可)
+# hnadd= 添加MITM主机名 多主机名以","分隔
+# hndel= 从已有MITM主机名中删除主机名 多主机名以","分隔(需要传入完整主机名)
+# 在链接后加 "?" 使用参数, 不同参数用 "&" 连接
+# 例如 https://raw.githubusercontent.com/RuCu6/QuanX/main/Rewrites/Cube/cloudmusic.snippetqx?n=Neteasename+descdate
+
+[Script]
+QxtoSurge = type=http-request,pattern=^https?:\/\/(github|raw\.githubusercontent)\.com\/.+(qx$|qx\?(jsc|hnadd|hndel|n|y|x|del|i)=),requires-body=1,max-size=0,script-path=https://raw.githubusercontent.com/Keywos/rule/main/JS/qs.js,script-update-interval=-1
+
+LoontoSurge = type=http-request,pattern=^https?:\/\/(github|gitlab|raw\.githubusercontent)\.com\/.+pluginloon$,requires-body=1,max-size=0,script-path=https://raw.githubusercontent.com/Keywos/rule/main/JS/Loon_to_Surge.js, timeout=120,script-update-interval=-1
+
+[MITM]
+hostname = %APPEND% github.com:443, raw.githubusercontent.com:443, gitlab.com

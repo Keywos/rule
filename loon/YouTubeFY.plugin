@@ -1,0 +1,14 @@
+#!name=YouTube Translate
+#!desc=翻译为简体中文 可自定字幕位置 @Key
+#!openUrl = 
+#!author =
+#!homepage = 
+#!icon = https://raw.githubusercontent.com/Keywos/rule/main/tv/app/144px/YouTube.png
+#!select = 字幕位置,仅输出译文,译文位于外文之上,译文位于外文之下
+
+
+[MITM]
+hostname = www.youtube.com
+
+[Script]
+http-response ^https:\/\/www\.youtube\.com\/api\/timedtext script-path=https://raw.githubusercontent.com/Keywos/rule/main/JS/YouTubeFY.js, requires-body=true, timeout=20, tag=YouTube Translate

@@ -1,0 +1,125 @@
+name: |-
+  网易云音乐
+desc: |-
+  全面净化
+icon: |-
+  https://raw.githubusercontent.com/Keywos/rule/main/tv/app/144px/Netease.png
+category: |-
+  Key
+system: |-
+  ios
+arguments: |-
+  ne_vip:#,ne_tab:ne_tab,ne_foll:#
+arguments-desc: |-
+  # 改成任意名称即可开启对应脚本\n\nne_foll: 显示未关注你\nne_vip: 伪vip\nne_tab: 漫游
+date: |-
+  2025-02-17 02:24:11
+
+rules:
+  - DOMAIN,iadmusicmat.music.126.net,REJECT
+  - DOMAIN,iadmat.nosdn.127.net,REJECT
+  - DOMAIN,iadmatapk.nosdn.127.net,REJECT
+  - DOMAIN,httpdns.n.netease.com,REJECT
+
+http:
+
+  mitm:
+    - "interface.music.163.com"
+    - "interface3.music.163.com"
+    - "interface9.music.163.com"
+    - "httpdns.n.netease.com"
+    - "interface.music.163.com.163jiasu.com"
+    - "interface3.music.163.com.163jiasu.com"
+    - "ipv4.music.163.com"
+
+  url-rewrite:
+    - >-
+      ^https?:\/\/httpdns.n\.netease\.com - reject
+    - >-
+      ^https?:\/\/httpdns\.music\.163\.com - reject
+    - >-
+      ^https?:\/\/(ipv4|interface\d?)\.music\.163.com\/e?api\/ad - reject-dict
+# 今日运势 商城 Beat专区 音乐收藏家 | type:ACTIVITY | 低至5.2折
+    - >-
+      ^https?:\/\/interface\d?\.music\.163\.com\/w?e?api\/(side-bar\/mini-program\/music-service\/account|delivery\/(batch-deliver|deliver)|moment\/tab\/info\/get|yunbei\/account\/entrance\/get) - reject-dict
+# 播放页歌名下方∶乐迷团｜关注｜播放页提示｜音乐应用红点｜播放提示?
+    - >-
+      ^https?:\/\/interface\d?\.music\.163\.com\/eapi\/(resource\/comments?\/musiciansaid|community\/friends\/fans-group\/artist\/group\/get|user\/sub\/artist|music\/songshare\/text\/recommend\/get|mine\/applet\/redpoint|resniche\/position\/play\/new\/get) - reject-dict
+# 搜索页热搜卡片｜猜你喜欢｜我的应用下方提醒
+    - >-
+      ^https?:\/\/interface\d?\.music\.163.com\/w?e?api\/(search\/(chart|default|rcmd\/keyword|specialkeyword)|resource-exposure\/|activity\/bonus\/playpage\/time\/query) - reject-dict
+    - >-
+      ^https?:\/\/interface\d?\.music\.163.com\/eapi\/(mlivestream\/entrance\/playpage|link\/(position\/show\/strategy|scene\/show)|ios\/version|v\d\/content\/exposure\/comment\/banner) - reject-dict
+
+  script:
+# mian | 热推、有话想说、分享一下、歌曲下的祝福等小提示去除 ｜ 评论区 乐迷、星评等级 关注 等 图标去除
+    - match: ^https?:\/\/(ipv4|interface\d?)\.music\.163\.com\/e?api\/(batch|v\d\/resource\/comment\/floor\/get)
+      name: "ne_mians"
+      type: response
+      require-body: true
+      binary-mode: true
+      timeout: 20
+
+# 伪vip
+    - match: ^https?:\/\/(ipv4|interface\d?)\.music\.163\.com\/e?api\/(music-vip-membership\/client\/vip\/info|vipauth\/app\/auth\/recycle|vipnewcenter\/app\/resource\/newaccountpage)
+      name: "ne_mians"
+      type: response
+      require-body: true
+      binary-mode: true
+      timeout: 20
+
+# tab
+    - match: ^https?:\/\/(ipv4|interface\d?)\.music\.163\.com\/e?api\/link\/home\/framework\/tab
+      name: "ne_mians"
+      type: response
+      require-body: true
+      binary-mode: true
+      timeout: 20
+
+# 推荐 | home | 主页
+    - match: ^https?:\/\/(ipv4|interface\d?)\.music\.163\.com\/e?api\/(homepage\/block\/page|link\/page\/rcmd\/(resource\/show|block\/resource\/multi\/refresh))
+      name: "ne_mians"
+      type: response
+      require-body: true
+      binary-mode: true
+      timeout: 20
+
+# 发现
+    - match: ^https?:\/\/(ipv4|interface\d?)\.music\.163\.com\/e?api\/link\/page\/discovery\/resource\/show
+      name: "ne_mians"
+      type: response
+      require-body: true
+      binary-mode: true
+      timeout: 20
+
+# effect
+    - match: ^https?:\/\/(ipv4|interface\d?)\.music\.163\.com\/e?api\/song\/play\/more\/list\/v\d
+      name: "ne_mians"
+      type: response
+      require-body: true
+      binary-mode: true
+      timeout: 20
+
+# 我的 MyPageBar ad
+    - match: ^https?:\/\/(ipv4|interface\d?)\.music\.163\.com\/e?api\/link\/position\/show\/resource
+      name: "ne_mians"
+      type: response
+      require-body: true
+      binary-mode: true
+      timeout: 20
+
+# 显示未关注你
+    - match: ^https?:\/\/(ipv4|interface\d?)\.music\.163\.com\/e?api\/user\/follow\/users\/mixed\/get
+      name: "ne_mians"
+      type: response
+      require-body: true
+      binary-mode: true
+      timeout: 20
+
+script-providers:
+  "ne_mians":
+    url: https://raw.githubusercontent.com/Keywos/rule/main/script/wy/js/wyres.js
+    interval: 86400
+
+
+

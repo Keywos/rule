@@ -1,0 +1,17 @@
+#!name= 去广告 - IT之家
+#!desc= 可自定义
+#!author= @key
+#!category= Key
+#!arguments= script-update:-1, banner:0 ,bannerAd:1, top:1
+#!arguments-desc=开启去除对应广告为: 1\n关闭为: 0\n\n去除轮播图广告: bannerAd\n去除整个轮播图: banner\n去除置顶: top
+#!date= 2024-01-27 20:59:38
+
+[MITM]
+hostname = %APPEND% api.zuihuimai.com, dat.ruanmei.com, napi.ithome.com
+
+[Script]
+ItHome = type=http-response,pattern=^https:\/\/napi\.ithome\.com\/api\/(?:news\/index|topmenu\/getfeeds\?|api\/douyin\/GetLiveInfo),requires-body=1,max-size=0,script-path=https://raw.githubusercontent.com/Keywos/rule/main/script/ithome/js/index.js , script-update-interval={{{script-update}}}, argument="{"banner":"{{{banner}}}","bannerAd":"{{{bannerAd}}}","top":"{{{top}}}"}"
+
+[URL Rewrite]
+^https?:\/\/api\.zuihuimai\.com\/static\/.*\/hongbao - reject
+^https?:\/\/dat\.ruanmei\.com\/ithome\/money\/acd\.json$ - reject

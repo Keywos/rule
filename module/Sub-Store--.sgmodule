@@ -1,0 +1,13 @@
+#!name=Sub-Store
+#!desc=高级订阅管理工具 @Peng-YM
+
+[MITM]
+hostname = %APPEND% sub.store
+
+[Script]
+# 主程序 如果不需要使用指定节点功能 例如[加国旗脚本或者cname脚本] 可以去掉 Sub-Core 的参数 [,ability=http-client-policy] 就不会爆内存，这个参数在 Surge 非常占用内存
+Sub-Core=type=http-request,pattern=^https?:\/\/sub\.store\/((download)|api\/(preview|sync|(utils\/node-info))),script-path=https://raw.githubusercontent.com/Keywos/rule/main/Sub-Store/sub-store-1.min.js,requires-body=true,timeout=120,ability=http-client-policy
+Sub-Simple=type=http-request,pattern=^https?:\/\/sub\.store,script-path=https://raw.githubusercontent.com/Keywos/rule/main/Sub-Store/sub-store-0.min.js,requires-body=true
+
+# 定时任务
+Sub-Store Sync=type=cron,cronexp=0 0 * * *,wake-system=1,timeout=120,script-path=https://raw.githubusercontent.com/Keywos/rule/main/Sub-Store/cron-sync-artifacts.min.js

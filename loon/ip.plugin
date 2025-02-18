@@ -1,0 +1,4 @@
+#!name = 测试节点检测
+#!desc = 适用于Loon
+[Script]
+generic script-path = https://github.com/Keywos/rule/raw/main/loon/ipapi2.js, timeout = 10, tag = 测试位置查询, img-url = location.circle.system
