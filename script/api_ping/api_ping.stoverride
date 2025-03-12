@@ -1,0 +1,27 @@
+name: |-
+  API Ping
+desc: |-
+  测试网络延迟 🍉.eu.org/ping 需要打开【使用辅助 API Ping】开关
+icon: |-
+  https://github.com/Toperlock/Quantumult/raw/main/icon/Doraemon/Doraemon-1075.png
+category: |-
+  Key
+openUrl: |-
+  https://🍉.eu.org/ping
+
+http:
+
+  mitm:
+    - "*.neteasems.test"
+
+  script:
+    - match: ^https?:\/\/ping\.neteasems\.test
+      name: "SPing"
+      type: request
+      require-body: true
+      timeout: 200
+
+script-providers:
+  "SPing":
+    url: https://raw.githubusercontent.com/Keywos/rule/main/script/api_ping/js/api_ping.js
+    interval: 86400
