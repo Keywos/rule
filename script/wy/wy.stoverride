@@ -118,7 +118,7 @@ http:
 
 script-providers:
   "ne_mians":
-    url: https://raw.githubusercontent.com/Keywos/rule/main/script/wy/js/wyres.js
+    url: https://raw.githubusercontent.com/Keywos/rule/main/script/wy/js/wy_fflate.js
     interval: 86400
 
 
