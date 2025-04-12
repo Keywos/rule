@@ -1,0 +1,23 @@
+name: 测试加解密耗时
+description: 访问 http://neteasems.test   https://🍉.eu.org/netms 查看
+icon: https://raw.githubusercontent.com/Keywos/rule/main/tv/app/144px/Netease.png
+scriptings:
+- http_request:
+    name: NT二进制模式
+    match: ^https?:\/\/neteasems\.test\/binary
+    script_url: https://raw.githubusercontent.com/Keywos/rule/main/script/net_test/js/ntbm.js
+    timeout: 50
+    body_required: true
+    binary_body: true
+    max_size: -1
+- http_request:
+    name: 加解密耗时
+    match: ^https?:\/\/neteasems\.test
+    script_url: https://raw.githubusercontent.com/Keywos/rule/main/script/net_test/js/nt.js
+    timeout: 300
+    body_required: true
+    max_size: -1
+mitm:
+  hostnames:
+    includes:
+    - neteasems.test
