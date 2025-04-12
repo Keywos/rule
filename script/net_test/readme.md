@@ -5,7 +5,7 @@
 
 - [Surge](https://raw.githubusercontent.com/Keywos/rule/main/script/net_test/nt.sgmodule)
 
-- [Egern](https://raw.githubusercontent.com/Keywos/rule/main/script/net_test/nt.sgmodule)
+- [Egern](https://raw.githubusercontent.com/Keywos/rule/main/script/net_test/nt.egern)
 
 - [Quan X](https://raw.githubusercontent.com/Keywos/rule/main/script/net_test/nt.conf)
 
