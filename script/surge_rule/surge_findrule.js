@@ -12,7 +12,7 @@
     const { CN = "CNN", FINAL = "FINAL", COUNT = 5, CNIP = 1, CNHOST = 1, FINALIP = 1,  FINALHOST = 1,} = ARGV;
     const CACHE_KEY = "Rule-Cidr-Cache"; // whois cidr 缓存
     const RCCK_KEY = "Rule-Count-Cache"; // 计数 缓存
-    const CACHE_TTL = 60 * 24 * 60 * 60 * 1000; // cidr 结果 缓存过期时间 60天 毫秒
+    const CACHE_TTL = 90 * 24 * 60 * 60 * 1000; // cidr 结果 缓存过期时间 90天 毫秒
     var checkCacheCidrs = ReadValidCache();
     var _cidr_cache = 0;
     var _cidr_get = 0;
@@ -322,7 +322,7 @@
       return new Promise((resolve, reject) => {
         const timer = setTimeout(() => {
           reject(new Error("请求超时"));
-        }, 1500);
+        }, 1300);
         $httpClient.get(url, (error, response, data) => {
           clearTimeout(timer);
           if (error) {
@@ -346,7 +346,7 @@
           console.log(`第 ${attempt} 次失败：`, err.message);
           if (attempt < 2) {
             console.log("准备重试...\n");
-            await new Promise((res) => setTimeout(res, 1500));
+            await new Promise((res) => setTimeout(res, 1300));
           }
         }
       }
