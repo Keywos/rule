@@ -20,12 +20,12 @@
     // - "it"
     // prettier-ignore
     const countryTLDList = [ "cn", "us", "uk", "jp", "de", "fr", "au", "ca", "ru", "kr", "sg", "in", "tw", "hk", "mo", "nl", "es", "ch", "se","no", "fi", "dk", "be", "br", "mx", "ar", "za", "nz", "il"];
-    const lines = reqbody.input_csv ? reqbody.input_csv?.trim()?.split("\n") : [];
-		const file_directs = reqbody.file_direcr ? reqbody.file_direcr.split("\n") : []
-		const file_proxys = reqbody.file_proxy ? reqbody.file_proxy?.split("\n") : []
-		console.log("INCSV: \t"+lines?.length)
-		console.log("PROXY: \t"+file_proxys?.length)
-		console.log("DIRECT: \t"+file_directs?.length)
+    const lines = reqbody.input_csv ? reqbody.input_csv.trim()?.split("\n") : [];
+    const file_directs = reqbody.file_direcr ? reqbody.file_direcr.split("\n") : []
+    const file_proxys = reqbody.file_proxy ? reqbody.file_proxy.split("\n") : []
+    console.log("INCSV: \t"+lines?.length)
+    console.log("PROXY: \t"+file_proxys?.length)
+    console.log("DIRECT: \t"+file_directs?.length)
     const today = new Date().toLocaleString("zh-CN", { hour12: false });
     const proxyList = [];
     const directList = [];
