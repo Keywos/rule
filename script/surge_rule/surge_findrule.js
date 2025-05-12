@@ -1,4 +1,4 @@
-// 2025-05-12 19:05:07
+// 2025-05-12 19:14:40
 // 捷径 https://www.icloud.com/shortcuts/4862991f0914475ea4fc6e7f99a8cf5a
 (async () => {
   // prettier-ignore
@@ -358,13 +358,7 @@
       const datas = await fetchAndParse(
         `https://stat.ripe.net/data/prefix-overview/data.json?resource=${ip}`
       );
-      let cidr;
-      try {
-        cidr = datas?.data?.resource ? datas.data.resource : "";
-      } catch (error) {
-        console.log(error.message);
-        cidr = "";
-      }
+      let cidr = datas?.data?.resource ? datas.data.resource : "";
       const cidrArray = cidr.match(/\d{1,3}(?:\.\d{1,3}){3}\/\d{1,2}/g) || [];
       if (cidrArray) {
         return cidrArray;
