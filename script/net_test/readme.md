@@ -1,5 +1,5 @@
 #### 脚本执行速度测试
-- 访问 http://neteasems.test 查看
+- 访问 http://surgetool.com/api/test 查看
 - Web UI2 https://🍉.eu.org/netms
 
 - [Surge](https://raw.githubusercontent.com/Keywos/rule/main/script/net_test/nt.sgmodule)

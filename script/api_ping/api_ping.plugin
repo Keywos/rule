@@ -4,7 +4,7 @@
 #!openUrl=https://🍉.eu.org/ping
 
 [Script]
-http-request ^https?:\/\/ping\.neteasems\.test script-path=https://raw.githubusercontent.com/Keywos/rule/main/script/api_ping/js/api_ping.js, requires-body=true, timeout=200, tag=SPing
+http-request ^https?:\/\/surgetool\.com\/api\/ping script-path=https://raw.githubusercontent.com/Keywos/rule/main/script/api_ping/js/api_ping.js, requires-body=true, timeout=200, tag=SPing
 
 [MITM]
-hostname = *.neteasems.test
+hostname = surgetool.com

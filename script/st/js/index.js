@@ -6,7 +6,7 @@ const isPanel = typeof $input != "undefined",
   nowt = Date.now(),
   cacheVersion = 2;
 let url = (typeof $request !== "undefined" && $request.url) || 0,
-  isFetch = /(trouble\.shoot|surge\.tool|st\.com)\/getkey/.test(url);
+  isFetch = /(trouble\.shoot|surge\.tool|st\.com|surgetool\.com)\/getkey/.test(url);
 
 let result = {},
   ptitle = "Surge Rule",

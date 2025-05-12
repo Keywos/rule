@@ -7,16 +7,16 @@ icon: "https://raw.githubusercontent.com/Keywos/rule/main/tv/app/144px/Netease.p
 http:
 
   mitm:
-    - "neteasems.test"
+    - "surgetool.com"
 
   script:
-    - match: ^https?:\/\/neteasems\.test\/binary
+    - match: ^https?:\/\/surgetool\.com\/api\/ping\/binary
       name: "加解密耗时二进制模式"
       type: request
       require-body: true
       binary-mode: true
       timeout: 50
-    - match: ^https?:\/\/neteasems\.test
+    - match: ^https?:\/\/surgetool\.com\/api\/test
       name: "加解密耗时"
       type: request
       require-body: true

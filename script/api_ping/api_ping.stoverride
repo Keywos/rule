@@ -12,10 +12,10 @@ openUrl: |-
 http:
 
   mitm:
-    - "*.neteasems.test"
+    - "surgetool.com"
 
   script:
-    - match: ^https?:\/\/ping\.neteasems\.test
+    - match: ^https?:\/\/surgetool\.com\/api\/ping
       name: "SPing"
       type: request
       require-body: true

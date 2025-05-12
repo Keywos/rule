@@ -1,5 +1,5 @@
 #!name= Troubleshoot
-#!desc= 故障排除/规则统计 访问 http://trouble.shoot  http://surge.tool https://app.linkey.store/st https://🍉.eu.org/st 查看
+#!desc= 故障排除/规则统计 访问 https://surgetool.com/get   https://🍉.eu.org/st 查看
 #!author= @xream @key
 #!category= Key
 #!arguments= script-update:-1, update-interval:-1, Type:1, Log:0, List:1, Push:1,title:规则详情 | , color:#6699FF, icon:heart.text.square, ST Panel:ST Panel
@@ -11,11 +11,11 @@
 {{{ST Panel}}} = script-name={{{ST Panel}}},update-interval={{{update-interval}}}
 
 [MITM]
-hostname = %APPEND% trouble.shoot, *.trouble.shoot, surge.tool
+hostname = %APPEND% surgetool.com 
 
 [Script]
 # Web
-troubleshoot = type=http-request, pattern=^https?:\/\/(trouble\.shoot|surge\.tool), timeout=300,script-update-interval={{{script-update}}}, script-path=https://raw.githubusercontent.com/Keywos/rule/main/script/st/js/index.js
+troubleshoot = type=http-request, pattern=^https?:\/\/surgetool\.com\/get, timeout=300,script-update-interval={{{script-update}}}, script-path=https://raw.githubusercontent.com/Keywos/rule/main/script/st/js/index.js
 
 # Panel
 {{{ST Panel}}} = type=generic,timeout=30,argument=list={{{List}}}&type={{{Type}}}&LogTF={{{Log}}}&icolor={{{color}}}&title={{{title}}}&icon={{{icon}}}&push={{{Push}}},script-update-interval={{{script-update}}},script-path=https://raw.githubusercontent.com/Keywos/rule/main/script/st/js/index.js
