@@ -6,7 +6,6 @@
   let response = { body: JSON.stringify(body) };
   try {
     let reqbody = JSON.parse($request?.body);
-    // console.log($request);
     let ARGV = JSON.parse($argument);
     // prettier-ignore
     const { CN = "CNN", FINAL = "FINAL", COUNT = 5, CNIP = 1, CNHOST = 1, FINALIP = 1,  FINALHOST = 1,} = ARGV;
