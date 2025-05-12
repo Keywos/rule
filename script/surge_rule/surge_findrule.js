@@ -1,4 +1,4 @@
-// 2025-05-12 17:43:27
+// 2025-05-12 19:05:07
 // 捷径 https://www.icloud.com/shortcuts/4862991f0914475ea4fc6e7f99a8cf5a
 (async () => {
   // prettier-ignore
@@ -322,7 +322,7 @@
       return new Promise((resolve, reject) => {
         const timer = setTimeout(() => {
           reject(new Error("请求超时"));
-        }, 1000);
+        }, 1500);
         $httpClient.get(url, (error, response, data) => {
           clearTimeout(timer);
           if (error) {
@@ -346,7 +346,7 @@
           console.log(`第 ${attempt} 次失败：`, err.message);
           if (attempt < 2) {
             console.log("准备重试...\n");
-            await new Promise((res) => setTimeout(res, 1000));
+            await new Promise((res) => setTimeout(res, 1500));
           }
         }
       }
@@ -355,41 +355,74 @@
     }
 
     async function WhoisCidr(ip) {
+      const datas = await fetchAndParse(
+        `https://stat.ripe.net/data/prefix-overview/data.json?resource=${ip}`
+      );
+      let cidr;
+      try {
+        cidr = datas?.data?.block?.resource
+          ? datas.data.block.resource
+          : datas?.data?.resource
+          ? datas.data.resource
+          : "";
+      } catch (error) {
+        console.log(error.message);
+        cidr = "";
+      }
+      const cidrArray = cidr.match(/\d{1,3}(?:\.\d{1,3}){3}\/\d{1,2}/g) || [];
+      if (cidrArray) {
+        return cidrArray;
+      }
       const data = await fetchAndParse(
         `https://wq.apnic.net/query?searchtext=${ip}`
       );
-      const cidrs = Array.from(
-        new Set(
-          data
-            .filter(
-              (item) =>
-                item.objectType === "route" || item.objectType === "NetRange"
-            )
-            .map((item) => {
-              const attr = item.attributes.find(
-                (a) => a.name === "route" || a.name === "CIDR"
-              );
-              return attr ? attr?.values[0] : null;
-            })
-            .filter(Boolean)
-        )
-      );
+      let cidrs;
+      try {
+        cidrs = Array.from(
+          new Set(
+            data
+              .filter(
+                (item) =>
+                  item.objectType === "route" || item.objectType === "NetRange"
+              )
+              .map((item) => {
+                const attr = item.attributes.find(
+                  (a) => a.name === "route" || a.name === "CIDR"
+                );
+                return attr ? attr?.values[0] : null;
+              })
+              .filter(Boolean)
+          )
+        );
+      } catch (error) {
+        console.log(error.message);
+        cidrs = [];
+      }
       if (cidrs.length > 0) {
+        console.log("备用 API A");
         return cidrs;
       } else {
-        const inetnumObj = data.find(
-          (item) =>
-            item.type === "object" &&
-            item.attributes.some((attr) => attr.name === "inetnum")
-        );
-        if (inetnumObj) {
-          const inetnumValue = inetnumObj.attributes.find(
-            (attr) => attr.name === "inetnum"
-          ).values[0];
-          const [ipStart, ipEnd] = inetnumValue.split(" - ");
-          const cidr = calculateCidr(ipStart, ipEnd);
-          return cidr;
-        } else {
+        try {
+          const inetnumObj = data.find(
+            (item) =>
+              (item.type === "object" &&
+                item.attributes.some((attr) => attr.name === "inetnum")) ||
+              attr.name === "NetRange"
+          );
+          if (inetnumObj) {
+            const inetnumValue = inetnumObj.attributes.find(
+              (attr) => attr.name === "inetnum" || attr.name === "NetRange"
+            ).values[0];
+
+            const [ipStart, ipEnd] = inetnumValue.split(" - ");
+            const cidr = calculateCidr(ipStart, ipEnd);
+            console.log("备用 API AB");
+            return cidr;
+          } else {
+            return [];
+          }
+        } catch (error) {
+          console.log(error.message);
           return [];
         }
       }
