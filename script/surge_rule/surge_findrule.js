@@ -360,11 +360,7 @@
       );
       let cidr;
       try {
-        cidr = datas?.data?.block?.resource
-          ? datas.data.block.resource
-          : datas?.data?.resource
-          ? datas.data.resource
-          : "";
+        cidr = datas?.data?.resource ? datas.data.resource : "";
       } catch (error) {
         console.log(error.message);
         cidr = "";
