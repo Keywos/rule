@@ -1,4 +1,5 @@
 // 2025-05-12 15:50:37
+// 捷径 https://www.icloud.com/shortcuts/59c65e0a52eb45eca94b14b8a31c3319
 (async () => {
   // prettier-ignore
   let body = { d: "", p: "" };
