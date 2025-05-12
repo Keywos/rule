@@ -4,6 +4,8 @@
 #!date = 2024-01-26 03:02:13
 #!icon = https://raw.githubusercontent.com/Keywos/rule/main/tv/app/144px/Netease.png
 
+[URL Rewrite]
+^https?:\/\/surgetool\.com\/?$ - reject
 
 [Script]
 NT二进制模式 = type=http-request, pattern=^https?:\/\/surgetool\.com\/api\/ping\/binary, requires-body=1, timeout=50, binary-body-mode=1, max-size=-1, script-path=https://raw.githubusercontent.com/Keywos/rule/main/script/net_test/js/ntbm.js

@@ -4,6 +4,9 @@
 #!arguments= KEY_DIRECT:CNN, KEY_PROXY:FINAL, COUNT:5, ON_DIRECT_IP:1, ON_DIRECT_HOST:1,ON_PROXY_IP:1, ON_PROXY_HOST:1
 #!arguments-desc= 首次使用需要设置以下参数:\n\nSurge:\n1. KEY_DIRECT 节点的关键字 正则\n2. KEY_PROXY 节点的关键字 正则 (需要最终走向的节点名 策略组名不行)\n3. Surge 内设置规则\n\n示例如下:\n[Proxy]\nCNN = direct // 为了区别正常的 DIRECT 策略\n[Rule]\nRULE-SET, Rule/P.txt, Proxy, no-resolve\nRULE-SET, Rule/D.txt, DIRECT, no-resolve\nGEOIP, CN, CNN // 对应 Proxy 的 CNN = direct\nFINAL, FINALUS, dns-failed // 需要策略组内的节点包含设置的关键字 (可以用 substore 加前缀)\n\n捷径需要设置文件路径:\n默认在 Surge 的 Rule/ 下\n4. direct_file 为 直连规则集 文件名\n5. proxy_file 为 代理规则集 文件名\n\n参数解释:\n过滤 请求次数 > COUNT 的域名 默认 5\n策略组名 包含 DIRECT (CNN) 关键字 的域名\n策略组名 包含 Proxy (FINAL) 关键字 的域名\n\n以下参数 1为开启0关闭:\n1. ON_DIRECT_IP 生成直连 ip规则 需要查询 Whois\n2. ON_DIRECT_HOST 生成 域名规则\n\n3. ON_PROXY_IP 生成代理 ip规则 需要查询 Whois\n4. ON_PROXY_HOST 生成 域名规则\n\n首次使用会去请求 whois 查询ipcidr 并缓存 需要一定的时间有缓存后速度就快了
 
+[URL Rewrite]
+^https?:\/\/surgetool\.com\/?$ - reject
+
 [MITM]
 hostname = %APPEND% surgetool.com
 

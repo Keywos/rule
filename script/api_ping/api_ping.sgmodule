@@ -3,6 +3,9 @@
 #!category= Key
 #!openUrl= https://🍉.eu.org/ping
 
+[URL Rewrite]
+^https?:\/\/surgetool\.com\/?$ - reject
+
 [Script]
 SPing = type=http-request, pattern=^https?:\/\/surgetool\.com\/api\/ping, requires-body=1, timeout=200, script-path=https://raw.githubusercontent.com/Keywos/rule/main/script/api_ping/js/api_ping.js
 
