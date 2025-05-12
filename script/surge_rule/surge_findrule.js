@@ -1,4 +1,4 @@
-// 2025-05-12 15:50:37
+// 2025-05-12 17:43:27
 // 捷径 https://www.icloud.com/shortcuts/4862991f0914475ea4fc6e7f99a8cf5a
 (async () => {
   // prettier-ignore
@@ -30,7 +30,7 @@
       DIRECT: { hosts: [], ips: [] },
       PROXY: { hosts: [], ips: [] },
     };
-    
+
     for (let i = 0; i < lines?.length; i++) {
       const line = lines[i];
       const c1 = line.indexOf(",");
@@ -361,9 +361,14 @@
       const cidrs = Array.from(
         new Set(
           data
-            .filter((item) => item.objectType === "route")
+            .filter(
+              (item) =>
+                item.objectType === "route" || item.objectType === "NetRange"
+            )
             .map((item) => {
-              const attr = item.attributes.find((a) => a.name === "route");
+              const attr = item.attributes.find(
+                (a) => a.name === "route" || a.name === "CIDR"
+              );
               return attr ? attr?.values[0] : null;
             })
             .filter(Boolean)
