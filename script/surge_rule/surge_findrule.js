@@ -41,7 +41,7 @@
     FINALIP = toBool(FINALIP);
     FINALHOST = toBool(FINALHOST);
 
-    if (FINALIP && CNIP) checkCacheCidrs = ReadValidCache();
+    if (FINALIP || CNIP) checkCacheCidrs = ReadValidCache();
 
     for (let i = 0; i < lines?.length; i++) {
       const line = lines[i];
@@ -493,8 +493,8 @@
       }
       return cidrs;
     }
-    console.log("\n🍉rules_direct\n");
-    console.log(rules_direct);
+    // console.log("\nrules_direct\n");
+    // console.log(rules_direct);
 
     // console.log("\nrules_proxy\n");
     // console.log(rules_proxy);
