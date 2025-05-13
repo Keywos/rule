@@ -1,7 +1,7 @@
 // 2025-05-13 14:05:26
 (async () => {
   // prettier-ignore
-  let body = { d: "", p: "" }, response = { body: JSON.stringify(body) }, ARGV, reqbody, notif = "空数据"
+  let body = { d: "", p: "" }, response = { body: JSON.stringify(body) }, ARGV, reqbody, notif = ""
   try {
     const CACHE_KEY = "Rule-Cidr-Cache"; // whois cidr 缓存
     const CACHE_TTL = 90 * 24 * 60 * 60 * 1000; // cidr 结果 缓存过期时间 90天 毫秒
