@@ -1,4 +1,4 @@
-// 2025-05-13 14:08:53
+// 2025-05-13 14:36:33
 (async () => {
   // prettier-ignore
   let body = { d: "", p: "" }, response = { body: JSON.stringify(body) }, ARGV, reqbody, notif = ""
@@ -18,7 +18,8 @@
     // prettier-ignore
     const { CN = "CNN", FINAL = "FINAL", COUNT = 5, CNIP = 1, CNHOST = 1, FINALIP = 1,  FINALHOST = 1,} = ARGV;
     var checkCacheCidrs = [];
-    if (FINALIP && CNIP) checkCacheCidrs = ReadValidCache();
+    if (FINALIP == 1 && CNIP == 1) checkCacheCidrs = ReadValidCache();
+
     var _cidr_cache = 0;
     var _cidr_get = 0;
     var _cidr_size = 0;
@@ -81,7 +82,7 @@
     for (let i = 0; i < directList.length; i++) {
       const H = directList[i];
       if (isIPv4(H)) {
-        if (CNIP) RULEOBJ.DIRECT.ips.push(H);
+        if (CNIP == 1) RULEOBJ.DIRECT.ips.push(H);
       } else if (CNHOST && !isIPv6(H)) {
         RULEOBJ.DIRECT.hosts.push(`DOMAIN-SUFFIX,${H}`);
       }
@@ -90,7 +91,7 @@
     for (let i = 0; i < proxyList.length; i++) {
       const H = proxyList[i];
       if (isIPv4(H)) {
-        if (FINALIP) RULEOBJ.PROXY.ips.push(H);
+        if (FINALIP == 1) RULEOBJ.PROXY.ips.push(H);
       } else if (FINALHOST && !isIPv6(H)) {
         RULEOBJ.PROXY.hosts.push(`DOMAIN-SUFFIX,${H}`);
       }
@@ -232,7 +233,10 @@
             const tlddomain = parts[parts_length - 1];
             if (countryTLDList.includes(tlddomain)) {
               if (parts_length > 1) {
-                if (!is_direct && rules_re_domain_set.has(tlddomain)) {
+                if (is_direct) {
+                  rules_re_domain_set.add(tlddomain);
+                  rules_direct_set.add("DOMAIN-SUFFIX," + tlddomain);
+                } else if (rules_re_domain_set.has(tlddomain)) {
                   notif_text_a.push(isdp + ": " + tlddomain);
                   return;
                 } else {
