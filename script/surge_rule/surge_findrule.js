@@ -1,64 +1,47 @@
-// 2025-05-13 17:04:26
+
+// 2025-05-13 21:48:40
 (async () => {
   // prettier-ignore
-  let body = { d: "", p: "" }, response = { body: JSON.stringify(body) }, ARGV, reqbody, notif = ""
+  let body = { d: "", p: "" },response = { body: JSON.stringify(body) },rule_direct_cidr = [], rule_proxy_cidr = [], ARGV = {}, reqbody, notif = "";
   try {
-    const CACHE_KEY = "Rule-Cidr-Cache"; // whois cidr 缓存
-    const CACHE_TTL = 90 * 24 * 60 * 60 * 1000; // cidr 结果 缓存过期时间 90天 毫秒
-    try {
-      reqbody = JSON.parse($request?.body);
-    } catch (error) {
-      throw new Error("$request.body 解析错误" + error.message);
-    }
-    try {
-      ARGV = JSON.parse($argument);
-    } catch (error) {
-      throw new Error("$argument 解析错误" + error.message);
-    }
     // prettier-ignore
-    const { CN = "CNN", FINAL = "FINAL", COUNT = 5, CNIP = 1, CNHOST = 1, FINALIP = 1,  FINALHOST = 1,} = ARGV;
-    var checkCacheCidrs = [];
-    if (FINALIP == 1 && CNIP == 1) checkCacheCidrs = ReadValidCache();
-
-    var _cidr_cache = 0;
-    var _cidr_get = 0;
-    var _cidr_size = 0;
-    var rules_re_other_set = new Set([]); // 去重
-    var rules_re_domain_set = new Set([]); // 去重
-    var rules_re_keyword_set = new Set([]); // 去除 KEYWORD 命中的
-    // - "it"
+    try { ARGV = JSON.parse($argument); } catch (error) { throw new Error("$argument 解析错误" + error.message);}
     // prettier-ignore
-    const countryTLDList = [ "cn", "us", "uk", "jp", "de", "fr", "au", "ca", "ru", "kr", "sg", "in", "tw", "hk", "mo", "nl", "es", "ch", "se","no", "fi", "dk", "be", "br", "mx", "ar", "za", "nz", "il"];
-    const lines = reqbody.input_csv
-      ? reqbody.input_csv.trim()?.split("\n")
-      : [];
+    let { CN = "CNN", FINAL = "FINAL", COUNT = 5, CNIP = 1, CNHOST = 1, FINALIP = 1,  FINALHOST = 1,} = ARGV
+    // prettier-ignore
+    try { reqbody = JSON.parse($request?.body); } catch (error) {throw new Error("$request.body 解析错误" + error.message);}
+    // prettier-ignore
+    var checkCacheCidrs = [], rules_re_other_set = new Set([]), rules_re_domain_set = new Set([]), rules_re_keyword_set = new Set([]), _cidr_cache = 0, _cidr_get = 0, _cidr_size = 0, notif_text_a = [], notif_text_b = [], notif_text_c = [], notif_text_d = [];
+    // prettier-ignore
+    const countryTLDSet = new Set(["cn", "us", "uk", "jp", "de", "fr", "au", "ca", "ru", "kr", "sg", "in", "tw", "hk","mo", "nl", "es", "ch", "se", "no", "fi", "dk", "be", "br", "mx", "ar", "za", "nz", "il",]);
+    const isIPv4 = (s) => /^\d+\.\d+\.\d+\.\d+$/.test(s),
+      isIPv6 = (s) => /^([0-9a-fA-F]{1,4}:){2,7}/.test(s),
+      today = new Date().toLocaleString("zh-CN", { hour12: false }),
+      lines = reqbody.input_csv ? reqbody.input_csv.trim()?.split("\n") : [],
+      toBool = (v) => v === true || v == 1,
+      proxyRegex = new RegExp(FINAL),
+      directRegex = new RegExp(CN),
+      DOBJ = { hosts: [], ips: [] },
+      POBJ = { hosts: [], ips: [] },
+      CACHE_KEY = "Rule-Cidr-Cache",
+      CACHE_TTL = 90 * 24 * 60 * 60 * 1000,
+      {
+        excludeRules: file_directs_o,
+        otherRules: file_directs,
+        fileLength: file_directs_l,
+      } = parseRulesAll(reqbody.file_direcr),
+      {
+        excludeRules: file_proxys_o,
+        otherRules: file_proxys,
+        fileLength: file_proxys_l,
+      } = parseRulesAll(reqbody.file_proxy);
 
-    const {
-      excludeRules: file_directs_o,
-      otherRules: file_directs,
-      fileLength: file_directs_l,
-    } = parseRulesAll(reqbody.file_direcr);
+    CNIP = toBool(CNIP);
+    CNHOST = toBool(CNHOST);
+    FINALIP = toBool(FINALIP);
+    FINALHOST = toBool(FINALHOST);
 
-    const {
-      excludeRules: file_proxys_o,
-      otherRules: file_proxys,
-      fileLength: file_proxys_l,
-    } = parseRulesAll(reqbody.file_proxy);
-
-    console.log("INCSV: \t" + lines?.length);
-    console.log("PROXY: \t" + file_proxys_l);
-    console.log("DIRECT: \t" + file_directs_l);
-
-    const today = new Date().toLocaleString("zh-CN", { hour12: false });
-    const proxyList = [];
-    const directList = [];
-    const proxyRegex = new RegExp(FINAL);
-    const directRegex = new RegExp(CN);
-
-    const RULEOBJ = {
-      DIRECT: { hosts: [], ips: [] },
-      PROXY: { hosts: [], ips: [] },
-    };
+    if (FINALIP && CNIP) checkCacheCidrs = ReadValidCache();
 
     for (let i = 0; i < lines?.length; i++) {
       const line = lines[i];
@@ -71,67 +54,34 @@
       const C = Number(line.slice(c3 + 1, c4));
       if (C < COUNT) continue;
       if (proxyRegex.test(P)) {
-        proxyList.push(H);
+        if (isIPv4(H)) {
+          if (FINALIP) POBJ.ips.push(H);
+        } else if (FINALHOST && !isIPv6(H)) {
+          POBJ.hosts.push(`DOMAIN-SUFFIX,${H}`);
+        }
       } else if (directRegex.test(P)) {
-        directList.push(H);
-      }
-    }
-    const isIPv4 = (str) => /^\d+\.\d+\.\d+\.\d+$/.test(str);
-    const isIPv6 = (str) => /^([0-9a-fA-F]{1,4}:){2,7}/.test(str);
-
-    for (let i = 0; i < directList.length; i++) {
-      const H = directList[i];
-      if (isIPv4(H)) {
-        if (CNIP == 1) RULEOBJ.DIRECT.ips.push(H);
-      } else if (CNHOST && !isIPv6(H)) {
-        RULEOBJ.DIRECT.hosts.push(`DOMAIN-SUFFIX,${H}`);
+        if (isIPv4(H)) {
+          if (CNIP) DOBJ.ips.push(H);
+        } else if (CNHOST && !isIPv6(H)) {
+          DOBJ.hosts.push(`DOMAIN-SUFFIX,${H}`);
+        }
       }
     }
 
-    for (let i = 0; i < proxyList.length; i++) {
-      const H = proxyList[i];
-      if (isIPv4(H)) {
-        if (FINALIP == 1) RULEOBJ.PROXY.ips.push(H);
-      } else if (FINALHOST && !isIPv6(H)) {
-        RULEOBJ.PROXY.hosts.push(`DOMAIN-SUFFIX,${H}`);
-      }
-    }
+    CNIP && (rule_direct_cidr = await CidrRules(DOBJ.ips));
+    FINALIP && (rule_proxy_cidr = await CidrRules(POBJ.ips));
 
-    const rule_direct_cidr = await CidrRules(RULEOBJ.DIRECT.ips);
-
-    var notif_text_a = [];
-    var notif_text_b = [];
-    var notif_text_c = [];
-    var notif_text_d = [];
-    let dset;
-
-    try {
-      dset = new Set([
-        ...file_directs, // file_direcr
-        ...rule_direct_cidr,
-        ...RULEOBJ.DIRECT.hosts,
-      ]);
-    } catch (error) {
-      throw new Error("未传入数据." + error.message);
-    }
     let { rules: rules_direct, count: count_direct } = processRules(
-      dset,
+      new Set([...file_directs, ...rule_direct_cidr, ...DOBJ.hosts]),
       (is_direct = true)
     );
-    const rule_proxy_cidr = await CidrRules(RULEOBJ.PROXY.ips);
-    let rset;
+    let { rules: rules_proxy, count: count_proxy } = processRules(
+      new Set([...file_proxys, ...rule_proxy_cidr, ...POBJ.hosts])
+    );
 
-    try {
-      rset = new Set([
-        ...file_proxys, //file_proxy
-        ...rule_proxy_cidr,
-        ...RULEOBJ.PROXY.hosts,
-      ]);
-    } catch (error) {
-      throw new Error("未传入数据.." + error.message);
-    }
-    let { rules: rules_proxy, count: count_proxy } = processRules(rset);
-
+    console.log("INCSV: \t" + lines?.length);
+    console.log("PROXY: \t" + file_proxys_l);
+    console.log("DIRECT: \t" + file_directs_l);
     rules_direct =
       `# 手动规则: 以下规则优先级最高 不参与规则数量统计\n${file_directs_o.join(
         "\n"
@@ -145,12 +95,6 @@
       )}\n\n# 更新时间: ${today}\n# 规则数量：当前共 ${
         count_proxy || 0
       } 条规则\n\n` + rules_proxy;
-
-    // console.log("\n🍉rules_direct\n");
-    // console.log(rules_direct);
-
-    // console.log("\nrules_proxy\n");
-    // console.log(rules_proxy);
 
     const notif_text =
       count_direct != file_directs_l
@@ -191,8 +135,6 @@
 
     console.log(t);
 
-    response.body = JSON.stringify({ d: rules_direct, p: rules_proxy });
-
     function processRules(ruleSet, is_direct = false) {
       let isdp = is_direct ? CN : FINAL;
       const rules_other_set = new Set([]);
@@ -232,7 +174,7 @@
 
           if (parts_length > 0) {
             const tlddomain = parts[parts_length - 1];
-            if (countryTLDList.includes(tlddomain)) {
+            if (countryTLDSet.has(tlddomain)) {
               if (parts_length > 1) {
                 if (is_direct) {
                   rules_re_domain_set.add(tlddomain);
@@ -350,7 +292,6 @@
 
       for (let line of lines) {
         const trimmed = line.trim();
-
         if (trimmed.startsWith("# 手动规则")) {
           inExcludeSection = true;
           continue;
@@ -387,6 +328,7 @@
         fileLength,
       };
     }
+
     // 保存 CIDR 到缓存，并清理过期的
     function SaveCache(cidr) {
       const now = Date.now();
@@ -598,6 +540,12 @@
       }
       return cidrs;
     }
+    // console.log("\nrules_direct\n");
+    // console.log(rules_direct);
+
+    // console.log("\nrules_proxy\n");
+    // console.log(rules_proxy);
+    response.body = JSON.stringify({ d: rules_direct, p: rules_proxy });
   } catch (error) {
     console.log(error.message);
   } finally {
