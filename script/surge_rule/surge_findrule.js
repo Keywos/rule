@@ -1,4 +1,4 @@
-// 2025-05-12 19:14:40
+// 2025-05-13 11:20:40
 // 捷径 https://www.icloud.com/shortcuts/4862991f0914475ea4fc6e7f99a8cf5a
 (async () => {
   // prettier-ignore
@@ -75,11 +75,12 @@
 
     const rule_direct_cidr = await CidrRules(RULEOBJ.DIRECT.ips);
     var rules_re_domain_set = new Set(); // 去重
+    var rules_re_keyword_set = new Set(); // 去除 KEYWORD 命中的
     var notif_text_a = [];
     var notif_text_b = [];
     var notif_text_c = [];
     let dset;
-		
+
     try {
       dset = new Set([
         ...file_directs, // file_direcr
@@ -145,9 +146,17 @@
     !hasRcc && $persistentStore.write(null, RCCK_KEY);
     $persistentStore.write(JSON.stringify(rule_count_cache), RCCK_KEY);
 
-    const notif = `${CN}: ${notif_text}, ${FINAL}: ${notif_textp}\nIP-CIDR: 请求查询:${_cidr_get}, 缓存${_cidr_cache}, 最终规则:${_cidr_size}`;
-
-    $notification.post("新增规则", "", notif);
+    let notif = ``;
+    if (notif_text != "0") {
+      notif += `${CN}: ${notif_text}  `
+    }
+    if (notif_textp != "0") {
+      notif += `${FINAL}: ${notif_textp}  `
+    }
+    if (_cidr_get > 0) {
+      notif += `\nIP-CIDR: 请求查询:${_cidr_get}, 缓存${_cidr_cache}, 最终规则:${_cidr_size}`
+    }
+    $notification.post("FindRule", "", notif);
     let t =
       notif_text_a.length > 0
         ? `\n\n去掉 [${CN}] 里有的规则:\n${notif_text_a.join("\n")}\n`
@@ -160,16 +169,17 @@
       notif_text_c.length > 0
         ? `\n\n去掉命中 国家顶级域名 的规则: \n${notif_text_c.join("\n")}\n`
         : "";
-    t += "\n" + notif + "\n";
+    t += "\n\n" + notif + "\n";
 
     console.log(t);
 
     response.body = JSON.stringify({ d: rules_direct, p: rules_proxy });
 
     function processRules(ruleSet, is_direct = false) {
+      let isdp = is_direct ? CN : FINAL
       const rules_other_set = new Set();
       const rules_direct_set = new Set(); // 最终规则
-      const rules_re_keyword_set = new Set(); // 去除 KEYWORD 命中的
+      
       let rule_split = [];
       for (const item of ruleSet) {
         const [type, ...domainParts] = item.split(",");
@@ -191,14 +201,14 @@
             rules_re_domain_set.add(domain);
           } else {
             if (rules_re_domain_set.has(domain)) {
-              notif_text_a.push(domain);
+              notif_text_a.push(isdp + ": " + domain);
               return;
             }
           }
           if (parts_length > 0) {
             const tlddomain = parts[parts_length - 1];
             if (countryTLDList.includes(tlddomain)) {
-              notif_text_c.push(tlddomain + " -> " + domain);
+              if (parts_length > 1) notif_text_c.push(isdp + ": " + tlddomain + " -> " + domain);
               rules_direct_set.add("DOMAIN-SUFFIX," + tlddomain);
             } else {
               if (!checkMatch(domain)) {
@@ -229,7 +239,7 @@
         for (const keyword of rules_re_keyword_set) {
           const key = String(keyword).toLowerCase();
           if (str.includes(key)) {
-            notif_text_b.push(`${key} -> ${str}`);
+            notif_text_b.push(isdp + ": " + `${key} -> ${str}`);
             return true;
           }
         }
@@ -261,7 +271,7 @@
           }
         }
         if (!matched) {
-          console.log("查询请求：" + ip);
+          console.log("查询请求: " + ip);
           const cidr = await WhoisCidr(ip);
           if (cidr.length > 0) {
             _cidr_get++;
