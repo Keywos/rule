@@ -1,4 +1,4 @@
-// 2025-05-13 14:36:33
+// 2025-05-13 15:21:03
 (async () => {
   // prettier-ignore
   let body = { d: "", p: "" }, response = { body: JSON.stringify(body) }, ARGV, reqbody, notif = ""
@@ -23,9 +23,9 @@
     var _cidr_cache = 0;
     var _cidr_get = 0;
     var _cidr_size = 0;
-    var rules_re_other_set = new Set(); // 去重
-    var rules_re_domain_set = new Set(); // 去重
-    var rules_re_keyword_set = new Set(); // 去除 KEYWORD 命中的
+    var rules_re_other_set = new Set([]); // 去重
+    var rules_re_domain_set = new Set([]); // 去重
+    var rules_re_keyword_set = new Set([]); // 去除 KEYWORD 命中的
     // - "it"
     // prettier-ignore
     const countryTLDList = [ "cn", "us", "uk", "jp", "de", "fr", "au", "ca", "ru", "kr", "sg", "in", "tw", "hk", "mo", "nl", "es", "ch", "se","no", "fi", "dk", "be", "br", "mx", "ar", "za", "nz", "il"];
@@ -195,8 +195,9 @@
 
     function processRules(ruleSet, is_direct = false) {
       let isdp = is_direct ? CN : FINAL;
-      const rules_other_set = new Set();
-      const rules_direct_set = new Set(); // 最终规则
+      const rules_other_set = new Set([]);
+      const rules_ipcidrs_set = new Set([]);
+      const rules_direct_set = new Set([]); // 最终规则
 
       let rule_split = [];
       for (const item of ruleSet) {
@@ -258,16 +259,21 @@
             }
           }
         } else {
-          let matchkey = false;
           if (type === "IP-CIDR") {
-            if (checkMatch(domain)) {
-              matchkey = true;
+            if (!checkMatch(domain)) {
+              rules_ipcidrs_set.add(type + "," + domain);
             }
+          } else {
+            rules_other_set.add(type + "," + domain);
           }
-          if (!matchkey) rules_other_set.add(type + "," + domain);
         }
       });
-      const rules_direct = [...rules_direct_set, ...rules_other_set].sort();
+
+      const rules_direct = [
+        ...rules_direct_set,
+        ...rules_other_set,
+        ...dedupeCIDRs([...rules_ipcidrs_set]),
+      ].sort();
       function checkMatch(target) {
         const str = String(target).toLowerCase();
         for (const keyword of rules_re_keyword_set) {
@@ -288,8 +294,8 @@
 
     async function CidrRules(ipList) {
       if (!ipList || ipList.length === 0) return [];
-      const cidrRuleSet = new Set();
-      let cidrSet = new Set();
+      const cidrRuleSet = new Set([]);
+      let cidrSet = new Set([]);
       for (const ip of ipList) {
         let matched = false;
         if (cidrSet.size > 0)
@@ -523,7 +529,36 @@
       const cidrIpInt = ipToInt(cidrIp);
       return (ipInt & mask) === (cidrIpInt & mask);
     }
+    function parseCIDR(cidrStr) {
+      const [ip, prefixLength] = cidrStr.split("/");
+      const ipInt = ipToInt(ip);
+      const mask = ~(2 ** (32 - prefixLength) - 1) >>> 0;
+      const start = ipInt & mask;
+      const end = start + 2 ** (32 - prefixLength) - 1;
+      return { ip, prefixLength: parseInt(prefixLength), start, end };
+    }
 
+    function isSubset(subnet, supernet) {
+      return subnet.start >= supernet.start && subnet.end <= supernet.end;
+    }
+
+    function dedupeCIDRs(rawList) {
+      const cidrs = rawList.map((item) => {
+        return { raw: item, ...parseCIDR(item) };
+      });
+      const excludedCIDRs = [];
+      const result = cidrs.filter((a, i) => {
+        const isExcluded = cidrs.some((b, j) => i !== j && isSubset(a, b));
+        if (isExcluded) {
+          excludedCIDRs.push(a.raw);
+        }
+        return !isExcluded;
+      });
+
+      excludedCIDRs.length > 0 &&
+        console.log("\n去除的 CIDR: \n" + excludedCIDRs.join("\n") + "\n");
+      return result.map((item) => item.raw);
+    }
     function ipToInt(ip) {
       return ip
         .split(".")
