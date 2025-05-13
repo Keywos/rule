@@ -1,4 +1,4 @@
-// 2025-05-13 13:26:55
+// 2025-05-13 13:34:09
 (async () => {
   // prettier-ignore
   let body = { d: "", p: "" }, response = { body: JSON.stringify(body) }, ARGV, reqbody, notif = "空数据"
@@ -17,7 +17,8 @@
     }
     // prettier-ignore
     const { CN = "CNN", FINAL = "FINAL", COUNT = 5, CNIP = 1, CNHOST = 1, FINALIP = 1,  FINALHOST = 1,} = ARGV;
-    var checkCacheCidrs = ReadValidCache();
+    var checkCacheCidrs = [];
+    if (FINALIP && CNIP) checkCacheCidrs = ReadValidCache();
     var _cidr_cache = 0;
     var _cidr_get = 0;
     var _cidr_size = 0;
@@ -158,7 +159,6 @@
       file_proxys_l != count_proxy
         ? `${file_proxys_l} -> ${count_proxy}`
         : `${count_proxy}`;
-
 
     if (notif_text != "0") {
       notif += `${CN}: ${notif_text}  `;
