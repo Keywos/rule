@@ -239,7 +239,7 @@
                   notif_text_c.push(isdp + ": " + tlddomain + " -> " + domain);
                   rules_direct_set.add("DOMAIN-SUFFIX," + tlddomain);
                 }
-              }Ï
+              }
             } else {
               if (!checkMatch(domain)) {
                 if (parts_length > 2) {
