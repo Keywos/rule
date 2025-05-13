@@ -1,5 +1,4 @@
-// 2025-05-14 01:01:17
-
+// 2025-05-14 01:52:36
 (async () => {
   // prettier-ignore
   let body = { d: "", p: "" },response = { body: JSON.stringify(body) },rule_direct_cidr = [], rule_proxy_cidr = [], ARGV = {}, reqbody, notif = "";
@@ -82,12 +81,12 @@
     console.log("INCSV: \t" + lines?.length);
     console.log("PROXY: \t" + f_p_l);
     console.log("DIRECT: \t" + f_d_l);
-    
+
     // prettier-ignore
     rules_direct =`# 手动规则: 以下规则优先级最高 不参与规则数量统计\n${f_d_o.join("\n")}\n\n# 更新时间: ${today}\n# 规则数量：当前共 ${count_direct || 0} 条规则\n\n` + rules_direct;
     // prettier-ignore
     rules_proxy =`# 手动规则: 以下规则优先级最高 不参与规则数量统计\n${f_p_o.join("\n")}\n\n# 更新时间: ${today}\n# 规则数量：当前共 ${count_proxy || 0} 条规则\n\n` + rules_proxy;
-    
+
     // prettier-ignore
     const nt_x = count_direct != f_d_l ? `${f_d_l} -> ${count_direct}` : `${count_direct}`, nt_p = f_p_l != count_proxy ? `${f_p_l} -> ${count_proxy}` : `${count_proxy}`;
 
@@ -101,7 +100,7 @@
     // prettier-ignore
     t += nt_b.length > 0? `\n\n去掉命中 KEYWORD 的规则: \n${nt_b.join("\n")}\n`: "";
     // prettier-ignore
-    t += nt_c.length > 0 ? `\n\n去掉命中 国家顶级域名 的规则: \n${nt_c.join("\n")}\n` : "";
+    t += nt_c.length > 0 ? `\n\n去掉命中 国家顶级域名 的多余规则: \n${nt_c.join("\n")}\n` : "";
     // prettier-ignore
     t += nt_d.length > 0 ? `\n\n去掉命中 手动规则 的规则: \n${nt_d.join("\n")}\n` : "";
 
@@ -150,39 +149,38 @@
       function part_other(parts, part_len, domain, is_cn) {
         if (!checkMatch(domain)) {
           if (part_len > 2) {
-            const doma = parts.slice(-2).join(".");
             let mat = false;
+            const doma = parts.slice(-2).join(".");
             if (is_cn) {
               re_set.add(doma);
               mat = true;
-            } else if (re_set.has(doma)) {
-              mat = false;
-            }
-            mat && direct_set.add("DOMAIN-SUFFIX," + doma);
-          } else direct_set.add("DOMAIN-SUFFIX," + domain);
+            } else if (!re_set.has(doma)) mat = true;
+            mat && add_d_s(doma);
+          } else add_d_s(domain);
         }
       }
 
       function part_one(part_len, is_cn, tld, domain) {
-        if (part_len == 1) {
-          if (is_cn) {
-            re_set.add(tld);
-            direct_set.add("DOMAIN-SUFFIX," + tld);
-          } else if (re_set.has(tld)) {
-            nt_a.push(isdp + ": " + domain);
-            return;
-          } else {
-            nt_c.push(isdp + ": " + tld + " -> " + domain);
-            direct_set.add("DOMAIN-SUFFIX," + tld);
-          }
+        if (part_len == 0) return;
+        if (is_cn) {
+          re_set.add(tld);
+          add_d_s(tld);
+          nt_c.push(`${isdp}: ${tld} -> ${domain}`);
+        } else if (re_set.has(tld)) {
+          nt_a.push(`${isdp}: ${domain}`);
+          return;
+        } else {
+          nt_c.push(`${isdp}: ${tld} -> ${domain}`);
+          add_d_s(tld);
         }
       }
+
       function checkMatch(target) {
         const str = String(target).toLowerCase();
         for (const keyword of key_set) {
           const key = String(keyword).toLowerCase();
           if (str.includes(key)) {
-            nt_b.push(isdp + ": " + `${key} -> ${str}`);
+            nt_b.push(`${isdp}: ${key} -> ${str}`);
             return true;
           }
         }
@@ -195,6 +193,10 @@
             ipcidr_set.add(type + "," + domain);
           }
         } else other_set.add(type + "," + domain);
+      }
+
+      function add_d_s(i) {
+        direct_set.add("DOMAIN-SUFFIX," + i);
       }
 
       const rules_direct = [
@@ -495,7 +497,6 @@
     }
     // console.log("\nrules_direct\n");
     // console.log(rules_direct);
-
     // console.log("\nrules_proxy\n");
     // console.log(rules_proxy);
     response.body = JSON.stringify({ d: rules_direct, p: rules_proxy });
