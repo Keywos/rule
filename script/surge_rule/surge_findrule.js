@@ -1,4 +1,4 @@
-// 2025-05-13 15:59:55
+// 2025-05-13 17:04:26
 (async () => {
   // prettier-ignore
   let body = { d: "", p: "" }, response = { body: JSON.stringify(body) }, ARGV, reqbody, notif = ""
@@ -146,7 +146,7 @@
         count_proxy || 0
       } 条规则\n\n` + rules_proxy;
 
-    // console.log("\nrules_direct\n");
+    // console.log("\n🍉rules_direct\n");
     // console.log(rules_direct);
 
     // console.log("\nrules_proxy\n");
@@ -250,8 +250,14 @@
                 if (parts_length > 2) {
                   // 提取主域名
                   const doma = parts.slice(-2).join(".");
-                  is_direct && rules_re_domain_set.add(doma);
-                  rules_direct_set.add("DOMAIN-SUFFIX," + doma);
+                  let mat = false;
+                  if (is_direct) {
+                    rules_re_domain_set.add(doma);
+                    mat = true;
+                  } else if (rules_re_domain_set.has(doma)) {
+                    mat = false;
+                  }
+                  mat && rules_direct_set.add("DOMAIN-SUFFIX," + doma);
                 } else {
                   rules_direct_set.add("DOMAIN-SUFFIX," + domain);
                 }
