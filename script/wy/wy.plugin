@@ -32,10 +32,9 @@ DOMAIN,iadmusicmat.music.126.net,REJECT
 DOMAIN,iadmat.nosdn.127.net,REJECT
 DOMAIN,iadmatapk.nosdn.127.net,REJECT
 DOMAIN,httpdns.n.netease.com,REJECT
+DOMAIN,httpdns.music.163.com,REJECT
 
 [Rewrite]
-^https?:\/\/httpdns.n\.netease\.com - reject
-^https?:\/\/httpdns\.music\.163\.com - reject
 ^https?:\/\/(ipv4|interface\d?)\.music\.163.com\/e?api\/ad - reject-dict
 # 今日运势 商城 Beat专区 音乐收藏家 | type:ACTIVITY | 低至5.2折
 ^https?:\/\/interface\d?\.music\.163\.com\/w?e?api\/(side-bar\/mini-program\/music-service\/account|delivery\/(batch-deliver|deliver)|moment\/tab\/info\/get|yunbei\/account\/entrance\/get) - reject-dict
