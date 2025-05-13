@@ -1,4 +1,4 @@
-// 2025-05-13 15:21:03
+// 2025-05-13 15:52:43
 (async () => {
   // prettier-ignore
   let body = { d: "", p: "" }, response = { body: JSON.stringify(body) }, ARGV, reqbody, notif = ""
@@ -529,36 +529,41 @@
       const cidrIpInt = ipToInt(cidrIp);
       return (ipInt & mask) === (cidrIpInt & mask);
     }
+
     function parseCIDR(cidrStr) {
-      const [ip, prefixLength] = cidrStr.split("/");
+      const match = cidrStr.match(/IP-CIDR,([0-9.]+)\/(\d+)/);
+      if (!match) return null;
+      const [_, ip, prefixLength] = match;
       const ipInt = ipToInt(ip);
-      const mask = ~(2 ** (32 - prefixLength) - 1) >>> 0;
+      const prefix = parseInt(prefixLength);
+      const mask = ~(2 ** (32 - prefix) - 1) >>> 0;
       const start = ipInt & mask;
-      const end = start + 2 ** (32 - prefixLength) - 1;
-      return { ip, prefixLength: parseInt(prefixLength), start, end };
+      const end = start + 2 ** (32 - prefix) - 1;
+      return { raw: cidrStr, start, end, prefix };
     }
 
-    function isSubset(subnet, supernet) {
-      return subnet.start >= supernet.start && subnet.end <= supernet.end;
+    function isSubset(a, b) {
+      return a.start >= b.start && a.end <= b.end;
     }
 
     function dedupeCIDRs(rawList) {
-      const cidrs = rawList.map((item) => {
-        return { raw: item, ...parseCIDR(item) };
-      });
-      const excludedCIDRs = [];
-      const result = cidrs.filter((a, i) => {
-        const isExcluded = cidrs.some((b, j) => i !== j && isSubset(a, b));
-        if (isExcluded) {
-          excludedCIDRs.push(a.raw);
+      const cidrs = rawList.map(parseCIDR).filter(Boolean);
+      const excluded = new Set([]);
+      for (let i = 0; i < cidrs.length; i++) {
+        for (let j = 0; j < cidrs.length; j++) {
+          if (i !== j && isSubset(cidrs[i], cidrs[j])) {
+            excluded.add(cidrs[i].raw);
+            break;
+          }
         }
-        return !isExcluded;
-      });
+      }
 
-      excludedCIDRs.length > 0 &&
-        console.log("\n去除的 CIDR: \n" + excludedCIDRs.join("\n") + "\n");
-      return result.map((item) => item.raw);
+      const result = rawList.filter((item) => !excluded.has(item));
+      excluded.size > 0 &&
+        console.log("\n去除的 CIDR: \n" + [...excluded].join("\n") + "\n");
+      return result;
     }
+
     function ipToInt(ip) {
       return ip
         .split(".")
