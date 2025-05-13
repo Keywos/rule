@@ -237,7 +237,7 @@
                   rules_re_domain_set.add(tlddomain);
                   rules_direct_set.add("DOMAIN-SUFFIX," + tlddomain);
                 } else if (rules_re_domain_set.has(tlddomain)) {
-                  notif_text_a.push(isdp + ": " + tlddomain);
+                  notif_text_a.push(isdp + ": " + domain);
                   return;
                 } else {
                   notif_text_c.push(isdp + ": " + tlddomain + " -> " + domain);
