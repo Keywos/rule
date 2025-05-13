@@ -132,16 +132,16 @@
     let { rules: rules_proxy, count: count_proxy } = processRules(rset);
 
     rules_direct =
-      `# 手动规则 以下规则优先级最高 不参与规则数量统计\n${file_directs_o.join(
+      `# 手动规则: 以下规则优先级最高 不参与规则数量统计\n${file_directs_o.join(
         "\n"
-      )}\n\n# 更新时间：${today}\n# 规则数量：当前共 ${
+      )}\n\n# 更新时间: ${today}\n# 规则数量：当前共 ${
         count_direct || 0
       } 条规则\n\n` + rules_direct;
 
     rules_proxy =
-      `# 手动规则 以下规则优先级最高 不参与规则数量统计\n${file_proxys_o.join(
+      `# 手动规则: 以下规则优先级最高 不参与规则数量统计\n${file_proxys_o.join(
         "\n"
-      )}\n\n# 更新时间：${today}\n# 规则数量：当前共 ${
+      )}\n\n# 更新时间: ${today}\n# 规则数量：当前共 ${
         count_proxy || 0
       } 条规则\n\n` + rules_proxy;
 
