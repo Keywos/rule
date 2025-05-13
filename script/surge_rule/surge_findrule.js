@@ -1,4 +1,4 @@
-// 2025-05-13 13:34:09
+// 2025-05-13 14:02:50
 (async () => {
   // prettier-ignore
   let body = { d: "", p: "" }, response = { body: JSON.stringify(body) }, ARGV, reqbody, notif = "空数据"
@@ -231,9 +231,15 @@
           if (parts_length > 0) {
             const tlddomain = parts[parts_length - 1];
             if (countryTLDList.includes(tlddomain)) {
-              if (parts_length > 1)
-                notif_text_c.push(isdp + ": " + tlddomain + " -> " + domain);
-              rules_direct_set.add("DOMAIN-SUFFIX," + tlddomain);
+              if (parts_length > 1) {
+                if (!is_direct && rules_re_domain_set.has(tlddomain)) {
+                  notif_text_a.push(isdp + ": " + tlddomain);
+                  return;
+                } else {
+                  notif_text_c.push(isdp + ": " + tlddomain + " -> " + domain);
+                  rules_direct_set.add("DOMAIN-SUFFIX," + tlddomain);
+                }
+              }Ï
             } else {
               if (!checkMatch(domain)) {
                 if (parts_length > 2) {
