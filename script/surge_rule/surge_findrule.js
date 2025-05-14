@@ -6,7 +6,7 @@
     // prettier-ignore
     try { ARGV = JSON.parse($argument); } catch (error) { throw new Error("$argument 解析错误" + error.message);}
     // prettier-ignore
-    let { CN = "CNN", FINAL = "FINAL", COUNT = 5, CNIP = 1, CNHOST = 1, FINALIP = 1,  FINALHOST = 1,} = ARGV
+    let { CN = "CNN", FINAL = "FINAL", COUNT = 5, CNIP = 0, CNHOST = 1, FINALIP = 1,  FINALHOST = 1,} = ARGV
     // prettier-ignore
     try { reqbody = JSON.parse($request?.body); } catch (error) {throw new Error("$request.body 解析错误" + error.message);}
     // prettier-ignore
