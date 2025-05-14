@@ -1,4 +1,4 @@
-// 2025-05-14 17:11:13
+// 2025-05-14 18:04:27
 (async () => {
   // prettier-ignore
   let body = { d: "", p: "" },response = { body: JSON.stringify(body) },rule_direct_cidr = [], rule_proxy_cidr = [], ARGV = {}, reqbody, notif = "";
@@ -108,7 +108,7 @@
     console.log(t + "\n\n" + notif + "\n");
 
     function parseRulesAll(text) {
-      const lines = text?.split("\n") || [];
+      const lines = text?.trim()?.split("\n") || [];
       const excludeRules = [];
       const otherRules = [];
       let fileLength = 0;
@@ -135,16 +135,14 @@
         if (inExcludeSection) {
           excludeRules.push(trimmed);
           const [type, ...domainParts] = trimmed.split(",");
-          if (domainParts.length > 0) {
-            const domain = domainParts.join(",").trim().replace(/\s+/g, "");
-            add_tld_set(domain);
-            type === "DOMAIN-KEYWORD"
-              ? key_set.add(domain)
-              : type === "DOMAIN-SUFFIX" && more_set.add(domain);
-          }
+          if (domainParts.length === 0) continue;
+          const domain = domainParts.join(",").trim().replace(/\s+/g, "");
+          add_tld_set(domain);
+          type === "DOMAIN-KEYWORD"
+            ? key_set.add(domain)
+            : type === "DOMAIN-SUFFIX" && more_set.add(domain);
         } else if (passedUpdate) otherRules.push(trimmed);
       }
-
       return {
         excludeRules,
         otherRules,
@@ -160,13 +158,12 @@
 
       let rule_split = [];
       for (const item of ruleSet) {
-        const [type, ...domainParts] = item.split(",");
-        if (domainParts.length === 0) continue;
-        const domain = domainParts.join(",").trim().replace(/\s+/g, "");
+        const [type, domain] = item.split(",");
         add_tld_set(domain);
         rule_split.push([type, domain]);
         if (type === "DOMAIN-KEYWORD") key_set.add(domain);
       }
+
       rule_split.forEach((i) => {
         const type = i[0];
         const domain = i[1];
@@ -177,29 +174,23 @@
             nt_d.push(isdp + ": " + domain);
             return;
           }
-          if (!is_cn) {
-            if (re_set.has(domain)) {
-              nt_a.push(isdp + ": " + domain);
-              return;
-            }
+          if (!is_cn && re_set.has(domain)) {
+            nt_a.push(isdp + ": " + domain);
+            return;
           } else re_set.add(domain); // SUFFIX 去重 Set
-          if (part_len > 0) {
-            if (checkMatch(domain)) return; // 命中 KEYWORD
-            const tld = parts[part_len - 1];
-            if (TLDSet.has(tld)) {
-              part_one(is_cn, tld, domain);
-            } else part_other(parts, part_len, domain, is_cn);
-          }
+          if (part_len === 0) return;
+          if (checkMatch(domain)) return; // 命中 KEYWORD
+          const tld = parts[part_len - 1];
+          if (TLDSet.has(tld)) {
+            part_one(tld, domain);
+          } else part_other(parts, part_len, domain, is_cn);
         } else is_cidr(type, domain);
       });
 
-      function part_one(is_cn, tld, domain) {
+      function part_one(tld, domain) {
         if (re_set.has(tld)) {
           nt_a.push(`${isdp}: ${domain}`);
           return;
-        } else if (is_cn) {
-          add_d_s(tld);
-          tld_log(tld, domain);
         } else {
           add_d_s(tld);
           tld_log(tld, domain);
@@ -242,7 +233,7 @@
         } else other_set.add(type + "," + domain);
       }
 
-      function add_d_s(i) { 
+      function add_d_s(i) {
         direct_set.add("DOMAIN-SUFFIX," + i);
       }
 
@@ -518,11 +509,12 @@
       return cidrs;
     }
 
-    console.log("\nrules_direct\n");
-    console.log(rules_direct);
+    // console.log("\nrules_direct\n");
+    // console.log(rules_direct);
 
-    console.log("\nrules_proxy\n");
-    console.log(rules_proxy);
+    // console.log("\nrules_proxy\n");
+    // console.log(rules_proxy);
+
     response.body = JSON.stringify({ d: rules_direct, p: rules_proxy });
   } catch (error) {
     console.log(error.message);
