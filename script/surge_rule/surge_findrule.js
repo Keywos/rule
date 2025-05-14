@@ -1,4 +1,4 @@
-// 2025-05-14 16:32:23
+// 2025-05-14 17:11:13
 (async () => {
   // prettier-ignore
   let body = { d: "", p: "" },response = { body: JSON.stringify(body) },rule_direct_cidr = [], rule_proxy_cidr = [], ARGV = {}, reqbody, notif = "";
@@ -193,6 +193,19 @@
         } else is_cidr(type, domain);
       });
 
+      function part_one(is_cn, tld, domain) {
+        if (re_set.has(tld)) {
+          nt_a.push(`${isdp}: ${domain}`);
+          return;
+        } else if (is_cn) {
+          add_d_s(tld);
+          tld_log(tld, domain);
+        } else {
+          add_d_s(tld);
+          tld_log(tld, domain);
+        }
+      }
+
       function part_other(parts, part_len, domain, is_cn) {
         if (part_len > 2) {
           let mat = false;
@@ -203,20 +216,6 @@
           } else if (!re_set.has(doma)) mat = true;
           mat && add_d_s(doma);
         } else add_d_s(domain);
-      }
-
-      function part_one(is_cn, tld, domain) {
-        if (is_cn) {
-          re_set.add(tld);
-          add_d_s(tld);
-          tld_log(tld, domain);
-        } else if (re_set.has(tld)) {
-          nt_a.push(`${isdp}: ${domain}`);
-          return;
-        } else {
-          add_d_s(tld);
-          tld_log(tld, domain);
-        }
       }
 
       function tld_log(tld, domain) {
@@ -243,7 +242,7 @@
         } else other_set.add(type + "," + domain);
       }
 
-      function add_d_s(i) {
+      function add_d_s(i) { 
         direct_set.add("DOMAIN-SUFFIX," + i);
       }
 
@@ -519,11 +518,11 @@
       return cidrs;
     }
 
-    // console.log("\nrules_direct\n");
-    // console.log(rules_direct);
+    console.log("\nrules_direct\n");
+    console.log(rules_direct);
 
-    // console.log("\nrules_proxy\n");
-    // console.log(rules_proxy);
+    console.log("\nrules_proxy\n");
+    console.log(rules_proxy);
     response.body = JSON.stringify({ d: rules_direct, p: rules_proxy });
   } catch (error) {
     console.log(error.message);
