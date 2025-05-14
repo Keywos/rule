@@ -1,4 +1,4 @@
-// 2025-05-14 15:03:53
+// 2025-05-14 15:19:45
 (async () => {
   // prettier-ignore
   let body = { d: "", p: "" },response = { body: JSON.stringify(body) },rule_direct_cidr = [], rule_proxy_cidr = [], ARGV = {}, reqbody, notif = "";
@@ -137,32 +137,30 @@
               nt_a.push(isdp + ": " + domain);
               return;
             }
-          } else re_set.add(domain);
+          } else re_set.add(domain); // SUFFIX 去重 Set
           if (part_len > 0) {
+            if (checkMatch(domain)) return; // 命中 KEYWORD
             const tld = parts[part_len - 1];
             if (TLDSet.has(tld)) {
-              part_one(part_len, is_cn, tld, domain);
+              part_one(is_cn, tld, domain);
             } else part_other(parts, part_len, domain, is_cn);
           }
         } else is_cidr(type, domain);
       });
 
       function part_other(parts, part_len, domain, is_cn) {
-        if (!checkMatch(domain)) {
-          if (part_len > 2) {
-            let mat = false;
-            const doma = parts.slice(-2).join(".");
-            if (is_cn) {
-              re_set.add(doma);
-              mat = true;
-            } else if (!re_set.has(doma)) mat = true;
-            mat && add_d_s(doma);
-          } else add_d_s(domain);
-        }
+        if (part_len > 2) {
+          let mat = false;
+          const doma = parts.slice(-2).join(".");
+          if (is_cn) {
+            re_set.add(doma);
+            mat = true;
+          } else if (!re_set.has(doma)) mat = true;
+          mat && add_d_s(doma);
+        } else add_d_s(domain);
       }
 
-      function part_one(part_len, is_cn, tld, domain) {
-        if (part_len == 0) return;
+      function part_one(is_cn, tld, domain) {
         if (is_cn) {
           re_set.add(tld);
           add_d_s(tld);
@@ -522,7 +520,6 @@
 
     // console.log("\nrules_proxy\n");
     // console.log(rules_proxy);
-    
     response.body = JSON.stringify({ d: rules_direct, p: rules_proxy });
   } catch (error) {
     console.log(error.message);
