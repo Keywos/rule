@@ -1,4 +1,4 @@
-// 2025-05-14 18:07:37
+// 2025-05-14 19:11:29
 (async () => {
   // prettier-ignore
   let body = { d: "", p: "" },response = { body: JSON.stringify(body) },rule_direct_cidr = [], rule_proxy_cidr = [], ARGV = {}, reqbody, notif = "";
@@ -167,6 +167,7 @@
       rule_split.forEach((i) => {
         const type = i[0];
         const domain = i[1];
+        if (checkMatch(domain)) return;
         if (type === "DOMAIN-SUFFIX") {
           const parts = domain.split(".");
           const part_len = parts.length;
@@ -175,21 +176,26 @@
             return;
           }
           if (!is_cn && re_set.has(domain)) {
-            nt_a.push(isdp + ": " + domain);
-            return;
-          } else re_set.add(domain); // SUFFIX 去重 Set
+            if (direct_set.has(domain)) {
+              nt_a.push(isdp + ": " + domain);
+              return;
+            }
+            add_d_s(domain);
+          } else re_set.add(domain);
           if (part_len === 0) return;
-          if (checkMatch(domain)) return; // 命中 KEYWORD
           const tld = parts[part_len - 1];
           if (TLDSet.has(tld)) {
             part_one(tld, domain);
           } else part_other(parts, part_len, domain, is_cn);
-        } else is_cidr(type, domain);
+        } else if (type === "IP-CIDR") {
+          ipcidr_set.add(type + "," + domain);
+        } else other_set.add(type + "," + domain);
       });
 
       function part_one(tld, domain) {
+        if (!more_set.has(tld)) add_d_s(tld);
         if (re_set.has(tld)) {
-          nt_a.push(`${isdp}: ${domain}`);
+          tld != domain && nt_a.push(`${isdp}: ${domain}`);
           return;
         } else {
           add_d_s(tld);
@@ -223,14 +229,6 @@
           }
         }
         return false;
-      }
-
-      function is_cidr(type, domain) {
-        if (type === "IP-CIDR") {
-          if (!checkMatch(domain)) {
-            ipcidr_set.add(type + "," + domain);
-          }
-        } else other_set.add(type + "," + domain);
       }
 
       function add_d_s(i) {
