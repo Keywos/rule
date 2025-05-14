@@ -154,7 +154,7 @@ FINAL, FINALUS, dns-failed // 需要节点名 包含 关键字 可以用 substor
 
     function parseRulesAll(text) {
       const lines = text?.trim()?.split("\n") || [];
-      const excludeRules = [];
+      let excludeRules = [];
       const otherRules = [];
       let fileLength = 0;
 
@@ -190,7 +190,7 @@ FINAL, FINALUS, dns-failed // 需要节点名 包含 关键字 可以用 substor
           otherRules.push(trimmed);
         }
       }
-
+      excludeRules.sort();
       return {
         excludeRules,
         otherRules,
