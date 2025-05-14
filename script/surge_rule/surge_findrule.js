@@ -1,4 +1,4 @@
-// 2025-05-14 13:35:08
+// 2025-05-14 15:03:53
 (async () => {
   // prettier-ignore
   let body = { d: "", p: "" },response = { body: JSON.stringify(body) },rule_direct_cidr = [], rule_proxy_cidr = [], ARGV = {}, reqbody, notif = "";
@@ -6,7 +6,7 @@
     // prettier-ignore
     try { ARGV = JSON.parse($argument); } catch (error) { throw new Error("$argument 解析错误" + error.message);}
     // prettier-ignore
-    let { CN = "CNN", FINAL = "FINAL", COUNT = 5, CNIP = 0, CNHOST = 1, FINALIP = 1,  FINALHOST = 1,} = ARGV
+    let { CN = "CNN", FINAL = "FINAL", COUNT = 5, CNIP = 1, CNHOST = 1, FINALIP = 1,  FINALHOST = 1,} = ARGV
     // prettier-ignore
     try { reqbody = JSON.parse($request?.body); } catch (error) {throw new Error("$request.body 解析错误" + error.message);}
     // prettier-ignore
@@ -100,7 +100,7 @@
     // prettier-ignore
     t += nt_b.length > 0? `\n\n去掉命中 KEYWORD 的规则: \n${nt_b.join("\n")}\n`: "";
     // prettier-ignore
-    t += nt_c.length > 0 ? `\n\n去掉命中 国家顶级域名 的多余规则: \n${nt_c.join("\n")}\n` : "";
+    t += nt_c.length > 0 ? `\n\n去掉命中 顶级域名 的多余规则: \n${nt_c.join("\n")}\n` : "";
     // prettier-ignore
     t += nt_d.length > 0 ? `\n\n去掉命中 手动规则 的规则: \n${nt_d.join("\n")}\n` : "";
 
@@ -118,6 +118,7 @@
         const [type, ...domainParts] = item.split(",");
         if (domainParts.length === 0) continue;
         const domain = domainParts.join(",").trim().replace(/\s+/g, "");
+        add_tld_set(domain);
         rule_split.push([type, domain]);
         if (type === "DOMAIN-KEYWORD") key_set.add(domain);
       }
@@ -208,11 +209,9 @@
         ...other_set,
         ...dedupeCIDRs([...ipcidr_set]),
       ].sort();
-
       const logadd = diffSet(rules_direct, is_cn ? f_d : f_p);
       logadd.length > 0 &&
         console.log("\n\n" + isdp + "++\n" + logadd.join("\n") + "\n");
-
       return {
         rules: rules_direct.join("\n"),
         count: rules_direct.length,
@@ -292,6 +291,7 @@
           const [type, ...domainParts] = trimmed.split(",");
           if (domainParts.length > 0) {
             const domain = domainParts.join(",").trim().replace(/\s+/g, "");
+            add_tld_set(domain);
             type === "DOMAIN-KEYWORD"
               ? key_set.add(domain)
               : type === "DOMAIN-SUFFIX" && more_set.add(domain);
@@ -337,11 +337,19 @@
         checkCacheCidr = [];
         console.log(CACHE_KEY + " err2" + error.message);
       }
+      // 过滤过期的
       checkCacheCidr = checkCacheCidr.filter(
         (item) => now - item.time < CACHE_TTL
       );
+      // 更新缓存（清理掉过期项）
       $persistentStore.write(JSON.stringify(checkCacheCidr), CACHE_KEY);
+      // 返回 CIDR 字符串数组
       return checkCacheCidr.map((item) => item.cidr);
+    }
+
+    function add_tld_set(domain) {
+      // 如果有自定义 顶级域名去重
+      if (domain?.split(".").length === 1) TLDSet.add(domain);
     }
 
     function fetchWithTimeout(url) {
@@ -457,9 +465,11 @@
       const end = start + 2 ** (32 - prefix) - 1;
       return { raw: cidrStr, start, end, prefix };
     }
+
     function isSubset(a, b) {
       return a.start >= b.start && a.end <= b.end;
     }
+
     function dedupeCIDRs(rawList) {
       const cidrs = rawList.map(parseCIDR).filter(Boolean);
       const excluded = new Set([]);
@@ -471,11 +481,13 @@
           }
         }
       }
+
       const result = rawList.filter((item) => !excluded.has(item));
       excluded.size > 0 &&
         console.log("\n去除的 CIDR: \n" + [...excluded].join("\n") + "\n");
       return result;
     }
+
     function ipToInt(ip) {
       return ip
         .split(".")
@@ -490,6 +502,7 @@
         ipInt & 0xff,
       ].join(".");
     }
+
     function calculateCidr(startIp, endIp) {
       let start = ipToInt(startIp);
       let end = ipToInt(endIp);
@@ -506,9 +519,10 @@
 
     // console.log("\nrules_direct\n");
     // console.log(rules_direct);
+
     // console.log("\nrules_proxy\n");
     // console.log(rules_proxy);
-
+    
     response.body = JSON.stringify({ d: rules_direct, p: rules_proxy });
   } catch (error) {
     console.log(error.message);
