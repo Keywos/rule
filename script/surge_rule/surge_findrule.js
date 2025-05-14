@@ -1,4 +1,4 @@
-// 2025-05-14 15:19:45
+// 2025-05-14 16:32:23
 (async () => {
   // prettier-ignore
   let body = { d: "", p: "" },response = { body: JSON.stringify(body) },rule_direct_cidr = [], rule_proxy_cidr = [], ARGV = {}, reqbody, notif = "";
@@ -102,10 +102,55 @@
     // prettier-ignore
     t += nt_c.length > 0 ? `\n\n去掉命中 顶级域名 的多余规则: \n${nt_c.join("\n")}\n` : "";
     // prettier-ignore
-    t += nt_d.length > 0 ? `\n\n去掉命中 手动规则 的规则: \n${nt_d.join("\n")}\n` : "";
+    t += nt_d.length > 0 ? `\n\n去掉命中 手动规则的: \n${nt_d.join("\n")}\n` : "";
 
     $notification.post("FindRule", "", notif);
     console.log(t + "\n\n" + notif + "\n");
+
+    function parseRulesAll(text) {
+      const lines = text?.split("\n") || [];
+      const excludeRules = [];
+      const otherRules = [];
+      let fileLength = 0;
+
+      let inExcludeSection = false;
+      let passedUpdate = false;
+
+      for (let line of lines) {
+        const trimmed = line.trim();
+        if (trimmed.startsWith("# 手动规则")) {
+          inExcludeSection = true;
+          continue;
+        }
+
+        if (trimmed.startsWith("# 规则数量")) {
+          fileLength = trimmed.match(/\d+/)?.[0] || 0;
+          inExcludeSection = false;
+          passedUpdate = true;
+          continue;
+        }
+
+        if (!trimmed || trimmed.startsWith("# 更新时间")) continue;
+
+        if (inExcludeSection) {
+          excludeRules.push(trimmed);
+          const [type, ...domainParts] = trimmed.split(",");
+          if (domainParts.length > 0) {
+            const domain = domainParts.join(",").trim().replace(/\s+/g, "");
+            add_tld_set(domain);
+            type === "DOMAIN-KEYWORD"
+              ? key_set.add(domain)
+              : type === "DOMAIN-SUFFIX" && more_set.add(domain);
+          }
+        } else if (passedUpdate) otherRules.push(trimmed);
+      }
+
+      return {
+        excludeRules,
+        otherRules,
+        fileLength,
+      };
+    }
 
     function processRules(ruleSet, is_cn = false) {
       let isdp = is_cn ? CN : FINAL;
@@ -259,50 +304,6 @@
       }
       return [];
     }
-    function parseRulesAll(text) {
-      const lines = text?.split("\n") || [];
-      const excludeRules = [];
-      const otherRules = [];
-      let fileLength = 0;
-
-      let inExcludeSection = false;
-      let passedUpdate = false;
-
-      for (let line of lines) {
-        const trimmed = line.trim();
-        if (trimmed.startsWith("# 手动规则")) {
-          inExcludeSection = true;
-          continue;
-        }
-
-        if (trimmed.startsWith("# 规则数量")) {
-          fileLength = trimmed.match(/\d+/)?.[0] || 0;
-          inExcludeSection = false;
-          passedUpdate = true;
-          continue;
-        }
-
-        if (!trimmed || trimmed.startsWith("# 更新时间")) continue;
-
-        if (inExcludeSection) {
-          excludeRules.push(trimmed);
-          const [type, ...domainParts] = trimmed.split(",");
-          if (domainParts.length > 0) {
-            const domain = domainParts.join(",").trim().replace(/\s+/g, "");
-            add_tld_set(domain);
-            type === "DOMAIN-KEYWORD"
-              ? key_set.add(domain)
-              : type === "DOMAIN-SUFFIX" && more_set.add(domain);
-          }
-        } else if (passedUpdate) otherRules.push(trimmed);
-      }
-
-      return {
-        excludeRules,
-        otherRules,
-        fileLength,
-      };
-    }
 
     // 保存 CIDR 到缓存，并清理过期的
     function SaveCache(cidr) {
@@ -347,7 +348,10 @@
 
     function add_tld_set(domain) {
       // 如果有自定义 顶级域名去重
-      if (domain?.split(".").length === 1) TLDSet.add(domain);
+      if (domain?.split(".").length === 1) {
+        re_set.add(domain);
+        TLDSet.add(domain);
+      }
     }
 
     function fetchWithTimeout(url) {
