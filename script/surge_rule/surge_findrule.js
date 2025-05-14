@@ -1,4 +1,4 @@
-// 2025-05-14 19:11:29
+// 2025-05-14 21:51:12
 (async () => {
   // prettier-ignore
   let body = { d: "", p: "" },response = { body: JSON.stringify(body) },rule_direct_cidr = [], rule_proxy_cidr = [], ARGV = {}, reqbody, notif = "";
@@ -141,8 +141,11 @@
           type === "DOMAIN-KEYWORD"
             ? key_set.add(domain)
             : type === "DOMAIN-SUFFIX" && more_set.add(domain);
-        } else if (passedUpdate) otherRules.push(trimmed);
+        } else if (passedUpdate) {
+          otherRules.push(trimmed);
+        }
       }
+
       return {
         excludeRules,
         otherRules,
@@ -159,7 +162,7 @@
       let rule_split = [];
       for (const item of ruleSet) {
         const [type, domain] = item.split(",");
-        add_tld_set(domain);
+        add_tld_set(domain, is_cn);
         rule_split.push([type, domain]);
         if (type === "DOMAIN-KEYWORD") key_set.add(domain);
       }
@@ -167,21 +170,23 @@
       rule_split.forEach((i) => {
         const type = i[0];
         const domain = i[1];
+
         if (checkMatch(domain)) return;
+
         if (type === "DOMAIN-SUFFIX") {
           const parts = domain.split(".");
           const part_len = parts.length;
           if (more_set.has(domain)) {
             nt_d.push(isdp + ": " + domain);
+
             return;
           }
+
           if (!is_cn && re_set.has(domain)) {
-            if (direct_set.has(domain)) {
-              nt_a.push(isdp + ": " + domain);
-              return;
-            }
-            add_d_s(domain);
-          } else re_set.add(domain);
+            nt_a.push(isdp + ": " + domain);
+            return;
+          }
+
           if (part_len === 0) return;
           const tld = parts[part_len - 1];
           if (TLDSet.has(tld)) {
@@ -334,7 +339,9 @@
       return checkCacheCidr.map((item) => item.cidr);
     }
 
-    function add_tld_set(domain) {
+    function add_tld_set(domain, is_cn) {
+      // console.log(domain);
+      if (is_cn) re_set.add(domain);
       // 如果有自定义 顶级域名去重
       if (domain?.split(".").length === 1) {
         re_set.add(domain);
