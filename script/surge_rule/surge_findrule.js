@@ -455,7 +455,7 @@ FINAL, FINALUS, dns-failed // 需要节点名 包含 关键字 可以用 substor
     }
 
     function ipInCidr(ip, cidr) {
-      let [cidrIp, maskBits] = cidr.split("/");
+      const [cidrIp, maskBits] = cidr.split("/");
       const mask = (~0 << (32 - maskBits)) >>> 0;
       const ipInt = ipToInt(ip);
       const cidrIpInt = ipToInt(cidrIp);
