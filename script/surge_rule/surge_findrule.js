@@ -1,4 +1,4 @@
-/** 2025-05-15 18:47:14
+/** 2025-05-16 00:14:45
 [首次使用需要设置以下参数]
 
 必须配置:
@@ -26,6 +26,7 @@
    ├ 接下来是直连规则
    ├ [直连 List] 里有的规则，[代理 List] 里不会有
    ├ [KEYWORD] 命中的规则会排除掉
+   ├ [WILDCARD] 命中的规则会排除掉
    ├ [IP-CIDR] 重复包含的会去除
    ├ [DOMAIN-SUFFIX,x.cn] 类似的会提取顶级域名[cn]
    └ 首次请求需要一定的时间 有缓存后速度就快了
@@ -51,7 +52,7 @@ FINAL, FINALUS, dns-failed // 需要节点名 包含 关键字 可以用 substor
     let { CN = "CNN", FINAL = "FINAL", COUNT = 5, CNIP = 1, CNHOST = 1, FINALIP = 1, FINALHOST = 1 } = ARGV;
     // prettier-ignore
     const TLDSet = new Set(["cn", "us", "uk", "jp", "de", "fr", "au", "ca", "ru", "kr", "sg", "in", "tw", "hk","mo", "nl", "es", "ch", "se", "no", "fi", "dk", "be", "br", "mx", "ar", "za", "nz", "il",]);
-    const state = { cidr_cache: 0, cidr_get: 0, cidr_size: 0, nt_a: [], nt_b: [], nt_c: [], nt_d: [] };
+    const state = { cidr_cache: 0, cidr_get: 0, cidr_size: 0, nt_a: [], nt_b: [], nt_c: [], nt_d: [], nt_w: [] };
     const regexIPv4 = /^\d+\.\d+\.\d+\.\d+$/;
     const regexIPv6 = /^([0-9a-fA-F]{1,4}:){2,7}/;
     const isIPv4 = (s) => regexIPv4.test(s);
@@ -60,7 +61,8 @@ FINAL, FINALUS, dns-failed // 需要节点名 包含 关键字 可以用 substor
       cidrCache = [],
       more_set = new Set([]),
       re_set = new Set([]),
-      key_set = new Set([]);
+      key_set = new Set([]),
+      wildcard_set = new Set([]);
     const today = new Date().toLocaleString("zh-CN", { hour12: false }),
       lines = reqbody.input_csv ? reqbody.input_csv.trim()?.split("\n") : [],
       toBool = (v) => v === true || v == 1,
@@ -115,9 +117,10 @@ FINAL, FINALUS, dns-failed // 需要节点名 包含 关键字 可以用 substor
     (state.cidr_get > 0 || state.cidr_cache > 0) && (notif += `\nIP-CIDR: 请求查询:${state.cidr_get}, 缓存${state.cidr_cache}, 最终规则:${state.cidr_size}`);
 
     t = state.nt_a.length > 0 ? `\n\n去掉 [${CN}] 里有的规则:\n${state.nt_a.join("\n")}\n` : "";
-    t += state.nt_b.length > 0 ? `\n\n去掉命中 KEYWORD 的规则: \n${state.nt_b.join("\n")}\n` : "";
-    t += state.nt_c.length > 0 ? `\n\n去掉命中 顶级域名 的多余规则: \n${state.nt_c.join("\n")}\n` : "";
-    t += state.nt_d.length > 0 ? `\n\n去掉命中 手动规则的: \n${state.nt_d.join("\n")}\n` : "";
+    t += state.nt_b.length > 0 ? `\n\n去掉命中 [KEYWORD] 的规则: \n${state.nt_b.join("\n")}\n` : "";
+    t += state.nt_c.length > 0 ? `\n\n去掉命中 [顶级域名] 的规则: \n${state.nt_c.join("\n")}\n` : "";
+    t += state.nt_d.length > 0 ? `\n\n去掉命中 [手动规则] 的: \n${state.nt_d.join("\n")}\n` : "";
+    t += state.nt_w.length > 0 ? `\n\n去掉命中 [WILDCARD] 的: \n${state.nt_w.join("\n")}\n` : "";
 
     $notification.post("FindRule", "", notif);
 
@@ -173,13 +176,28 @@ FINAL, FINALUS, dns-failed // 需要节点名 包含 关键字 可以用 substor
           if (domainParts.length === 0) continue;
           const domain = domainParts.join(",").trim().replace(/\s+/g, "");
           add_tld_set(domain);
-          type === "DOMAIN-KEYWORD" ? key_set.add(domain) : type === "DOMAIN-SUFFIX" && more_set.add(domain);
+          switch (type) {
+            case "DOMAIN-KEYWORD":
+              key_set.add(domain);
+              break;
+            case "DOMAIN-SUFFIX":
+              more_set.add(domain);
+              break;
+            case "DOMAIN-WILDCARD":
+              wildcard_add(domain);
+              break;
+          }
         } else if (passedUpdate) {
           otherRules.push(trimmed);
         }
       }
       prRule.sort();
       return { prRule, otherRules, fileLength };
+    }
+
+    function wildcard_add(domain) {
+      const regexStr = "^" + domain.replace(/\*/g, ".*").replace(/\?/g, ".{1}") + "$";
+      wildcard_set.add(new RegExp(regexStr));
     }
 
     function processRules(ruleSet, is_cn = false) {
@@ -193,11 +211,14 @@ FINAL, FINALUS, dns-failed // 需要节点名 包含 关键字 可以用 substor
         const [type, domain] = item.split(",");
         add_tld_set(domain, is_cn);
         rule_split.push([type, domain]);
-        if (type === "DOMAIN-KEYWORD") key_set.add(domain);
+        if (type === "DOMAIN-KEYWORD") {
+          key_set.add(domain);
+        } else if (type === "DOMAIN-WILDCARD") wildcard_add(domain);
       }
 
       rule_split.forEach(([type, domain]) => {
         if (checkMatch(domain)) return;
+        if (matchWildcardSet(domain)) return;
         if (type === "DOMAIN-SUFFIX") {
           handleDomainSuffix(domain, is_cn);
         } else if (type === "IP-CIDR") {
@@ -226,13 +247,17 @@ FINAL, FINALUS, dns-failed // 需要节点名 包含 关键字 可以用 substor
       }
 
       function part_one(tld, domain) {
-        if (!more_set.has(tld)) add_d_s(tld);
+        const mt = more_set.has(tld);
+        if (is_cn && !mt) add_d_s(tld);
         if (re_set.has(tld)) {
           tld != domain && state.nt_a.push(`${isdp}: ${domain}`);
           return;
         } else {
+          if (mt) {
+            tld_log(tld, domain);
+            return;
+          }
           add_d_s(tld);
-          tld_log(tld, domain);
         }
       }
 
@@ -264,6 +289,20 @@ FINAL, FINALUS, dns-failed // 需要节点名 包含 关键字 可以用 substor
         return false;
       }
 
+      function matchWildcardSet(domain) {
+        for (const regex of wildcard_set) {
+          if (regex.test(domain)) {
+            const w = regex.source
+              .replace(/^\^|\$$/g, "")
+              .replace(/\.\{1\}/g, "?")
+              .replace(/\.\*/g, "*");
+            state.nt_w.push(`${isdp}: ${w} -> ${domain}`);
+            return true;
+          }
+        }
+        return false;
+      }
+
       function add_d_s(i) {
         direct_set.add("DOMAIN-SUFFIX," + i);
       }
@@ -272,6 +311,14 @@ FINAL, FINALUS, dns-failed // 需要节点名 包含 关键字 可以用 substor
       const logadd = diffSet(rules_direct, is_cn ? f_d : f_p);
       logadd.length > 0 && console.log("\n\n" + isdp + "++\n" + logadd.join("\n") + "\n");
       return { rules: rules_direct.join("\n"), count: rules_direct.length };
+    }
+
+    function add_tld_set(domain, is_cn) {
+      if (is_cn) re_set.add(domain);
+      // 如果有自定义 顶级域名去重
+      if (domain?.split(".").length === 1) {
+        TLDSet.add(domain);
+      }
     }
 
     function diffSet(arr1, arr2) {
@@ -365,15 +412,6 @@ FINAL, FINALUS, dns-failed // 需要节点名 包含 关键字 可以用 substor
         console.log(CACHE_KEY + " err1" + error.message);
       }
       return cacheStore;
-    }
-
-    function add_tld_set(domain, is_cn) {
-      if (is_cn) re_set.add(domain);
-      // 如果有自定义 顶级域名去重
-      if (domain?.split(".").length === 1) {
-        re_set.add(domain);
-        TLDSet.add(domain);
-      }
     }
 
     function fetchWithTimeout(url) {
