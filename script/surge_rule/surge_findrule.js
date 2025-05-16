@@ -49,9 +49,10 @@ FINAL, FINALUS, dns-failed // 需要节点名 包含 关键字 可以用 substor
 */
 
 (async () => {
-  let response = { body: JSON.stringify({ d: "", p: "" }) };
+  let response = { body: JSON.stringify({}) };
   try {
     let ARGV = JSON.parse($argument);
+    if (!$request?.body) throw new Error("未传入数据");
     let reqbody = JSON.parse($request?.body);
     let { CN = "CNN", FINAL = "FINAL", COUNT = 5, CNIP = 1, CNHOST = 1, FINALIP = 1, FINALHOST = 1 } = ARGV;
     // prettier-ignore
