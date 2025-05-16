@@ -1,4 +1,7 @@
 /** 2025-05-16 00:14:45
+
+[重点] 需要从 Surge 统计里导出到此 捷径 https://www.icloud.com/shortcuts/4862991f0914475ea4fc6e7f99a8cf5a
+
 [首次使用需要设置以下参数]
 
 必须配置:
@@ -22,6 +25,8 @@
    └ proxy_file 为 代理规则集 文件名
 
 生成的规则说明
+   ├ 需要从Surge 统计里导出到捷径
+   ├ 否则直接运行捷径就是去重等操作
    ├ 手动规则优先级最高
    ├ 接下来是直连规则
    ├ [直连 List] 里有的规则，[代理 List] 里不会有
@@ -33,14 +38,13 @@
 
 [Proxy]
 CNN = direct // 为了区别正常的 DIRECT 策略 [可选]
+// 加了此规则 会收集 走 GEOIP,CN 里的域名 / 如果不加 使用默认关键词 DIRECT 会收集统计里面所有走了直连的规则 
 
 [Rule]
 RULE-SET, Rule/P.txt, Proxy, no-resolve  // [可选 可以捷径里设置对应对文件名]
 RULE-SET, Rule/D.txt, DIRECT, no-resolve //  
 GEOIP, CN, CNN // [可选] 对应 Proxy 的 CNN = direct
 FINAL, FINALUS, dns-failed // 需要节点名 包含 关键字 可以用 substore 加前缀 / 匹配国家国旗 [默认匹配: 🇭🇰|🇸🇬|🇯🇵|🇺🇸]
-
-捷径： https://www.icloud.com/shortcuts/4862991f0914475ea4fc6e7f99a8cf5a
 
 */
 
