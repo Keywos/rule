@@ -1,4 +1,4 @@
-#### Linkey 辅助模块
+#### LinKey 辅助模块
 - SPing: https://🍉.eu.org/ping
 - JS引擎测试: https://🍉.eu.org/netms
 
