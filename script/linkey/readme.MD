@@ -11,3 +11,10 @@
 - [Stash](https://raw.githubusercontent.com/Keywos/rule/refs/heads/main/script/linkey/linkey.stoverride)
 
 - [Loon](https://raw.githubusercontent.com/Keywos/rule/refs/heads/main/script/linkey/linkey.plugin)
+
+
+
+<div align="center">
+  <img src="png/P.PNG" alt="" width="300px" style="margin-right: 6px;" />
+  <img src="png/J.PNG" alt="" width="300px" />
+</div>
