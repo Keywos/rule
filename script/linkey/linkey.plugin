@@ -1,0 +1,19 @@
+#!name=Linkey Tool
+#!desc=SPing: https://🍉.eu.org/ping \nJS引擎测试: https://🍉.eu.org/netms
+#!icon=https://raw.githubusercontent.com/Keywos/rule/main/tv/app/144px/Netease.png
+#!tag=Key
+#!date=2025-05-17 14:05:13
+#!openUrl=https://github.com/Keywos/rule/blob/main/script/linkey
+
+[Rewrite]
+^https?:\/\/surgetool\.com\/?$ - reject
+
+[Script]
+http-request ^https?:\/\/surgetool\.com\/api\/ping\/binary script-path=https://raw.githubusercontent.com/Keywos/rule/main/script/net_test/js/ntbm.js, requires-body=true, binary-body-mode=true, timeout=50, tag=binary_test
+
+http-request ^https?:\/\/surgetool\.com\/api\/test script-path=https://raw.githubusercontent.com/Keywos/rule/main/script/net_test/js/nt.js, requires-body=true, timeout=300, tag=crypto_test
+
+http-request ^https?:\/\/surgetool\.com\/api\/ping script-path=https://raw.githubusercontent.com/Keywos/rule/main/script/api_ping/js/api_ping.js, requires-body=true, timeout=200, tag=SPing
+
+[MITM]
+hostname = surgetool.com

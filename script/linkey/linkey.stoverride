@@ -1,0 +1,54 @@
+name: |-
+  Linkey Tool
+desc: |-
+  SPing: https://🍉.eu.org/ping \nJS引擎测试: https://🍉.eu.org/netms
+icon: |-
+  https://raw.githubusercontent.com/Keywos/rule/main/tv/app/144px/Netease.png
+category: |-
+  Key
+date: |-
+  2025-05-17 14:05:13
+openUrl: |-
+  https://github.com/Keywos/rule/blob/main/script/linkey
+
+http:
+
+  mitm:
+    - "surgetool.com"
+
+  url-rewrite:
+    - >-
+      ^https?:\/\/surgetool\.com\/?$ - reject
+
+  script:
+    - match: ^https?:\/\/surgetool\.com\/api\/ping\/binary
+      name: "binary_test"
+      type: request
+      require-body: true
+      max-size: -1
+      binary-mode: true
+      timeout: 50
+
+    - match: ^https?:\/\/surgetool\.com\/api\/test
+      name: "crypto_test"
+      type: request
+      require-body: true
+      max-size: -1
+      timeout: 300
+
+    - match: ^https?:\/\/surgetool\.com\/api\/ping
+      name: "SPing"
+      type: request
+      require-body: true
+      timeout: 200
+
+script-providers:
+  "binary_test":
+    url: https://raw.githubusercontent.com/Keywos/rule/main/script/net_test/js/ntbm.js
+    interval: 86400
+  "crypto_test":
+    url: https://raw.githubusercontent.com/Keywos/rule/main/script/net_test/js/nt.js
+    interval: 86400
+  "SPing":
+    url: https://raw.githubusercontent.com/Keywos/rule/main/script/api_ping/js/api_ping.js
+    interval: 86400

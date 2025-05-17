@@ -1,0 +1,34 @@
+name: Linkey Tool
+description: SPing: https://🍉.eu.org/ping \nJS引擎测试: https://🍉.eu.org/netms
+icon: https://raw.githubusercontent.com/Keywos/rule/main/tv/app/144px/Netease.png
+url_rewrites:
+- match: ^https?:\/\/surgetool\.com\/?$
+  location: http://reject/
+  status_code: 307
+scriptings:
+- http_request:
+    name: binary_test
+    match: ^https?:\/\/surgetool\.com\/api\/ping\/binary
+    script_url: https://raw.githubusercontent.com/Keywos/rule/main/script/net_test/js/ntbm.js
+    timeout: 300
+    body_required: true
+    binary_body: true
+    max_size: -1
+- http_request:
+    name: crypto_test
+    match: ^https?:\/\/surgetool\.com\/api\/test
+    script_url: https://raw.githubusercontent.com/Keywos/rule/main/script/net_test/js/nt.js
+    timeout: 300
+    body_required: true
+    max_size: -1
+- http_request:
+    name: SPing
+    match: ^https?:\/\/surgetool\.com\/api\/ping
+    script_url: https://raw.githubusercontent.com/Keywos/rule/main/script/api_ping/js/api_ping.js
+    timeout: 300
+    body_required: true
+    max_size: -1
+mitm:
+  hostnames:
+    includes:
+    - surgetool.com
