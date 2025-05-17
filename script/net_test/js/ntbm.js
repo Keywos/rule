@@ -60,7 +60,7 @@
             "Access-Control-Expose-Headers": "ntconfig",
             ntconfig: JSON.stringify(o),
         };
-        if (!od && t) $done({
+        if (od && t) $done({
                 status: "HTTP/1.1 200 OK",
                 headers: s,
                 body: r
