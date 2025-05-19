@@ -67,7 +67,8 @@ FINAL, FINALUS, dns-failed // 需要节点名 包含 关键字 可以用 substor
       more_set = new Set([]),
       re_set = new Set([]),
       key_set = new Set([]),
-      wildcard_set = new Set([]);
+      wildcard_set = new Set([]),
+      addrule = "";
     const today = new Date().toLocaleString("zh-CN", { hour12: false }),
       lines = reqbody.input_csv ? reqbody.input_csv.trim()?.split("\n") : [],
       toBool = (v) => v === true || v == 1,
@@ -133,6 +134,7 @@ FINAL, FINALUS, dns-failed // 需要节点名 包含 关键字 可以用 substor
     console.log("PROXY: \t" + f_p_l);
     console.log("DIRECT: \t" + f_d_l);
     console.log(t + "\n\n" + notif + "\n");
+    addrule.length > 0 && console.log("\n" + addrule + "\n");
 
     function processLine(H, P) {
       if (proxyRegex.test(P)) {
@@ -314,7 +316,7 @@ FINAL, FINALUS, dns-failed // 需要节点名 包含 关键字 可以用 substor
 
       const rules_direct = [...direct_set, ...other_set, ...dedupeCIDRs([...ipcidr_set])].sort();
       const logadd = diffSet(rules_direct, is_cn ? f_d : f_p);
-      logadd.length > 0 && console.log("\n\n" + isdp + "++\n" + logadd.join("\n") + "\n");
+      logadd.length > 0 && (addrule += `\n${isdp}++\n${logadd.join("\n")}\n`);
       return { rules: rules_direct.join("\n"), count: rules_direct.length };
     }
 
