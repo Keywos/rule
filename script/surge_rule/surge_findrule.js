@@ -80,7 +80,7 @@ FINAL, FINALUS, dns-failed // 需要节点名 包含 关键字 可以用 substor
       CACHE_TTL = 90 * 24 * 60 * 60 * 1000;
 
     [CNIP, CNHOST, FINALIP, FINALHOST] = [CNIP, CNHOST, FINALIP, FINALHOST].map(toBool);
-
+    COUNT = Number(COUNT);
     for (let i = 0; i < lines.length; i += 5000) {
       const chunk = lines.slice(i, i + 5000);
       for (const line of chunk) {
@@ -91,7 +91,7 @@ FINAL, FINALUS, dns-failed // 需要节点名 包含 关键字 可以用 substor
         const H = line.slice(0, c1);
         const P = line.slice(c1 + 1, c2);
         const C = line.slice(c3 + 1, c4);
-        if (C < COUNT) continue;
+        if (+C <= COUNT) continue;
         processLine(H, P);
       }
     }
