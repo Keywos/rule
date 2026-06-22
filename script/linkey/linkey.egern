@@ -29,6 +29,13 @@ scriptings:
     script_url: https://raw.githubusercontent.com/Keywos/rule/main/script/api_ping/js/api_ping.js
     timeout: 200
     body_required: true
+- http_request:
+    name: Sfetch
+    match: ^https?:\/\/surgetool\.com\/api\/fetch\?url=
+    script_url: https://raw.githubusercontent.com/Keywos/rule/main/script/api_ping/js/Sfetch.js
+    max_size: 999999999
+    timeout: 300
+    body_required: true
 mitm:
   hostnames:
     includes:
