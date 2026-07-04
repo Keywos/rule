@@ -1,6 +1,21 @@
 // 文件管理器工具函数
 import { Path } from "scripting";
 
+/** 使用系统分享菜单分享文件 */
+export async function shareFilePath(filePath: string, fileName: string) {
+  try {
+    const tmpPath = Path.join(FileManager.temporaryDirectory, fileName)
+    if (await FileManager.exists(tmpPath)) {
+      await FileManager.remove(tmpPath)
+    }
+    await FileManager.copyFile(filePath, tmpPath)
+    await DocumentInteraction.optionsMenu(tmpPath)
+    try { await FileManager.remove(tmpPath) } catch {}
+  } catch (e) {
+    console.log('分享失败:', e)
+  }
+}
+
 /** 将路径转换为友好的显示名称 */
 export function pathToDisplayName(filePath: string): string {
   let p = filePath.replace(/^file:\/\//, "");
@@ -81,86 +96,80 @@ export function fmtDate(ts: number): string {
 /** 文件类型分类 */
 export type FileCategory = "text" | "code" | "image" | "pdf" | "audio" | "video" | "archive" | "data" | "unknown" | "livephoto";
 
+const TEXT_EXTS = new Set([".txt", ".md", ".rtf", ".csv", ".log", ".ini", ".conf", ".cfg"]);
+const CODE_EXTS = new Set([
+  ".js",
+  ".ts",
+  ".tsx",
+  ".jsx",
+  ".py",
+  ".swift",
+  ".json",
+  ".xml",
+  ".yaml",
+  ".yml",
+  ".html",
+  ".conf",
+  ".dconf",
+  ".htm",
+  ".css",
+  ".scss",
+  ".less",
+  ".sh",
+  ".bash",
+  ".sql",
+  ".java",
+  ".kt",
+  ".c",
+  ".cpp",
+  ".h",
+  ".m",
+  ".mm",
+  ".rb",
+  ".go",
+  ".rs",
+  ".php",
+  ".lua",
+  ".r",
+  ".vue",
+  ".svelte",
+  ".toml",
+  ".env",
+  ".gitignore",
+  ".dockerfile",
+  ".makefile",
+]);
+const IMAGE_EXTS = new Set([".jpg", ".jpeg", ".png", ".gif", ".bmp", ".tiff", ".tif", ".svg", ".webp", ".heic", ".heif", ".ico", ".icns", ".dng", ".raw", ".cr2", ".cr3", ".nef", ".arw", ".orf", ".rw2", ".raf", ".pef", ".srw"]);
+const RAW_IMAGE_EXTS = new Set([".dng", ".raw", ".cr2", ".cr3", ".nef", ".arw"]);
+const AUDIO_EXTS = new Set([".mp3", ".m4a", ".wav", ".aac", ".flac", ".ogg", ".wma", ".aiff"]);
+const VIDEO_EXTS = new Set([".mp4", ".mov", ".m4v", ".avi", ".mkv", ".wmv", ".flv", ".webm"]);
+const ARCHIVE_EXTS = new Set([".zip", ".rar", ".7z", ".tar", ".gz", ".bz2", ".xz"]);
+const DATA_EXTS = new Set([".plist", ".db", ".sqlite", ".sqlite3"]);
+
 /** 获取文件类型分类 */
 export function getFileCategory(ext: string): FileCategory {
   const e = ext.toLowerCase();
 
-  const textExts = [".txt", ".md", ".rtf", ".csv", ".log", ".ini", ".conf", ".cfg"];
-  if (textExts.includes(e)) return "text";
-
-  const codeExts = [
-    ".js",
-    ".ts",
-    ".tsx",
-    ".jsx",
-    ".py",
-    ".swift",
-    ".json",
-    ".xml",
-    ".yaml",
-    ".yml",
-    ".html",
-    ".conf",
-    ".dconf",
-    ".htm",
-    ".css",
-    ".scss",
-    ".less",
-    ".sh",
-    ".bash",
-    ".sql",
-    ".java",
-    ".kt",
-    ".c",
-    ".cpp",
-    ".h",
-    ".m",
-    ".mm",
-    ".rb",
-    ".go",
-    ".rs",
-    ".php",
-    ".lua",
-    ".r",
-    ".vue",
-    ".svelte",
-    ".toml",
-    ".env",
-    ".gitignore",
-    ".dockerfile",
-    ".makefile",
-  ];
-  if (codeExts.includes(e)) return "code";
-
+  if (TEXT_EXTS.has(e)) return "text";
+  if (CODE_EXTS.has(e)) return "code";
   if (e === ".live") return "livephoto";
-
-  const imageExts = [".jpg", ".jpeg", ".png", ".gif", ".bmp", ".tiff", ".tif", ".svg", ".webp", ".heic", ".heif", ".ico", ".icns", ".dng", ".raw", ".cr2", ".cr3", ".nef", ".arw", ".orf", ".rw2", ".raf", ".pef", ".srw"];
-  if (imageExts.includes(e)) return "image";
-
+  if (IMAGE_EXTS.has(e)) return "image";
   if (e === ".pdf") return "pdf";
-
-  const audioExts = [".mp3", ".m4a", ".wav", ".aac", ".flac", ".ogg", ".wma", ".aiff"];
-  if (audioExts.includes(e)) return "audio";
-
-  const videoExts = [".mp4", ".mov", ".m4v", ".avi", ".mkv", ".wmv", ".flv", ".webm"];
-  if (videoExts.includes(e)) return "video";
-
-  const archiveExts = [".zip", ".rar", ".7z", ".tar", ".gz", ".bz2", ".xz"];
-  if (archiveExts.includes(e)) return "archive";
-
-  const dataExts = [".plist", ".db", ".sqlite", ".sqlite3"];
-  if (dataExts.includes(e)) return "data";
+  if (AUDIO_EXTS.has(e)) return "audio";
+  if (VIDEO_EXTS.has(e)) return "video";
+  if (ARCHIVE_EXTS.has(e)) return "archive";
+  if (DATA_EXTS.has(e)) return "data";
 
   return "unknown";
 }
 
 /** 获取文件图标 */
-export function getFileIcon(ext: string, isDirectory: boolean): string {
+export function getFileIcon(ext: string, isDirectory: boolean, category?: FileCategory): string {
   if (isDirectory) return "folder.fill";
 
   const e = ext.toLowerCase();
   if (e === ".live") return "livephoto";
-  const cat = getFileCategory(e);
+  const cat = category ?? getFileCategory(e);
 
   switch (cat) {
     case "text":
@@ -180,7 +189,7 @@ export function getFileIcon(ext: string, isDirectory: boolean): string {
       return "chevron.left.forwardslash.chevron.right";
     case "image":
       if (e === ".svg") return "photo.on.rectangle";
-      if (".dng.raw.cr2.cr3.nef.arw".includes(e)) return "camera.aperture";
+      if (RAW_IMAGE_EXTS.has(e)) return "camera.aperture";
       return "photo";
     case "pdf":
       return "doc.richtext";
@@ -201,11 +210,11 @@ export function getFileIcon(ext: string, isDirectory: boolean): string {
 }
 
 /** 获取文件图标颜色 */
-export function getFileIconColor(ext: string, isDirectory: boolean): FileInfo["iconColor"] {
+export function getFileIconColor(ext: string, isDirectory: boolean, category?: FileCategory): FileInfo["iconColor"] {
   if (isDirectory) return "systemBlue";
 
   if (ext.toLowerCase() === ".live") return "systemPink";
-  const cat = getFileCategory(ext);
+  const cat = category ?? getFileCategory(ext);
   switch (cat) {
     case "text":
       return "systemGray";
@@ -381,8 +390,8 @@ export async function getFileInfo(filePath: string): Promise<FileInfo> {
     extension: ext,
     category,
     mimeType: getMimeType(ext),
-    icon: getFileIcon(ext, false),
-    iconColor: getFileIconColor(ext, false),
+    icon: getFileIcon(ext, false, category),
+    iconColor: getFileIconColor(ext, false, category),
   };
 }
 

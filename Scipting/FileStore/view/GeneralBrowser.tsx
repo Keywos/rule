@@ -26,6 +26,7 @@ import {
   Divider,
   Menu,
   NavigationDestination,
+  EmptyView,
 } from "scripting";
 import {
   fmtSize,
@@ -45,6 +46,7 @@ import {
   uniquePath,
   sanitizeExtractDirName,
   safeUnzip,
+  shareFilePath,
 } from "../manager/utils";
 import { FileRowContent } from "./FileRowContent";
 import { FilePreviewView } from "./FilePreview";
@@ -57,7 +59,7 @@ import { FileListItem, FileInfoDialog } from "./FileListItem";
 import { filterFiles, sortFilesByOrder, DEFAULT_SORT_ORDER, DEFAULT_FILTER_TYPE } from "../manager/sortFilter";
 import { isLivePhotoFile, unpackLivePhoto } from "../manager/LivePhotoPacker";
 import { resolveOpenerForFile } from "./DefaultOpenerPicker";
-import { setDefaultOpener, OPENER_OPTIONS } from "../manager/DefaultOpener";
+import { getDefaultOpener, setDefaultOpener, OPENER_OPTIONS } from "../manager/DefaultOpener";
 import { AppSettings, saveSettings, readSettings } from "../manager/Settings";
 import { SettingsPage } from "./SettingsPage";
 import { Bookmark, getAllBookmarks, addDirectoryBookmark, removeBookmark, renameBookmark } from "../manager/BookmarkManager";
@@ -78,9 +80,36 @@ const _readClipPath = readClipboardPath
 const _writeClipPath = writeClipboardPath
 
 
+const DIRECTORY_POLL_INTERVAL_MS = 999
+const DIRECTORY_POLL_FORCE_FULL_EVERY = 10
+
+async function getDirectoryPollToken(dirPath: string): Promise<string | null> {
+  try {
+    const stat = await FileManager.stat(dirPath)
+    return `${stat.modificationDate || 0}:${stat.size || 0}`
+  } catch {
+    return null
+  }
+}
+
+function tailDisplayPath(pathText: string, maxChars: number = 28): string {
+  if (pathText.length <= maxChars) return pathText
+  const parts = pathText.split('/').filter(Boolean)
+  if (parts.length === 0) return '...' + pathText.slice(-(maxChars - 3))
+  const limit = Math.max(6, maxChars - 4)
+  let tail = parts[parts.length - 1]
+  for (let i = parts.length - 2; i >= 0; i--) {
+    const next = `${parts[i]}/${tail}`
+    if (next.length > limit) break
+    tail = next
+  }
+  if (tail.length > limit) tail = tail.slice(-limit)
+  return `.../${tail}`
+}
+
 /* ───── 文件行组件 ───── */
-function FileRowLink({ file, onRefresh, onDeleteFile, selectMode, isSelected, onToggleSelect, navPath, hideTopSeparator, folderCounts, onCopyPath, isHighlighted, copyToDirTitle, onCopyToDir, dirPath, onDropCompleted }: {
-  file: FileInfo; onRefresh: () => void; onDeleteFile?: (path: string) => void; selectMode?: boolean; isSelected?: boolean; onToggleSelect?: () => void; rootPath?: string; rootName?: string; parentFullscreen?: boolean; navPath?: any; hideTopSeparator?: boolean; folderCounts?: Map<string, number>; onCopyPath?: (path: string) => void; isHighlighted?: boolean; copyToDirTitle?: string; onCopyToDir?: (path: string) => void; dirPath?: string; onDropCompleted?: () => void
+function FileRowLink({ file, onRefresh, onDeleteFile, selectMode, isSelected, onToggleSelect, navPath, hideTopSeparator, folderCounts, onCopyPath, isHighlighted, copyToDirTitle, onCopyToDir, dirPath, onDropCompleted, onFolderCountChanged }: {
+  file: FileInfo; onRefresh: () => void; onDeleteFile?: (path: string) => void; selectMode?: boolean; isSelected?: boolean; onToggleSelect?: () => void; rootPath?: string; rootName?: string; parentFullscreen?: boolean; navPath?: any; hideTopSeparator?: boolean; folderCounts?: Map<string, number>; onCopyPath?: (path: string) => void; isHighlighted?: boolean; copyToDirTitle?: string; onCopyToDir?: (path: string) => void; dirPath?: string; onDropCompleted?: () => void; onFolderCountChanged?: (folderPath: string, count: number) => void
 }) {
   const handleRename = async () => {
     const trimmed = await renameWithPrompt(file.name)
@@ -112,17 +141,7 @@ function FileRowLink({ file, onRefresh, onDeleteFile, selectMode, isSelected, on
   }
 
   const handleShare = async () => {
-    try {
-      const tmpPath = Path.join(FileManager.temporaryDirectory, file.name)
-      if (await FileManager.exists(tmpPath)) {
-        await FileManager.remove(tmpPath)
-      }
-      await FileManager.copyFile(file.path, tmpPath)
-      await DocumentInteraction.optionsMenu(tmpPath)
-      try { await FileManager.remove(tmpPath) } catch {}
-    } catch (e) {
-      console.log('分享失败:', e)
-    }
+    await shareFilePath(file.path, file.name)
   }
 
   // ─ 选择模式 ─
@@ -141,6 +160,7 @@ function FileRowLink({ file, onRefresh, onDeleteFile, selectMode, isSelected, on
 
   // ─ 普通模式：使用 FileListItem 实现 ─
   const cat = getFileCategory(file.extension)
+  const defaultOpener = file.isDirectory ? null : getDefaultOpener(Path.extname(file.path))
   const isTextFile = !file.isDirectory && (cat === 'text' || cat === 'code' || cat === 'data')
 
   if (isTextFile) {
@@ -185,6 +205,8 @@ function FileRowLink({ file, onRefresh, onDeleteFile, selectMode, isSelected, on
                   console.log('解压失败:', e)
                   showToast('解压失败')
                 }
+              } else if (prefix === 'share:') {
+                await handleShare()
               } else {
                 navPath.setValue([...navPath.value, prefix + file.path])
               }
@@ -208,7 +230,7 @@ function FileRowLink({ file, onRefresh, onDeleteFile, selectMode, isSelected, on
               <Button title="重命名" systemImage="pencil" action={handleRename} />
               <Button title="拷贝" systemImage="doc.on.doc" action={async () => { await onCopyPath?.(file.path); }} />
               <Button title="分享" systemImage="square.and.arrow.up" action={handleShare} />
-              {copyToDirTitle && onCopyToDir ? <Button title={copyToDirTitle} systemImage="arrow.right.doc.on.clipboard" action={async () => { await onCopyToDir(file.path); }} /> : null}
+              {copyToDirTitle && onCopyToDir ? <Button title={copyToDirTitle} systemImage="arrow.right.doc.on.clipboard" action={async () => { await onCopyToDir(file.path); }} /> : <EmptyView />}
               {/* 压缩/解压 — 所有文件都有压缩选项，归档文件额外有解压选项 */}
               {getFileCategory(file.extension) === 'archive' ? <>
                 <Button title="解压到当前目录" systemImage="archivebox" action={async () => {
@@ -245,7 +267,7 @@ function FileRowLink({ file, onRefresh, onDeleteFile, selectMode, isSelected, on
                   }
                 }} />
                 <Divider />
-              </> : null}
+              </> : <EmptyView />}
               <Button title="压缩" systemImage="shippingbox" action={async () => {
                 try {
                   const destPath = await uniquePath(Path.join(dirPath || Path.dirname(file.path), file.name + '.zip'))
@@ -259,13 +281,14 @@ function FileRowLink({ file, onRefresh, onDeleteFile, selectMode, isSelected, on
                 }
               }} />
               <Divider />
-              {!file.isDirectory && <Menu title="选择默认打开方式" systemImage="gear">
+              {!file.isDirectory ? <Menu title="默认打开方式" systemImage="gear">
                 {OPENER_OPTIONS.map(opt =>
-                  <Button title={opt.label} action={async () => {
-                    await setDefaultOpener(Path.extname(file.path), opt.prefix)
+                  <Button title={opt.label} systemImage={defaultOpener === opt.prefix ? "checkmark" : undefined} action={async () => {
+                    setDefaultOpener(Path.extname(file.path), opt.prefix)
+                    onRefresh()
                   }} />
                 )}
-              </Menu>}
+              </Menu> : <EmptyView />}
               <Button title="简介" systemImage="info.circle" action={handleShowInfo} />
               <Button title="删除" systemImage="trash" role="destructive" action={handleDelete} />
             </Group>
@@ -285,6 +308,12 @@ function FileRowLink({ file, onRefresh, onDeleteFile, selectMode, isSelected, on
             if (!destDir) return false;
             if (file.isDirectory) invalidateDirectoryCache(destDir);
             handleDropToDirectory(info, destDir, () => {}).then(async () => {
+              if (file.isDirectory) {
+                try {
+                  const children = await countDirectoryItems(destDir);
+                  onFolderCountChanged?.(destDir, children);
+                } catch {}
+              }
               try {
                 await onRefresh();
               } catch {}
@@ -351,6 +380,8 @@ function FileRowLink({ file, onRefresh, onDeleteFile, selectMode, isSelected, on
                   console.log('解压失败:', e)
                   showToast('解压失败')
                 }
+              } else if (prefix === 'share:') {
+                await handleShare()
               } else {
                 navPath.setValue([...navPath.value, prefix + file.path])
               }
@@ -372,7 +403,7 @@ function FileRowLink({ file, onRefresh, onDeleteFile, selectMode, isSelected, on
       contextMenu={{
         menuItems: (
           <Group>
-            {isLivePhotoFile(file.name) && <>
+            {isLivePhotoFile(file.name) ? <>
               <Button title="提取视频" systemImage="video" action={async () => {
                 try {
                   const data = await FileManager.readAsData(file.path);
@@ -409,9 +440,9 @@ function FileRowLink({ file, onRefresh, onDeleteFile, selectMode, isSelected, on
                   console.log('导出到相册失败:', e);
                 }
               }} />
-            </>}
+            </> : <EmptyView />}
             {/* 普通图片/视频导出到相册 */}
-            {!isLivePhotoFile(file.name) && getFileCategory(file.extension) === 'image' &&
+            {!isLivePhotoFile(file.name) && getFileCategory(file.extension) === 'image' ? (
               <Button title="导出到相册" systemImage="square.and.arrow.down" action={async () => {
                 try {
                   await Photos.savePhoto(file.path);
@@ -419,8 +450,8 @@ function FileRowLink({ file, onRefresh, onDeleteFile, selectMode, isSelected, on
                   console.log('导出图片失败:', e);
                 }
               }} />
-            }
-            {!isLivePhotoFile(file.name) && getFileCategory(file.extension) === 'video' &&
+            ) : <EmptyView />}
+            {!isLivePhotoFile(file.name) && getFileCategory(file.extension) === 'video' ? (
               <Button title="导出到相册" systemImage="square.and.arrow.down" action={async () => {
                 try {
                   await Photos.saveVideo(file.path);
@@ -428,7 +459,7 @@ function FileRowLink({ file, onRefresh, onDeleteFile, selectMode, isSelected, on
                   console.log('导出视频失败:', e);
                 }
               }} />
-            }
+            ) : <EmptyView />}
             {/* 压缩/解压 — 所有非目录文件都有压缩选项，归档文件额外有解压选项 */}
             {!file.isDirectory && getFileCategory(file.extension) === 'archive' ? <>
               <Button title="解压到当前目录" systemImage="archivebox" action={async () => {
@@ -495,14 +526,15 @@ function FileRowLink({ file, onRefresh, onDeleteFile, selectMode, isSelected, on
             {/* 复制文件路径到剪贴板 */}
             <Button title="拷贝" systemImage="doc.on.doc" action={async () => { await onCopyPath?.(file.path); }} />
             <Button title="分享" systemImage="square.and.arrow.up" action={handleShare} />
-            {copyToDirTitle && onCopyToDir ? <Button title={copyToDirTitle} systemImage="arrow.right.doc.on.clipboard" action={async () => { await onCopyToDir(file.path); }} /> : null}
-            {!file.isDirectory && <Menu title="选择默认打开方式" systemImage="gear">
+            {copyToDirTitle && onCopyToDir ? <Button title={copyToDirTitle} systemImage="arrow.right.doc.on.clipboard" action={async () => { await onCopyToDir(file.path); }} /> : <EmptyView />}
+            {!file.isDirectory ? <Menu title="默认打开方式" systemImage="gear">
               {OPENER_OPTIONS.map(opt =>
-                <Button title={opt.label} action={async () => {
-                  await setDefaultOpener(Path.extname(file.path), opt.prefix)
+                <Button title={opt.label} systemImage={defaultOpener === opt.prefix ? "checkmark" : undefined} action={async () => {
+                  setDefaultOpener(Path.extname(file.path), opt.prefix)
+                  onRefresh()
                 }} />
               )}
-            </Menu>}
+            </Menu> : <EmptyView />}
             <Button title="重命名" systemImage="pencil" action={handleRename} />
             <Button title="简介" systemImage="info.circle" action={handleShowInfo} />
             <Button title="删除" systemImage="trash" role="destructive" action={handleDelete} />
@@ -523,6 +555,12 @@ function FileRowLink({ file, onRefresh, onDeleteFile, selectMode, isSelected, on
           if (!destDir) return false;
           if (file.isDirectory) invalidateDirectoryCache(destDir);
           handleDropToDirectory(info, destDir, () => {}).then(async () => {
+            if (file.isDirectory) {
+              try {
+                const children = await countDirectoryItems(destDir);
+                onFolderCountChanged?.(destDir, children);
+              } catch {}
+            }
             try {
               await onRefresh();
             } catch {}
@@ -635,8 +673,8 @@ function FileContentView({ file, parentFullscreen }: { file: FileInfo; parentFul
 
 /* ───── 目录浏览器主组件 ───── */
 
-function GeneralBrowser({ dirPath = '', dirName, rootPath, rootName, parentFullscreen, navPath: outerNavPath, navigationDestination, items, onItemsChange, toolbarOtherItems, showFolderItemCounts, onOpenSettings, initialSortOrder, initialFilterType, onSortFilterChange, refreshKey, highlightFile, isHomePage, settings, onSettingsChange, onFullscreen, bookmarks, externalCopiedPath, onExternalCopy, oppositeDirName, onCopyToOppositeDir, onDirChange, initialLoadDelay, clipboardSyncTrigger, addFilesRef, onFilesAdded, onDropCompleted }: {
-  dirPath?: string; dirName?: string; rootPath?: string; rootName?: string; parentFullscreen?: boolean; navPath?: any; navigationDestination?: any; items?: FileInfo[]; onItemsChange?: (items: FileInfo[]) => void; toolbarOtherItems?: any; showFolderItemCounts?: boolean; onOpenSettings?: () => void; initialSortOrder?: import("../manager/sortFilter").SortOrder; initialFilterType?: string; onSortFilterChange?: (sortOrder: import("../manager/sortFilter").SortOrder, filterType: string) => void; refreshKey?: number; highlightFile?: string; isHomePage?: boolean; settings?: AppSettings; onSettingsChange?: (settings: AppSettings) => void; onFullscreen?: () => void; bookmarks?: Bookmark[]; externalCopiedPath?: string | null; onExternalCopy?: (path: string) => void; oppositeDirName?: string; onCopyToOppositeDir?: (path: string) => void; onDirChange?: (dir: string) => void; initialLoadDelay?: number; clipboardSyncTrigger?: number; addFilesRef?: { current?: (files: FileInfo[]) => void }; onFilesAdded?: (files: FileInfo[]) => void; onDropCompleted?: () => void
+function GeneralBrowser({ dirPath = '', dirName, rootPath, rootName, parentFullscreen, navPath: outerNavPath, navigationDestination, items, onItemsChange, toolbarOtherItems, showFolderItemCounts, onOpenSettings, initialSortOrder, initialFilterType, onSortFilterChange, refreshKey, highlightFile, isHomePage, settings, onSettingsChange, onFullscreen, bookmarks, externalCopiedPath, onExternalCopy, oppositeDirName, onCopyToOppositeDir, onDirChange, initialLoadDelay, clipboardSyncTrigger, addFilesRef, onFilesAdded, onDropCompleted, onFolderCountChanged, folderCountUpdateRef }: {
+  dirPath?: string; dirName?: string; rootPath?: string; rootName?: string; parentFullscreen?: boolean; navPath?: any; navigationDestination?: any; items?: FileInfo[]; onItemsChange?: (items: FileInfo[]) => void; toolbarOtherItems?: any; showFolderItemCounts?: boolean; onOpenSettings?: () => void; initialSortOrder?: import("../manager/sortFilter").SortOrder; initialFilterType?: string; onSortFilterChange?: (sortOrder: import("../manager/sortFilter").SortOrder, filterType: string) => void; refreshKey?: number; highlightFile?: string; isHomePage?: boolean; settings?: AppSettings; onSettingsChange?: (settings: AppSettings) => void; onFullscreen?: () => void; bookmarks?: Bookmark[]; externalCopiedPath?: string | null; onExternalCopy?: (path: string) => void; oppositeDirName?: string; onCopyToOppositeDir?: (path: string) => void; onDirChange?: (dir: string) => void; initialLoadDelay?: number; clipboardSyncTrigger?: number; addFilesRef?: { current?: (files: FileInfo[]) => void }; onFilesAdded?: (files: FileInfo[]) => void; onDropCompleted?: () => void; onFolderCountChanged?: (folderPath: string, count: number) => void; folderCountUpdateRef?: { current?: (folderPath: string, count: number) => void }
 }) {
   const dismiss = Navigation.useDismiss();
 
@@ -659,26 +697,39 @@ function GeneralBrowser({ dirPath = '', dirName, rootPath, rootName, parentFulls
 
   // 100ms 防闪烁 - 用 ref 避免 useEffect 延迟
   const spinnerReadyRef = useRef(false);
+  const spinnerTimerRef = useRef<number | null>(null);
   const [tick, setTick] = useState(0);
   const spinTickRef = useRef(0);
 
   useEffect(() => {
+    if (spinnerTimerRef.current) {
+      clearTimeout(spinnerTimerRef.current)
+      spinnerTimerRef.current = null
+    }
     if (isLoading) {
       spinnerReadyRef.current = false;
       spinTickRef.current = 0;
-      const timer = setTimeout(() => {
+      let cancelled = false;
+      const spin = () => {
+        if (cancelled || !spinnerReadyRef.current) return;
+        setTick(t => t + 1);
+        spinnerTimerRef.current = setTimeout(spin, 80);
+      };
+      spinnerTimerRef.current = setTimeout(() => {
+        if (cancelled) return;
         spinnerReadyRef.current = true;
         setTick(t => t + 1);
-        // 持续旋转：递归setTimeout每100ms更新tick
-        let cancelled = false;
-        const spin = () => {
-          if (cancelled || !spinnerReadyRef.current) return;
-          setTick(t => t + 1);
-          setTimeout(spin, 80);
-        };
-        setTimeout(spin, 80);
+        spinnerTimerRef.current = setTimeout(spin, 80);
       }, 100);
-      return () => { clearTimeout(timer); spinnerReadyRef.current = false; spinTickRef.current = 0; };
+      return () => {
+        cancelled = true;
+        if (spinnerTimerRef.current) {
+          clearTimeout(spinnerTimerRef.current)
+          spinnerTimerRef.current = null
+        }
+        spinnerReadyRef.current = false;
+        spinTickRef.current = 0;
+      };
     } else {
       spinnerReadyRef.current = false;
       spinTickRef.current = 0;
@@ -691,11 +742,14 @@ function GeneralBrowser({ dirPath = '', dirName, rootPath, rootName, parentFulls
   /* ── 防止 displayFiles 变化时重复滚动到高亮文件 ── */
   const [searchQuery, setSearchQuery] = useState("");
   const [showSearch, setShowSearch] = useState(false);
+
   // 从 settings 或 props 读取排序/筛选初始值
-  const initialSort = settings?.defaultSortOrder || readSettings().defaultSortOrder || initialSortOrder || DEFAULT_SORT_ORDER;
-  const initialFilter = isHomePage && settings?.defaultFilterType ? settings.defaultFilterType : (initialFilterType || DEFAULT_FILTER_TYPE);
-  const [sortOrder, setSortOrder] = useState<import("../manager/sortFilter").SortOrder>(initialSort as any);
-  const [filterType, setFilterType] = useState<string>(initialFilter);
+  const [sortOrder, setSortOrder] = useState<import("../manager/sortFilter").SortOrder>(() => (
+    settings?.defaultSortOrder || readSettings().defaultSortOrder || initialSortOrder || DEFAULT_SORT_ORDER
+  ) as any);
+  const [filterType, setFilterType] = useState<string>(() => (
+    isHomePage && settings?.defaultFilterType ? settings.defaultFilterType : (initialFilterType || DEFAULT_FILTER_TYPE)
+  ));
 
   // 选择模式
   const [selectMode, setSelectMode] = useState(false);
@@ -710,6 +764,7 @@ function GeneralBrowser({ dirPath = '', dirName, rootPath, rootName, parentFulls
   const scrollProxy = useRef<any>(null)
   // 标记：首次加载不带动画，避免初次滑动卡顿
   const firstLoadRef = useRef(true)
+  const loadSeqRef = useRef(0)
   // 启动时和刷新时从文件恢复剪贴板路径
   useEffect(() => {
     (async () => {
@@ -761,6 +816,33 @@ function GeneralBrowser({ dirPath = '', dirName, rootPath, rootName, parentFulls
 
   // 每个子文件夹内的项目数
   const [folderCounts, setFolderCounts] = useState<Map<string, number>>(new Map());
+  const mergeFolderCountUpdates = (counts: { path: string; count: number }[]) => {
+    if (counts.length === 0) return;
+    setFolderCounts(prev => {
+      let next: Map<string, number> | null = null;
+      for (const c of counts) {
+        if (prev.get(c.path) !== c.count) {
+          if (!next) next = new Map(prev);
+          next.set(c.path, c.count);
+        }
+      }
+      return next ?? prev;
+    });
+  };
+  const applyFolderCountUpdate = (folderPath: string, count: number, notifyPeer: boolean = true) => {
+    setFolderCounts(prev => {
+      if (prev.get(folderPath) === count) return prev;
+      const next = new Map(prev);
+      next.set(folderPath, count);
+      return next;
+    });
+    if (notifyPeer) onFolderCountChanged?.(folderPath, count);
+  };
+  if (folderCountUpdateRef) {
+    folderCountUpdateRef.current = (folderPath: string, count: number) => {
+      applyFolderCountUpdate(folderPath, count, false);
+    };
+  }
 
   // ── 首页专用状态 ──
   const defaultDir = Path.join(FileManager.documentsDirectory, 'File Store')
@@ -770,16 +852,22 @@ function GeneralBrowser({ dirPath = '', dirName, rootPath, rootName, parentFulls
   const prevNavLenRef = useRef(0)
   const homeNavPath = useObservable<string[]>([])
 
+  const homeNavLength = isHomePage ? homeNavPath.value.length : 0
+
   // 当 isHomePage 时使用内部状态管理目录路径和导航
   if (isHomePage) {
-    if (homeNavPath.value.length > prevNavLenRef.current) {
-      setNavGen(g => g + 1)
-    }
-    prevNavLenRef.current = homeNavPath.value.length
     // 覆盖 dirPath 和 outerNavPath，后续代码无需修改
     dirPath = homeCurrentDir || defaultDir
     outerNavPath = homeNavPath
   }
+
+  useEffect(() => {
+    if (!isHomePage) return
+    if (homeNavLength > prevNavLenRef.current) {
+      setNavGen(g => g + 1)
+    }
+    prevNavLenRef.current = homeNavLength
+  }, [isHomePage, homeNavLength])
 
   useEffect(() => {
     if (isHomePage) {
@@ -831,21 +919,21 @@ function GeneralBrowser({ dirPath = '', dirName, rootPath, rootName, parentFulls
           await loadDirectory(true);
         }
         // 目录刷新完成后，直接从 listDirectory（命中刚填充的缓存）获取子目录列表并计数。
-        // 不能依赖 visibleFilesRef.current：React 可能在 await 后尚未重新渲染，ref 仍为旧值。
+        // 不依赖当前渲染切片，避免刷新后 React 尚未提交新列表时拿到旧数据。
         if (showFolderItemCounts !== false && dirPath) {
           try {
             const freshItems = await listDirectory(dirPath);
             const dirs = freshItems.filter(f => f.isDirectory);
             if (dirs.length === 0) return;
+            const counts: { path: string; count: number }[] = [];
             for (const dir of dirs) {
               try {
                 const children = await countDirectoryItems(dir.path);
-                setFolderCounts(prev => {
-                  const next = new Map(prev);
-                  next.set(dir.path, children);
-                  return next;
-                });
+                counts.push({ path: dir.path, count: children });
               } catch {}
+            }
+            if (counts.length > 0) {
+              mergeFolderCountUpdates(counts);
             }
           } catch {}
         }
@@ -856,9 +944,13 @@ function GeneralBrowser({ dirPath = '', dirName, rootPath, rootName, parentFulls
 
   const loadDirectory = async (silent = false) => {
     if (items || !dirPath) return;
+    const loadSeq = ++loadSeqRef.current
+    const loadingDir = dirPath
     if (!silent) setIsLoading(true)
+    const isLatestLoad = () => loadSeq === loadSeqRef.current && loadingDir === dirPath
     try {
-      const itemsList = await listDirectory(dirPath);
+      const itemsList = await listDirectory(loadingDir);
+      if (!isLatestLoad()) return;
       // 加载后立即查找要高亮的文件
       if (highlightFile) {
         const matched = itemsList.find(f => f.name === highlightFile)
@@ -889,9 +981,9 @@ function GeneralBrowser({ dirPath = '', dirName, rootPath, rootName, parentFulls
     } catch (e) {
       console.log("加载目录失败:", e);
       // 首页目录不存在时自动回退到默认目录
-      if (isHomePage && dirPath) {
+      if (isHomePage && loadingDir) {
         try {
-          const exists = await FileManager.exists(dirPath)
+          const exists = await FileManager.exists(loadingDir)
           if (!exists) {
             console.log('首页目录不存在，回退到默认目录:', defaultDir)
             setHomeCurrentDir(defaultDir)
@@ -902,11 +994,12 @@ function GeneralBrowser({ dirPath = '', dirName, rootPath, rootName, parentFulls
             }
             // 重新加载默认目录
             const itemsList = await listDirectory(defaultDir);
+            if (!isLatestLoad()) return;
             setFiles(itemsList);
           }
         } catch {}
       }
-      setIsLoading(false)
+      if (isLatestLoad()) setIsLoading(false)
     }
   };
 
@@ -941,30 +1034,56 @@ function GeneralBrowser({ dirPath = '', dirName, rootPath, rootName, parentFulls
     }
   };
 
-  // 666ms 轮询检测目录内容变化 + 新增文件高亮（非 items 模式）
+  // 999ms 轮询检测目录内容变化 + 新增文件高亮（非 items 模式）
+  // 每次先 stat 当前目录；目录未变化时跳过昂贵的 readDirectory + getFileInfo 全量扫描。
   const filesRef = useRef<FileInfo[]>(files)
   filesRef.current = files
   const prevPollRef = useRef<FileInfo[] | null>(null)
+  const prevPollTokenRef = useRef<string | null>(null)
+  const pollCountRef = useRef(0)
   useEffect(() => {
     if (items || !dirPath) return
     // 切换目录时重置轮询快照，避免用旧目录的文件列表与新目录比较而误高亮
     prevPollRef.current = null
+    prevPollTokenRef.current = null
+    pollCountRef.current = 0
     let cancelled = false
+    let pollTimer: number | null = null
+    const scheduleNextPoll = () => {
+      if (!cancelled) {
+        pollTimer = setTimeout(poll, DIRECTORY_POLL_INTERVAL_MS)
+      }
+    }
     const poll = async () => {
       if (cancelled) return
       try {
-        // 轮询必须清除缓存，否则 listDirectory 返回缓存数据（30秒有效期），发现不了外部变化
-        if (dirPath) invalidateDirectoryCache(dirPath)
+        pollCountRef.current += 1
+        const token = await getDirectoryPollToken(dirPath)
+        if (cancelled) return
+        const forceFullScan = pollCountRef.current % DIRECTORY_POLL_FORCE_FULL_EVERY === 0
+        const tokenChanged = token == null || prevPollTokenRef.current == null || token !== prevPollTokenRef.current
+        if (!tokenChanged && !forceFullScan) {
+          scheduleNextPoll()
+          return
+        }
+        // 需要全量扫描时必须清除缓存，否则 listDirectory 返回缓存数据（30秒有效期），发现不了外部变化
+        invalidateDirectoryCache(dirPath)
         const newList = await listDirectory(dirPath)
         if (cancelled) return
         const prev = prevPollRef.current
         if (prev !== null) {
           // 后续轮询：检测变化 + 新文件高亮
+          const newFiles: FileInfo[] = []
+          let changed = prev.length !== newList.length
           const prevPaths = new Set(prev.map(f => f.path))
-          const newFiles = newList.filter(f => !prevPaths.has(f.path))
-          const changed = newFiles.length > 0 ||
-            prev.length !== newList.length ||
-            prev.some((f, i) => f.path !== newList[i]?.path || f.size !== newList[i]?.size)
+          for (let i = 0; i < newList.length; i++) {
+            const nextFile = newList[i]
+            if (!prevPaths.has(nextFile.path)) newFiles.push(nextFile)
+            const prevFile = prev[i]
+            if (!changed && (!prevFile || prevFile.path !== nextFile.path || prevFile.size !== nextFile.size)) {
+              changed = true
+            }
+          }
           if (changed) {
             setFiles(newList)
             if (newFiles.length > 0) {
@@ -983,13 +1102,16 @@ function GeneralBrowser({ dirPath = '', dirName, rootPath, rootName, parentFulls
           }
         }
         prevPollRef.current = newList
+        prevPollTokenRef.current = token
       } catch (e) {}
-      if (!cancelled) {
-        setTimeout(poll, 666)
-      }
+      scheduleNextPoll()
     }
     const initialTimer = setTimeout(poll, initialLoadDelay || 0)
-    return () => { cancelled = true; clearTimeout(initialTimer) }
+    return () => {
+      cancelled = true
+      clearTimeout(initialTimer)
+      if (pollTimer) clearTimeout(pollTimer)
+    }
   }, [items, dirPath])
 
   const displayFiles = useMemo(() => {
@@ -1021,9 +1143,6 @@ function GeneralBrowser({ dirPath = '', dirName, rootPath, rootName, parentFulls
   // ─ 分页：大数据量时只渲染可见部分 ─
   const [visibleCount, setVisibleCount] = useState(50);
   const visibleFiles = useMemo(() => displayFiles.slice(0, visibleCount), [displayFiles, visibleCount]);
-  // 用 ref 跟踪最新的 visibleFiles，供异步回调中使用
-  const visibleFilesRef = useRef(visibleFiles);
-  visibleFilesRef.current = visibleFiles;
   const hasMore = displayFiles.length > visibleCount;
 
   // 懒加载文件夹计数：仅对可见文件夹计算（滚动时防抖）
@@ -1036,10 +1155,13 @@ function GeneralBrowser({ dirPath = '', dirName, rootPath, rootName, parentFulls
     if (dirs.length === 0) return;
     // 防抖 666ms：只在 visibleFiles 变化（滚动）时触发，避免滚动时频繁 I/O
     if (folderCountTimerRef.current) clearTimeout(folderCountTimerRef.current);
+    let cancelled = false;
     folderCountTimerRef.current = setTimeout(() => {
+      folderCountTimerRef.current = null;
       (async () => {
         const counts: { path: string; count: number }[] = []
         for (const dir of dirs) {
+          if (cancelled) return;
           try {
             const children = await countDirectoryItems(dir.path);
             counts.push({ path: dir.path, count: children })
@@ -1047,19 +1169,33 @@ function GeneralBrowser({ dirPath = '', dirName, rootPath, rootName, parentFulls
             counts.push({ path: dir.path, count: 0 })
           }
         }
-        setFolderCounts(prev => {
-          const next = new Map(prev);
-          for (const c of counts) next.set(c.path, c.count);
-          return next;
-        })
+        if (!cancelled) mergeFolderCountUpdates(counts)
       })()
     }, 666)
-    return () => { if (folderCountTimerRef.current) clearTimeout(folderCountTimerRef.current); }
+    return () => {
+      cancelled = true;
+      if (folderCountTimerRef.current) {
+        clearTimeout(folderCountTimerRef.current)
+        folderCountTimerRef.current = null
+      }
+    }
   }, [visibleFiles])
 
-  const folderCount = useMemo(() => displayFiles.filter((f) => f.isDirectory).length, [displayFiles]);
-  const fileCount = useMemo(() => displayFiles.filter((f) => !f.isDirectory).length, [displayFiles]);
-  const totalSize = useMemo(() => displayFiles.filter((f) => !f.isDirectory).reduce((sum, f) => sum + f.size, 0), [displayFiles]);
+  const fileStats = useMemo(() => {
+    let folderCount = 0;
+    let fileCount = 0;
+    let totalSize = 0;
+    for (const f of displayFiles) {
+      if (f.isDirectory) {
+        folderCount++;
+      } else {
+        fileCount++;
+        totalSize += f.size;
+      }
+    }
+    return { folderCount, fileCount, totalSize };
+  }, [displayFiles]);
+  const { folderCount, fileCount, totalSize } = fileStats;
 
   // ─ 选择操作 ─
   const toggleSelect = (path: string) => {
@@ -1781,7 +1917,7 @@ function GeneralBrowser({ dirPath = '', dirName, rootPath, rootName, parentFulls
               hFile = decodeURIComponent(dPath.slice(sepIdx + 2))
               dPath = dPath.slice(0, sepIdx)
             }
-            return <GeneralBrowser key={page + '@navGen' + navGen} dirPath={dPath} dirName={Path.basename(dPath)} rootPath={dPath} navPath={outerNavPath} highlightFile={hFile} isHomePage={false} onDirChange={onDirChange} oppositeDirName={oppositeDirName} onCopyToOppositeDir={onCopyToOppositeDir} externalCopiedPath={externalCopiedPath} onExternalCopy={onExternalCopy} onDropCompleted={onDropCompleted} refreshKey={refreshKey} />
+            return <GeneralBrowser key={page + '@navGen' + navGen} dirPath={dPath} dirName={Path.basename(dPath)} rootPath={dPath} navPath={outerNavPath} highlightFile={hFile} isHomePage={false} onDirChange={onDirChange} oppositeDirName={oppositeDirName} onCopyToOppositeDir={onCopyToOppositeDir} externalCopiedPath={externalCopiedPath} onExternalCopy={onExternalCopy} onDropCompleted={onDropCompleted} onFolderCountChanged={onFolderCountChanged} folderCountUpdateRef={folderCountUpdateRef} refreshKey={refreshKey} />
           }
           return <FileNavigationDest page={page} />
         }}
@@ -1791,13 +1927,14 @@ function GeneralBrowser({ dirPath = '', dirName, rootPath, rootName, parentFulls
 
   // ─ 收藏夹状态 ─
   const [bookmarkRefreshKey, setBookmarkRefreshKey] = useState(0)
+  const allBookmarks = useMemo(() => getAllBookmarks(), [bookmarkRefreshKey, bookmarks])
   // 路径显示：根目录自定义名称 + 相对路径
   const displayPath = useMemo(() => {
     if (!dirPath) return '文件列表';
     const root = rootPath || dirPath;
     // 首页模式优先使用书签名称（支持重命名后显示实际名称）
     const bookmarkName = isHomePage && settings?.homeDirectoryBookmarkName
-      ? (getAllBookmarks().find(b => b.bookmarkId === settings.homeDirectoryBookmarkName || b.name === settings.homeDirectoryBookmarkName)?.name || settings.homeDirectoryBookmarkName)
+      ? (allBookmarks.find(b => b.bookmarkId === settings.homeDirectoryBookmarkName || b.name === settings.homeDirectoryBookmarkName)?.name || settings.homeDirectoryBookmarkName)
       : null;
     const effectiveRootName = bookmarkName || rootName || dirName || Path.basename(dirPath);
     if (dirPath === root) {
@@ -1805,7 +1942,8 @@ function GeneralBrowser({ dirPath = '', dirName, rootPath, rootName, parentFulls
     }
     const relativePath = dirPath.replace(root, '').replace(/^\//, '');
     return relativePath ? `${effectiveRootName}/${relativePath}` : effectiveRootName;
-  }, [dirPath, dirName, rootPath, rootName, settings?.homeDirectoryBookmarkName, isHomePage, bookmarkRefreshKey]);
+  }, [dirPath, dirName, rootPath, rootName, settings?.homeDirectoryBookmarkName, isHomePage, allBookmarks]);
+  const titleDisplayPath = useMemo(() => tailDisplayPath(displayPath), [displayPath]);
 
 
   // ─ 首页标题点击：修改首页路径（仅在首页可用） ─
@@ -1971,43 +2109,69 @@ function GeneralBrowser({ dirPath = '', dirName, rootPath, rootName, parentFulls
     })
   }, []);
 
+  const finishDroppedPaths = async (createdPaths: string[]) => {
+    // 乐观更新：立即显示新增文件，不等 refreshDirectory 慢加载
+    if (createdPaths.length > 0 && addFilesRef?.current) {
+      const newFiles = createdPaths.map(p => ({
+        name: Path.basename(p),
+        path: p,
+        isDirectory: false,
+        isLink: false,
+        size: 0,
+        creationDate: Date.now(),
+        modificationDate: Date.now(),
+        extension: Path.extname(Path.basename(p)),
+        category: getFileCategory(Path.extname(Path.basename(p))),
+        mimeType: '',
+        icon: 'doc.text',
+        iconColor: 'systemGray',
+      } as FileInfo));
+      addFilesRef.current(newFiles);
+      onFilesAdded?.(newFiles);
+    }
+    refreshDirectory();
+    try {
+      const children = await countDirectoryItems(effectiveDropDir);
+      applyFolderCountUpdate(effectiveDropDir, children);
+    } catch {}
+    onDropCompleted?.();
+  }
+
+  const handleDropToCurrentDirectory = (info: DropInfo) => {
+    if (!effectiveDropDir) return false;
+    handleDropToDirectory(info, effectiveDropDir, () => {}).then(finishDroppedPaths).catch(() => {
+      refreshDirectory();
+      onDropCompleted?.();
+    });
+    return true;
+  }
+
+  const currentDirectoryDrop = {
+    types: DROP_ACCEPTED_TYPES,
+    validateDrop: (info: DropInfo) => info.hasItemsConforming(DROP_ACCEPTED_TYPES),
+    performDrop: handleDropToCurrentDirectory,
+  }
+
+  const directoryBlankDropZone = (
+    <Button
+      action={() => {}}
+      listRowSeparator={{ visibility: "hidden", edges: "all" }}
+      listRowBackground={<Rectangle fill="clear" />}
+      onDrop={currentDirectoryDrop}
+    >
+      <VStack
+        frame={{ maxWidth: 'infinity', minHeight: 520 }}
+        contentShape="rect"
+      >
+        <Spacer minLength={520} />
+      </VStack>
+    </Button>
+  )
+
   const mainContent = (
     <ZStack
       frame={{ maxWidth: 'infinity', maxHeight: 'infinity' }}
-      onDrop={{
-        types: DROP_ACCEPTED_TYPES,
-        validateDrop: (info) => info.hasItemsConforming(DROP_ACCEPTED_TYPES),
-        performDrop: (info) => {
-          if (!effectiveDropDir) return false;
-          handleDropToDirectory(info, effectiveDropDir, () => {}).then((createdPaths) => {
-            // 乐观更新：立即显示新增文件，不等 refreshDirectory 慢加载
-            if (createdPaths.length > 0 && addFilesRef?.current) {
-              const newFiles = createdPaths.map(p => ({
-                name: Path.basename(p),
-                path: p,
-                isDirectory: false,
-                isLink: false,
-                size: 0,
-                creationDate: Date.now(),
-                modificationDate: Date.now(),
-                extension: Path.extname(Path.basename(p)),
-                category: getFileCategory(Path.extname(Path.basename(p))),
-                mimeType: '',
-                icon: 'doc.text',
-                iconColor: 'systemGray',
-              } as FileInfo));
-              addFilesRef.current(newFiles);
-              onFilesAdded?.(newFiles);
-            }
-            refreshDirectory();
-            onDropCompleted?.();
-          }).catch(() => {
-            refreshDirectory();
-            onDropCompleted?.();
-          });
-          return true;
-        },
-      }}
+      onDrop={currentDirectoryDrop}
     >
       <VStack frame={{ maxWidth: 'infinity', maxHeight: 'infinity' }}>
         <ScrollViewReader>
@@ -2017,30 +2181,31 @@ function GeneralBrowser({ dirPath = '', dirName, rootPath, rootName, parentFulls
             <List
               selection={selectedFile}
               listStyle="plain"
-              navigationTitle={isHomePage ? "" : displayPath}
+              navigationTitle={titleDisplayPath}
               navigationBarTitleDisplayMode="inline"
               navigationDestination={isHomePage ? homeNavigationDest : navigationDestination}
-              refreshable={!isHomePage ? refresh : undefined}
-            searchable={{
-        value: searchQuery,
-        onChanged: setSearchQuery,
-        placement: 'navigationBarDrawer',
-        prompt: '搜索当前目录...',
-        presented: {
-          value: showSearch,
-          onChanged: (v) => {
-            setShowSearch(v)
-            if (!v) {
-              setSearchQuery('')
-              setDeepSearchResults([])
-            }
-          },
-        },
-      }}
+              refreshable={refresh}
+              onDrop={currentDirectoryDrop}
+              searchable={{
+                value: searchQuery,
+                onChanged: setSearchQuery,
+                placement: 'navigationBarDrawer',
+                prompt: '搜索当前目录...',
+                presented: {
+                  value: showSearch,
+                  onChanged: (v: boolean) => {
+                    setShowSearch(v)
+                    if (!v) {
+                      setSearchQuery('')
+                      setDeepSearchResults([])
+                    }
+                  },
+                },
+              }}
       toolbar={
         <Toolbar>
           <ToolbarItem placement="principal">
-            <Menu label={<Text font="headline">{displayPath}</Text>}>
+            <Menu label={<Text font="headline" lineLimit={1}>{titleDisplayPath}</Text>}>
               <Button title="选择当前 • 路径" systemImage="folder" action={handlePickDirectory} />
               <Button title="访问 • 输入路径" systemImage="pencil.and.outline" action={handleInputPath} />
               <Button title="访问 • 剪贴板路径" systemImage="clipboard" action={handlePastePath} />
@@ -2049,12 +2214,12 @@ function GeneralBrowser({ dirPath = '', dirName, rootPath, rootName, parentFulls
               <Button title="复制当前路径" systemImage="doc.on.clipboard" action={handleCopyPath} />
               <Divider />
               <Button title="手动选择路径收藏" systemImage="star" action={handleAddBookmark} />
-              {getAllBookmarks().length > 0 ? <>
+              {allBookmarks.length > 0 ? <>
               <Divider />
-              {getAllBookmarks().map(bm =>
+              {allBookmarks.map(bm =>
                 <Button title={bm.name} systemImage="folder" action={() => handleNavigateToBookmark(bm)} />
               )}
-              </> : null}
+              </> : <EmptyView />}
             </Menu>
           </ToolbarItem>
           <ToolbarItem placement="topBarTrailing">
@@ -2136,11 +2301,7 @@ function GeneralBrowser({ dirPath = '', dirName, rootPath, rootName, parentFulls
                             if (isDir) {
                               try {
                                 const children = await countDirectoryItems(destPath);
-                                setFolderCounts(prev => {
-                                  const next = new Map(prev);
-                                  next.set(destPath, children);
-                                  return next;
-                                });
+                                applyFolderCountUpdate(destPath, children);
                               } catch (e) {
                                 console.log('更新文件夹计数失败:', e);
                               }
@@ -2156,7 +2317,7 @@ function GeneralBrowser({ dirPath = '', dirName, rootPath, rootName, parentFulls
                     }} />
                     <Button title="取消复制" systemImage="xmark" action={async () => { await updateCopiedPath(null); }} />
                     <Divider />
-                  </> : null}
+                  </> : <EmptyView />}
                 </Group>
               }
               otherItems={
@@ -2164,7 +2325,7 @@ function GeneralBrowser({ dirPath = '', dirName, rootPath, rootName, parentFulls
                   <Button title="新建文件" systemImage="doc.text" action={handleCreateNewFile} />
                   <Button title="新建文件夹" systemImage="folder.badge.plus" action={() => handleCreateFile('folder')} />
                   <Button title="快速新建JS" systemImage="chevron.left.forwardslash.chevron.right" action={() => handleCreateFile('js', true)} />
-                  {isHomePage ? importToolbarItems : <>{importToolbarItems}{toolbarOtherItems}</>}
+                  {isHomePage ? importToolbarItems : <>{importToolbarItems}{toolbarOtherItems ?? <EmptyView />}</>}
                 </Group>
               }
               bottomItem={
@@ -2314,25 +2475,31 @@ function GeneralBrowser({ dirPath = '', dirName, rootPath, rootName, parentFulls
                       } else if (outerNavPath) {
                         outerNavPath.setValue([...outerNavPath.value, prefix + result.path])
                       }
+                    } else if (prefix === 'share:') {
+                      await shareFilePath(result.path, result.name)
                     } else if (outerNavPath) {
                       outerNavPath.setValue([...outerNavPath.value, prefix + result.path])
                     }
                   }
                 }
               }}
-            /> : null}
+            /> : <EmptyView />}
 
             {/* 文件列表 - 深度搜索结果显示时隐藏 */}
-            {deepSearchResults.length === 0 ? (visibleFiles.length === 0 ? null : (
+            {deepSearchResults.length === 0 ? (visibleFiles.length === 0 ? (
+              <Section>
+                {directoryBlankDropZone}
+              </Section>
+            ) : (
               <Section>
                 {visibleFiles.map((file, fileIdx) => (
-                  <FileRowLink key={file.path} file={file} onRefresh={refreshDirectory} onDeleteFile={(filePath) => setFiles(prev => prev.filter(f => f.path !== filePath))} selectMode={selectMode} isSelected={selectedPaths.has(file.path)} onToggleSelect={() => toggleSelect(file.path)} rootPath={rootPath || dirPath} rootName={rootName || dirName} parentFullscreen={parentFullscreen} navPath={outerNavPath} hideTopSeparator={fileIdx === 0} folderCounts={folderCounts} onCopyPath={(path) => updateCopiedPath(path)} isHighlighted={file.path === highlightedPath} copyToDirTitle={oppositeDirName} onCopyToDir={onCopyToOppositeDir} dirPath={effectiveDropDir} onDropCompleted={onDropCompleted} />
+                  <FileRowLink key={file.path} file={file} onRefresh={refreshDirectory} onDeleteFile={(filePath) => setFiles(prev => prev.filter(f => f.path !== filePath))} selectMode={selectMode} isSelected={selectedPaths.has(file.path)} onToggleSelect={() => toggleSelect(file.path)} rootPath={rootPath || dirPath} rootName={rootName || dirName} parentFullscreen={parentFullscreen} navPath={outerNavPath} hideTopSeparator={fileIdx === 0} folderCounts={folderCounts} onCopyPath={(path) => updateCopiedPath(path)} isHighlighted={file.path === highlightedPath} copyToDirTitle={oppositeDirName} onCopyToDir={onCopyToOppositeDir} dirPath={effectiveDropDir} onDropCompleted={onDropCompleted} onFolderCountChanged={applyFolderCountUpdate} />
                 ))}
-                {hasMore && (
+                {hasMore ? (
                   <Button title="加载更多" onAppear={() => setVisibleCount(prev => prev + 50)} action={() => setVisibleCount(prev => prev + 50)} />
-                )}
+                ) : <EmptyView />}
               </Section>
-            )) : null}
+            )) : <EmptyView />}
 
             {displayFiles.length > 0 ? (
             <Section>
@@ -2345,7 +2512,7 @@ function GeneralBrowser({ dirPath = '', dirName, rootPath, rootName, parentFulls
               </HStack>
 
             </Section>
-            ) : null}
+            ) : <EmptyView />}
 
     </List>
           )
@@ -2356,7 +2523,7 @@ function GeneralBrowser({ dirPath = '', dirName, rootPath, rootName, parentFulls
             <VStack alignment="center" frame={{ maxWidth: 'infinity', maxHeight: 'infinity' }}>
               <Image systemName="progress.indicator" symbolEffect={{effect: "rotate", value: tick}} frame={{ width: 32, height: 32 }} foregroundStyle="tertiaryLabel" />
             </VStack>
-          ) : null}
+          ) : <EmptyView />}
         </ZStack>
       );
 
@@ -2401,7 +2568,7 @@ function GeneralBrowser({ dirPath = '', dirName, rootPath, rootName, parentFulls
           }
           console.log('NavStack performDrop, dir:', destDir);
           if (!destDir) return false;
-          handleDropToDirectory(info, destDir, () => {}).then((createdPaths) => {
+          handleDropToDirectory(info, destDir, () => {}).then(async (createdPaths) => {
             invalidateDirectoryCache(destDir);
             // 乐观更新：立即显示新增文件
             if (createdPaths.length > 0 && addFilesRef?.current) {
@@ -2427,6 +2594,10 @@ function GeneralBrowser({ dirPath = '', dirName, rootPath, rootName, parentFulls
               setNavGen(g => g + 1);
             }
             refreshDirectory();
+            try {
+              const children = await countDirectoryItems(destDir);
+              applyFolderCountUpdate(destDir, children);
+            } catch {}
             onDropCompleted?.();
           }).catch(() => {
             refreshDirectory();

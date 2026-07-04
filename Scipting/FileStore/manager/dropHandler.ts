@@ -18,8 +18,12 @@ export function getDragSourcePath(): string | null {
 }
 
 export const DROP_ACCEPTED_TYPES: UTType[] = [
+  "public.item",
+  "public.content",
   "public.data",
   "public.file-url",
+  "public.folder",
+  "public.directory",
   "public.url",
   "public.text",
   "public.plain-text",
@@ -28,7 +32,7 @@ export const DROP_ACCEPTED_TYPES: UTType[] = [
 ]
 
 // 仅文件类型（用于文件导入兜底）
-const FILE_TYPES: UTType[] = ["public.data", "public.file-url"]
+const FILE_TYPES: UTType[] = ["public.item", "public.content", "public.data", "public.file-url", "public.folder", "public.directory"]
 
 /**
  * 把从外部拖入的项目导入到指定目录。
@@ -48,6 +52,20 @@ export async function handleDropToDirectory(
   if (providers.length === 0) return []
 
   await ensureDir(dirPath)
+  return handleItemProvidersToDirectory(providers, dirPath, onRefresh)
+}
+
+export async function handleItemProvidersToDirectory(
+  providers: ItemProvider[],
+  dirPath: string,
+  onRefresh: () => void,
+): Promise<string[]> {
+  console.log('handleItemProvidersToDirectory called, dirPath:', dirPath, 'providers:', providers.length)
+  if (providers.length === 0) return []
+
+  // Do not await directory creation before starting provider loads. onDropContent
+  // requires load operations to begin during the perform callback.
+  ensureDir(dirPath).catch(() => {})
 
   const results = providers.map((provider, index) =>
     readAndImportProvider(provider, dirPath, index)

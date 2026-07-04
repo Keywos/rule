@@ -1,6 +1,6 @@
 // 挂载目录标签 - 已挂载目录列表 + 添加/删除
 
-import { Navigation, NavigationStack, List, Section, Text, Button, HStack, Image, Spacer, VStack, ZStack, useState, useEffect, Menu, Divider, useObservable, NavigationDestination, Path } from "scripting";
+import { Navigation, NavigationStack, List, Section, Text, Button, HStack, Image, Spacer, VStack, ZStack, useState, useEffect, Menu, Divider, useObservable, NavigationDestination, Path, EmptyView } from "scripting";
 import { addDirectoryBookmark, removeBookmarkById, resolveBookmarkPath, renameBookmark, Bookmark } from "../manager/BookmarkManager";
 import { copyAndToast, copiedMessage, renameWithPrompt } from "../manager/utils";
 import { FileListItem } from "./FileListItem";
@@ -28,6 +28,22 @@ function getAccessiblePath(bookmark: Bookmark): string | null {
     return null;
   }
   return bookmark.path;
+}
+
+function sameStringSet(a: Set<string>, b: Set<string>): boolean {
+  if (a.size !== b.size) return false
+  for (const value of a) {
+    if (!b.has(value)) return false
+  }
+  return true
+}
+
+function sameNumberMap(a: Map<string, number>, b: Map<string, number>): boolean {
+  if (a.size !== b.size) return false
+  for (const [key, value] of a) {
+    if (b.get(key) !== value) return false
+  }
+  return true
 }
 
 async function handleRename(bookmark: Bookmark, onRefresh: () => void) {
@@ -128,8 +144,8 @@ export function MountDirectoriesPage({ bookmarks, showFolderItemCounts, onRefres
         if (r.inaccessible) badPaths.add(r.path)
         else if (r.count > 0) counts.set(r.path, r.count)
       }
-      setInaccessiblePaths(badPaths)
-      setFolderCounts(counts)
+      setInaccessiblePaths(prev => sameStringSet(prev, badPaths) ? prev : badPaths)
+      setFolderCounts(prev => sameNumberMap(prev, counts) ? prev : counts)
     })()
   }, [bookmarks])
 
@@ -141,11 +157,12 @@ export function MountDirectoriesPage({ bookmarks, showFolderItemCounts, onRefres
 
   // 实时搜索
   useEffect(() => {
-    if (!searchQuery.trim()) {
+    const query = searchQuery.trim().toLowerCase()
+    if (!query) {
       setSearchResults([])
       return
     }
-    const filtered = bookmarks.filter(b => b.name.toLowerCase().includes(searchQuery.toLowerCase()))
+    const filtered = bookmarks.filter(b => b.name.toLowerCase().includes(query))
     setSearchResults(filtered)
   }, [searchQuery, bookmarks])
 
@@ -377,7 +394,7 @@ export function MountDirectoriesPage({ bookmarks, showFolderItemCounts, onRefres
           prompt: '搜索目录...',
           presented: {
             value: showSearch,
-            onChanged: (v) => {
+            onChanged: (v: boolean) => {
               setShowSearch(v)
               if (!v) {
                 setSearchQuery('')
@@ -423,7 +440,7 @@ export function MountDirectoriesPage({ bookmarks, showFolderItemCounts, onRefres
                   <Divider />
                   <Button title="取消挂载选中" systemImage="trash" role="destructive" action={handleDeleteSelected} />
                 </>
-              ) : null}
+              ) : <EmptyView />}
               <Divider />
               <Button title="添加目录" systemImage="folder.badge.plus" action={handleAdd} />
               <Divider />
@@ -542,7 +559,7 @@ export function MountDirectoriesPage({ bookmarks, showFolderItemCounts, onRefres
                 );
               })}
             </Section>
-        ) : null}
+        ) : <EmptyView />}
       </List>
       </VStack>
     </NavigationStack>

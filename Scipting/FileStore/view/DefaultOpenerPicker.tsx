@@ -68,6 +68,7 @@ function openerIcon(prefix: OpenerPrefix): string {
     case 'livephoto:': return 'livephoto'
     case 'extract:': return 'archivebox'
     case 'extractfolder:': return 'folder.badge.gearshape'
+    case 'share:': return 'square.and.arrow.up'
   }
 }
 
@@ -80,6 +81,7 @@ function openerDescription(prefix: OpenerPrefix): string {
     case 'livephoto:': return '使用 Live Photo 查看器打开'
     case 'extract:': return '解压归档文件到当前目录'
     case 'extractfolder:': return '解压到以文件名命名的子文件夹'
+    case 'share:': return '使用系统分享菜单打开'
   }
 }
 
@@ -105,7 +107,7 @@ export async function getCurrentOpenerLabel(ext: string): Promise<string | null>
 
 /**
  * 处理文件打开：如果文件类型有专用处理器则直接返回 prefix，
- * 否则查询/弹窗选择默认打开方式。
+ * 否则查询/弹窗默认打开方式。
  * 
  * @param filePath 文件路径
  * @param category 文件分类（来自 getFileCategory）
@@ -141,7 +143,7 @@ export async function resolveOpenerForFile(
   if (!isKnownCategory(category)) {
     const chosen = await showOpenerPicker(ext)
     if (chosen) {
-      await setDefaultOpener(ext, chosen)
+      setDefaultOpener(ext, chosen)
       return chosen
     }
     return null

@@ -1,6 +1,6 @@
 // 通用排序筛选 — 类型、配置、工具函数
 
-import { FileInfo, getFileCategory } from './utils'
+import { FileInfo } from './utils'
 import { isLivePhotoFile } from './LivePhotoPacker'
 import { Bookmark } from './BookmarkManager'
 
@@ -113,7 +113,7 @@ export function sortFilesByOrder(files: FileInfo[], order: SortOrder): FileInfo[
 export function filterFiles(files: FileInfo[], type: string): FileInfo[] {
   if (type === 'all' || !type) return files
   return files.filter(f => {
-    const cat = getFileCategory(f.extension)
+    const cat = f.category
     switch (type) {
       case 'folder':
         return f.isDirectory

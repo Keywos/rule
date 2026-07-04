@@ -10,8 +10,6 @@ import { readSettings, saveSettings } from '../manager/Settings'
 import { HomePage } from './HomePage'
 import { MountDirectoriesPage } from './MountDirectoriesPage'
 import { DualBrowserPage } from './DualBrowserPage'
-import { DROP_ACCEPTED_TYPES, handleDropToDirectory } from '../manager/dropHandler'
-import { Path } from 'scripting'
 import { ToastOverlay } from './ToastOverlay'
 
 /* ───── 全屏切换标志（供 index.tsx 读取） ───── */
@@ -83,26 +81,6 @@ export function HomeView() {
       <Tab title="主页" systemImage="book.pages.fill" value={0}>
         <ZStack
           frame={{ maxWidth: 'infinity', maxHeight: 'infinity' }}
-          onDrop={{
-            types: DROP_ACCEPTED_TYPES,
-            validateDrop: (info) => {
-              const ok = info.hasItemsConforming(DROP_ACCEPTED_TYPES);
-              console.log('Tab0 ZStack validateDrop:', ok, 'location:', info.location);
-              return ok;
-            },
-            dropEntered: () => {
-              console.log('Tab0 ZStack dropEntered');
-            },
-            performDrop: (info) => {
-              console.log('Tab0 ZStack performDrop');
-              const defaultDir = Path.join(FileManager.documentsDirectory, 'File Store')
-              const targetDir = settings.homeCurrentPath || defaultDir
-              handleDropToDirectory(info, targetDir, () => {
-                setRefreshKey(k => k + 1)
-              })
-              return true
-            },
-          }}
         >
         <Group labelStyle="titleAndIcon">
           <HomePage

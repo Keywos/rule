@@ -1,14 +1,13 @@
 // 文件管理器 - 主入口
 
 import {
-  Script, Intent, Navigation, ZStack, Path,
+  Script, Intent, Navigation,
 } from 'scripting'
 import { getFileInfo } from './manager/utils'
 import { FilePreviewView } from './view/FilePreview'
 import { readSettings } from './manager/Settings'
 import { HomeView, isTogglingFullscreen } from './view/preview'
 import { openEditorDirectly } from './view/EditorDirectly'
-import { DROP_ACCEPTED_TYPES, handleDropToDirectory } from './manager/dropHandler'
 
 
 async function run() {  
@@ -69,34 +68,9 @@ async function run() {
   const settings = readSettings()
   const presentationStyle = settings.isFullscreen ? 'fullScreen' : 'pageSheet'
 
-  const defaultDir = Path.join(FileManager.documentsDirectory, 'File Store')
-
   // 显示文件管理器主页
   await Navigation.present({
-    element: (
-      <ZStack
-        frame={{ maxWidth: 'infinity', maxHeight: 'infinity' }}
-        onDrop={{
-          types: DROP_ACCEPTED_TYPES,
-          validateDrop: (info) => {
-            const ok = info.hasItemsConforming(DROP_ACCEPTED_TYPES);
-            console.log('Root ZStack validateDrop:', ok);
-            return ok;
-          },
-          dropEntered: () => {
-            console.log('Root ZStack dropEntered');
-          },
-          performDrop: (info) => {
-            console.log('Root ZStack performDrop');
-            const targetDir = settings.homeCurrentPath || defaultDir
-            handleDropToDirectory(info, targetDir, () => {})
-            return true
-          },
-        }}
-      >
-        <HomeView />
-      </ZStack>
-    ),
+    element: <HomeView />,
     modalPresentationStyle: presentationStyle,
   })
   // 如果是因为全屏切换而 dismiss 的，不退出脚本（由 toggleFullscreen 重新 present）

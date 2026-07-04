@@ -5,7 +5,7 @@
 //   present    — 导航栈弹出编辑器（NavigationStack + 关闭按钮 + 原生搜索 + 自动保存）
 //   preview    — 分享预览编辑器（NavigationStack + 文件头部 + 原生搜索 + 无自动保存）
 
-import { useColorScheme, Navigation, NavigationStack, VStack, HStack, ZStack, Text, Button, Divider, Image, useState, useEffect, useMemo, useRef, Editor, Path } from "scripting";
+import { useColorScheme, Navigation, NavigationStack, VStack, HStack, ZStack, Text, Button, Divider, Image, useState, useEffect, useMemo, useRef, Editor, Path, EmptyView } from "scripting";
 import { getEditorExt } from "../manager/editorConfig";
 import { getFileIcon, fmtSize, langMap } from "../manager/utils";
 
@@ -219,7 +219,7 @@ export function EditorPage(props: EditorPageProps) {
 
   // ─── 文件头部（仅 preview 模式） ───
   const renderFileHeader = () => {
-    if (mode !== "preview") return null;
+    if (mode !== "preview") return <EmptyView />;
     const c = content ?? "";
     const initLines = c.split("\n");
     const initWords = c.split(/\s+/).filter((w) => w.length > 0).length;
@@ -231,8 +231,8 @@ export function EditorPage(props: EditorPageProps) {
         </HStack>
         <Text font="caption" foregroundStyle="secondaryLabel">
           {fmtSize(propFileSize ?? 0)} · {initLines.length} 行 · {initWords} 字 · {c.length} 字符
-          {langMap[ext.toLowerCase()] && ` · ${langMap[ext.toLowerCase()]}`}
-          {ext && ` · ${ext}`}
+          {langMap[ext.toLowerCase()] ? ` · ${langMap[ext.toLowerCase()]}` : ""}
+          {ext ? ` · ${ext}` : ""}
         </Text>
       </VStack>
     );

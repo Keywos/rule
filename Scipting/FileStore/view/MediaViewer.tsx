@@ -5,7 +5,7 @@ import {
   Spacer, Image, VideoPlayer, useState, useRef, Button,
   MagnifyGesture, DragGesture, TapGesture,
   Navigation, useObservable, useEffect, useColorScheme,
-  LivePhotoView, Size, Path, Text,
+  LivePhotoView, Size, Path, Text, EmptyView,
 } from 'scripting'
 import { unpackLivePhoto } from '../manager/LivePhotoPacker'
 import { FilePreviewView } from './FilePreview'
@@ -182,7 +182,7 @@ export function VideoViewer({ player, nested }: VideoViewerProps) {
       }}
     >
       <Spacer frame={{ height: 40 }} />
-      {player && <VideoPlayer player={player} scaleEffect={scale} offset={offset} rotationEffect={rotation} />}
+      {player ? <VideoPlayer player={player} scaleEffect={scale} offset={offset} rotationEffect={rotation} /> : <EmptyView />}
       <Spacer frame={{ height: 60 }} />
     </VStack>
   )

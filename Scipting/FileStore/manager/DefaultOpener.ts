@@ -1,7 +1,7 @@
 // 扩展名 → 默认打开方式 持久化存储
 // 使用 Storage API 存储
 
-export type OpenerPrefix = 'editor:' | 'preview:' | 'image:' | 'video:' | 'livephoto:' | 'extract:' | 'extractfolder:'
+export type OpenerPrefix = 'editor:' | 'preview:' | 'image:' | 'video:' | 'livephoto:' | 'extract:' | 'extractfolder:' | 'share:'
 
 // 所有可选的打开方式
 export const OPENER_OPTIONS: { label: string; prefix: OpenerPrefix }[] = [
@@ -11,6 +11,7 @@ export const OPENER_OPTIONS: { label: string; prefix: OpenerPrefix }[] = [
   { label: '视频播放器', prefix: 'video:' },
   { label: '解压文件', prefix: 'extract:' },
   { label: '解压到文件夹内', prefix: 'extractfolder:' },
+  { label: '分享', prefix: 'share:' },
 ]
 
 // 已有专用处理器的分类 → 不弹选择框
@@ -32,7 +33,10 @@ interface ExtensionDefaults {
   [ext: string]: OpenerPrefix
 }
 
+let _defaultsCache: ExtensionDefaults | null = null
+
 function loadDefaults(): ExtensionDefaults {
+  if (_defaultsCache) return _defaultsCache
   try {
     const st = getStorage()
     if (!st) return {}
@@ -49,16 +53,21 @@ function loadDefaults(): ExtensionDefaults {
     if (raw && typeof raw === 'string') {
       try {
         const parsed = JSON.parse(raw)
-        if (parsed && typeof parsed === 'object') return parsed
+        if (parsed && typeof parsed === 'object') {
+          _defaultsCache = parsed
+          return parsed
+        }
       } catch {}
     }
   } catch (e) {
     console.log('读取默认打开方式失败:', e)
   }
-  return {}
+  _defaultsCache = {}
+  return _defaultsCache
 }
 
 function saveDefaults(data: ExtensionDefaults): void {
+  _defaultsCache = data
   const json = JSON.stringify(data, null, 2)
   const st = getStorage()
   try {

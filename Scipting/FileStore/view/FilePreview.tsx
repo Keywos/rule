@@ -4,6 +4,7 @@ import {
   Navigation, NavigationStack, VStack, HStack, Text, Button,
   Image, useState, useEffect, useMemo, useRef, Path, 
   Spacer,
+  EmptyView,
 } from 'scripting'
 import { getFileCategory, langMap, FileInfo } from '../manager/utils'
 import { getEditorExt } from '../manager/editorConfig'
@@ -190,7 +191,7 @@ export function FilePreviewView({ fileInfo, content, isFullscreen = false }: Fil
             <Text font="headline">{fileInfo.name}</Text>
             <HStack spacing={16}>
               <Button title={isPlaying ? '暂停' : '播放'} systemImage={isPlaying ? 'pause.circle.fill' : 'play.circle.fill'} action={handlePlay} />
-              {player ? <Button title="停止" systemImage="stop.circle.fill" action={() => { player.stop(); setIsPlaying(false) }} /> : <></>}
+              {player ? <Button title="停止" systemImage="stop.circle.fill" action={() => { player.stop(); setIsPlaying(false) }} /> : <EmptyView />}
             </HStack>
           </VStack>
           <Spacer frame={{ height: 100 }} />

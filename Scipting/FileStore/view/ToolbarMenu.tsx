@@ -1,6 +1,6 @@
 // 通用工具栏菜单组件 — 三点按钮弹出菜单，支持选择、排序（切换按钮）、筛选（单选 radio）
 
-import { Menu, Button, Divider } from 'scripting'
+import { Menu, Button, Divider, EmptyView } from 'scripting'
 import {FilterOption, SortOrder, resolveSortOrder, FILE_SORT_TOGGLES, FILE_FILTER_OPTIONS } from '../manager/sortFilter'
 
 /* ─── 选择模式配置 ─── */
@@ -81,24 +81,24 @@ export function ToolbarMenu<F extends string = string>({
   return (
     <Menu title="" systemImage="ellipsis">
       {/* ─── 选择模式 ─── */}
-      {hasSelectMode && (
+      {hasSelectMode ? (
         <>
           <Button
             title={selectMode.isSelectMode ? "完成选择" : "选择"}
             systemImage="checkmark.circle"
             action={selectMode.onToggleSelectMode}
           />
-          {selectMode.isSelectMode && (
+          {selectMode.isSelectMode ? (
             <>
               <Button title="全选" action={selectMode.onSelectAll ?? (() => {})} />
               <Button title="取消选择" action={selectMode.onDeselectAll ?? (() => {})} />
             </>
-          )}
+          ) : <EmptyView />}
         </>
-      )}
+      ) : <EmptyView />}
 
       {/* ─── 选择模式下的操作 ─── */}
-      {hasSelectMode && selectMode.isSelectMode && selectMode.selectedCount !== undefined && selectMode.selectedCount > 0 && (
+      {hasSelectMode && selectMode.isSelectMode && selectMode.selectedCount !== undefined && selectMode.selectedCount > 0 ? (
         <>
           <Divider />
           <Button title={`压缩 ${selectMode.selectedCount} 项`} systemImage="archivebox" action={selectMode.onCompressSelected ?? (() => {})} />
@@ -108,18 +108,18 @@ export function ToolbarMenu<F extends string = string>({
           <Button title="导出到相册" systemImage="square.and.arrow.down" action={selectMode.onExportPhotos ?? (() => {})} />
           <Button title="拷贝" systemImage="arrow.right.doc.on.clipboard" action={selectMode.onCopyToClipboard ?? (() => {})} />
         </>
-      )}
+      ) : <EmptyView />}
 
       {/* ─── 额外菜单项（导入/新建等） ─── */}
-      {extraItems && (
+      {extraItems ? (
         <>
           <Divider />
           {extraItems}
         </>
-      )}
+      ) : <EmptyView />}
 
       {/* ─── 排序（切换按钮） ─── */}
-      {hasSort && (
+      {hasSort ? (
         <>
           <Divider />
           {FILE_SORT_TOGGLES.map(toggle => {
@@ -140,18 +140,18 @@ export function ToolbarMenu<F extends string = string>({
             )
           })}
         </>
-      )}
+      ) : <EmptyView />}
 
       {/* ─── 底部菜单项（如"新建文件"） ─── */}
-      {otherItems && (
+      {otherItems ? (
         <>
           <Divider />
           {otherItems}
         </>
-      )}
+      ) : <EmptyView />}
 
       {/* ─── 筛选（单选 radio） ─── */}
-      {hasFilter && (
+      {hasFilter ? (
         <>
           <Divider />
           {filterOptions.map(opt => {
@@ -166,15 +166,15 @@ export function ToolbarMenu<F extends string = string>({
             )
           })}
         </>
-      )}
+      ) : <EmptyView />}
 
       {/* ─── 最底部菜单项（如"设置"） ─── */}
-      {bottomItem && (
+      {bottomItem ? (
         <>
           <Divider />
           {bottomItem}
         </>
-      )}
+      ) : <EmptyView />}
     </Menu>
   )
 }

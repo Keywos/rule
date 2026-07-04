@@ -12,6 +12,7 @@ import {
   Menu,
   Path,
   StyledText,
+  EmptyView,
 } from 'scripting'
 import {
   buildIndex, searchFromIndex, DeepSearchResult,
@@ -19,7 +20,7 @@ import {
   closeDatabase,
 } from '../manager/DeepSearch'
 import { setDeepSearchPref, getDeepSearchPref } from '../manager/SearchState'
-import { FileInfo, FileCategory, writeClipboardPath } from '../manager/utils'
+import { FileInfo, FileCategory, writeClipboardPath, shareFilePath } from '../manager/utils'
 import { ContextMenuItem } from './FileListItem'
 import { resolveOpenerForFile } from './DefaultOpenerPicker'
 import { setDefaultOpener, OPENER_OPTIONS } from '../manager/DefaultOpener'
@@ -141,7 +142,7 @@ export function SearchPanel({
   const indexingCountRef = useRef(0)
   /* ── 分页状态 ── */
   const [searchOffset, setSearchOffset] = useState(0)
-  const [hasMoreResults, setHasMoreResults] = useState(true)
+  const [hasMoreResults, setHasMoreResults] = useState(false)
   const [isLoadingMore, setIsLoadingMore] = useState(false)
   const pageSize = 200
   /* ── 已删除路径缓存，防止重新搜索后再次出现 ── */
@@ -190,6 +191,8 @@ export function SearchPanel({
   const performDeepSearch = async (query: string, append: boolean = false) => {
     const currentDirPath = dirPath
     if (!query.trim()) {
+      setSearchOffset(0)
+      setHasMoreResults(false)
       notifyResults([])
       return
     }
@@ -271,6 +274,8 @@ export function SearchPanel({
   useEffect(() => {
     if (!searchQuery.trim()) {
       setDeepSearchResults([])
+      setSearchOffset(0)
+      setHasMoreResults(false)
       setIsBuildingIndex(false)
       setIndexingCount(0)
       cancelBuildIndex()
@@ -304,7 +309,7 @@ export function SearchPanel({
   
   /* ── 缓存结果渲染 ── */
   const resultsSection = useMemo(() => {
-    if (!enableDeepSearch || deepSearchResults.length === 0) return null
+    if (!enableDeepSearch || deepSearchResults.length === 0) return <EmptyView />
     
     const navigateToFile = (result: DeepSearchResult, specificLine?: number) => {
       // 防止重复导航
@@ -326,7 +331,9 @@ export function SearchPanel({
         ;(async () => {
           const prefix = await resolveOpenerForFile(result.path, result.category)
           if (prefix) {
-            if (prefix === 'editor:' && specificLine) {
+            if (prefix === 'share:') {
+              await shareFilePath(result.path, result.name)
+            } else if (prefix === 'editor:' && specificLine) {
               _navPath.setValue([..._navPath.value, prefix + result.path + '::L' + specificLine])
             } else {
               _navPath.setValue([..._navPath.value, prefix + result.path])
@@ -415,13 +422,13 @@ export function SearchPanel({
                     <Button title="删除" role="destructive" action={() => deleteFile(result)} />
                     <Button title="拷贝" action={() => copyToStorage(result)} />
                     <Button title="复制文件路径" action={() => copyFilePath(result)} />
-                    {!result.isDirectory && <Menu title="选择默认打开方式" systemImage="gear">
+                    {!result.isDirectory ? <Menu title="默认打开方式" systemImage="gear">
                       {OPENER_OPTIONS.map(opt =>
                         <Button title={opt.label} action={async () => {
-                          await setDefaultOpener(Path.extname(result.path), opt.prefix)
+                          setDefaultOpener(Path.extname(result.path), opt.prefix)
                         }} />
                       )}
-                    </Menu>}
+                    </Menu> : <EmptyView />}
                   </Group>
                 }}
                   trailingSwipeActions={(() => {
@@ -453,13 +460,13 @@ export function SearchPanel({
                     <Button title="删除" role="destructive" action={() => deleteFile(result)} />
                     <Button title="拷贝" action={() => copyToStorage(result)} />
                     <Button title="复制文件路径" action={() => copyFilePath(result)} />
-                    {!result.isDirectory && <Menu title="选择默认打开方式" systemImage="gear">
+                    {!result.isDirectory ? <Menu title="默认打开方式" systemImage="gear">
                       {OPENER_OPTIONS.map(opt =>
                         <Button title={opt.label} action={async () => {
-                          await setDefaultOpener(Path.extname(result.path), opt.prefix)
+                          setDefaultOpener(Path.extname(result.path), opt.prefix)
                         }} />
                       )}
-                    </Menu>}
+                    </Menu> : <EmptyView />}
                   </Group>
                 }}
                   trailingSwipeActions={(() => {
@@ -484,20 +491,20 @@ export function SearchPanel({
                   </HStack>
                 </Button>
               )}
-              {isExpanded && hasMatches && matches.map((m, i) => (
+              {isExpanded && hasMatches ? matches.map((m, i) => (
                 <Button key={i} action={() => navigateToFile(result, m.line)} contextMenu={{
                   menuItems: <Group>
                     <Button title="跳转到目录" action={() => gotoParentDir(result)} />
                     <Button title="删除" role="destructive" action={() => deleteFile(result)} />
                     <Button title="拷贝" action={() => copyToStorage(result)} />
                     <Button title="复制文件路径" action={() => copyFilePath(result)} />
-                    {!result.isDirectory && <Menu title="选择默认打开方式" systemImage="gear">
+                    {!result.isDirectory ? <Menu title="默认打开方式" systemImage="gear">
                       {OPENER_OPTIONS.map(opt =>
                         <Button title={opt.label} action={async () => {
-                          await setDefaultOpener(Path.extname(result.path), opt.prefix)
+                          setDefaultOpener(Path.extname(result.path), opt.prefix)
                         }} />
                       )}
-                    </Menu>}
+                    </Menu> : <EmptyView />}
                   </Group>
                 }}>
                   <HStack spacing={8} alignment="firstTextBaseline" padding={{ vertical: 6, leading: 6, trailing: 16 }}>
@@ -507,7 +514,7 @@ export function SearchPanel({
                     <HighlightedText text={m.content} query={searchQuery} />
                   </HStack>
                 </Button>
-              ))}
+              )) : <EmptyView />}
             </Group>
           )
         })}
@@ -525,7 +532,7 @@ export function SearchPanel({
   return (
     <>
       {/* ── 深度搜索状态栏 ── */}
-      {enableDeepSearch && searchQuery.trim() && (
+      {enableDeepSearch && searchQuery.trim() ? (
         <Section listRowSeparator="hidden" padding={{vertical:0, horizontal:0}}>
           <Button
             action={() => {
@@ -543,35 +550,35 @@ export function SearchPanel({
                 {deepSearchEnabled ? "ON" : "OFF"}
               </Text>
 
-              {deepSearchEnabled && !isBuildingIndex && indexStats && (
+              {deepSearchEnabled && !isBuildingIndex && indexStats ? (
                 <Text font="caption" foregroundStyle="tertiaryLabel">
                   文件数 {indexStats.total}
                 </Text>
-              )}
+              ) : <EmptyView />}
 
-              {deepSearchEnabled && isBuildingIndex && (
+              {deepSearchEnabled && isBuildingIndex ? (
                 <Text font="caption" foregroundStyle="tertiaryLabel">
                   文件 {indexingCount}
                 </Text>
-              )}
+              ) : <EmptyView />}
 
               <Spacer />
 
-              {deepSearchEnabled && !isBuildingIndex && (
+              {deepSearchEnabled && !isBuildingIndex ? (
                 <Button title="重建索引" action={() => buildDeepSearchIndex(true)} />
-              )}
+              ) : <EmptyView />}
 
-              {deepSearchEnabled && isBuildingIndex && (
+              {deepSearchEnabled && isBuildingIndex ? (
                 <Button title="取消索引" action={handleCancelIndexing} />
-              )}
+              ) : <EmptyView />}
             </HStack>
           </Button>
         </Section>
-      )}
+      ) : <EmptyView />}
 
       {resultsSection}
 
-      {hasMoreResults && (
+      {hasMoreResults ? (
         <Group key="load-more">
           <Button action={() => { if (!isLoadingMore) loadMoreResults() }}>
             <HStack padding={{ vertical: 12, horizontal: 16 }} alignment="center">
@@ -583,7 +590,7 @@ export function SearchPanel({
             </HStack>
           </Button>
         </Group>
-      )}
+      ) : <EmptyView />}
     </>
   )
 }

@@ -35,6 +35,8 @@ export function DualBrowserPage({
   // 跨栏复制文件乐观更新注入
   const leftAddFilesRef = useRef<(files: FileInfo[]) => void>(() => {})
   const rightAddFilesRef = useRef<(files: FileInfo[]) => void>(() => {})
+  const leftFolderCountUpdateRef = useRef<(folderPath: string, count: number) => void>(() => {})
+  const rightFolderCountUpdateRef = useRef<(folderPath: string, count: number) => void>(() => {})
   
   // ── 左右各自独立的 settings（从专属持久键初始化，避免交叉覆盖） ──
   const [leftSettings, setLeftSettings] = useState<AppSettings>(() => ({
@@ -283,6 +285,10 @@ export function DualBrowserPage({
                       oppositeDirName={rightDir ? (layoutDir === 'horizontal' ? "复制到右侧目录" : "复制到下方目录") : undefined}
                       onCopyToOppositeDir={rightDir ? handleCopyLeftToRight : undefined}
                       addFilesRef={leftAddFilesRef}
+                      folderCountUpdateRef={leftFolderCountUpdateRef}
+                      onFolderCountChanged={(folderPath, count) => {
+                        rightFolderCountUpdateRef.current(folderPath, count)
+                      }}
                       onFilesAdded={(files) => {
                         if (leftDir === rightDir && rightDir) {
                           rightAddFilesRef.current(files)
@@ -308,6 +314,10 @@ export function DualBrowserPage({
                       onCopyToOppositeDir={leftDir ? handleCopyRightToLeft : undefined}
                       initialLoadDelay={300}
                       addFilesRef={rightAddFilesRef}
+                      folderCountUpdateRef={rightFolderCountUpdateRef}
+                      onFolderCountChanged={(folderPath, count) => {
+                        leftFolderCountUpdateRef.current(folderPath, count)
+                      }}
                       onFilesAdded={(files) => {
                         if (leftDir === rightDir && leftDir) {
                           leftAddFilesRef.current(files)
@@ -334,6 +344,10 @@ export function DualBrowserPage({
                       oppositeDirName={rightDir ? "复制到下方目录" : undefined}
                       onCopyToOppositeDir={rightDir ? handleCopyLeftToRight : undefined}
                       addFilesRef={leftAddFilesRef}
+                      folderCountUpdateRef={leftFolderCountUpdateRef}
+                      onFolderCountChanged={(folderPath, count) => {
+                        rightFolderCountUpdateRef.current(folderPath, count)
+                      }}
                       onFilesAdded={(files) => {
                         if (leftDir === rightDir && rightDir) {
                           rightAddFilesRef.current(files)
@@ -359,6 +373,10 @@ export function DualBrowserPage({
                       onCopyToOppositeDir={leftDir ? handleCopyRightToLeft : undefined}
                       initialLoadDelay={300}
                       addFilesRef={rightAddFilesRef}
+                      folderCountUpdateRef={rightFolderCountUpdateRef}
+                      onFolderCountChanged={(folderPath, count) => {
+                        leftFolderCountUpdateRef.current(folderPath, count)
+                      }}
                       onFilesAdded={(files) => {
                         if (leftDir === rightDir && leftDir) {
                           leftAddFilesRef.current(files)

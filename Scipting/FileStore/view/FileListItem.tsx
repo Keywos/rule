@@ -5,7 +5,7 @@ import {
   NavigationStack,
   List, Section,
   HStack, VStack, Spacer,
-  Text, Button, Image, Group,
+  Text, Button, Image, Group, EmptyView,
   useState, useEffect,
   Path,
   type VirtualNode,
@@ -176,10 +176,10 @@ export function FileListItem(props: FileListItemProps) {
             </HStack>
           </VStack>
           <Spacer />
-          {trailingContent ?? null}
-          {showChevron && (
+          {trailingContent ?? <EmptyView />}
+          {showChevron ? (
             <Image systemName="chevron.right" frame={{ width: 12, height: 12 }} foregroundStyle="tertiaryLabel" />
-          )}
+          ) : <EmptyView />}
         </HStack>
       </Button>
     )
@@ -214,10 +214,10 @@ export function FileListItem(props: FileListItemProps) {
             </HStack>
           </VStack>
           <Spacer />
-          {trailingContent ?? null}
-          {showChevron && (
+          {trailingContent ?? <EmptyView />}
+          {showChevron ? (
             <Image systemName="chevron.right" frame={{ width: 12, height: 12 }} foregroundStyle="tertiaryLabel" />
-          )}
+          ) : <EmptyView />}
         </HStack>
       </Button>
     )
@@ -249,11 +249,11 @@ export function FileListItem(props: FileListItemProps) {
           </HStack>
         </VStack>
         <Spacer />
-        {matchInfo && (
+        {matchInfo ? (
           <Text font="caption2" foregroundStyle="systemYellow" lineLimit={2}>
             第{matchInfo.line}行: {matchInfo.content}
           </Text>
-        )}
+        ) : <EmptyView />}
       </HStack>
     </Button>
   )
@@ -468,13 +468,13 @@ export function FileInfoDialog({ file, nested }: { file: FileInfo; nested?: bool
           <Spacer />
           <Text font="body">{file.isDirectory ? '文件夹' : file.extension || '无扩展名'}</Text>
         </HStack>
-        {!file.isDirectory && (
+        {!file.isDirectory ? (
           <HStack spacing={12}>
             <Text font="body" foregroundStyle="secondaryLabel">MIME类型</Text>
             <Spacer />
             <Text font="body">{file.mimeType || '未知'}</Text>
           </HStack>
-        )}
+        ) : <EmptyView />}
         <HStack spacing={12}>
           <Text font="body" foregroundStyle="secondaryLabel">大小</Text>
           <Spacer />
@@ -516,7 +516,7 @@ export function FileInfoDialog({ file, nested }: { file: FileInfo; nested?: bool
       </Section>
 
       {/* Live Photo 图片 EXIF */}
-      {liveImageItems.length > 0 && (
+      {liveImageItems.length > 0 ? (
         <Section title="实况照片 - 图片信息">
           {liveImageItems.map((item) => (
             <HStack key={item.key} spacing={12}>
@@ -526,10 +526,10 @@ export function FileInfoDialog({ file, nested }: { file: FileInfo; nested?: bool
             </HStack>
           ))}
         </Section>
-      )}
+      ) : <EmptyView />}
 
       {/* Live Photo 视频 EXIF */}
-      {liveVideoItems.length > 0 && (
+      {liveVideoItems.length > 0 ? (
         <Section title="实况照片 - 视频信息">
           {liveVideoItems.map((item) => (
             <HStack key={item.key} spacing={12}>
@@ -539,10 +539,10 @@ export function FileInfoDialog({ file, nested }: { file: FileInfo; nested?: bool
             </HStack>
           ))}
         </Section>
-      )}
+      ) : <EmptyView />}
 
       {/* 普通图片 EXIF */}
-      {exifItems.length > 0 && (
+      {exifItems.length > 0 ? (
         <Section title="图片 EXIF 信息">
           {exifItems.map((item) => (
             <HStack key={item.key} spacing={12}>
@@ -552,7 +552,7 @@ export function FileInfoDialog({ file, nested }: { file: FileInfo; nested?: bool
             </HStack>
           ))}
         </Section>
-      )}
+      ) : <EmptyView />}
     </List>
     </Wrapper>
   )
