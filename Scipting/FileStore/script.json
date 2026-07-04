@@ -1,0 +1,38 @@
+{
+  "name" : "FileStore",
+  "remoteResource" : null,
+  "runInApp" : false,
+  "intentInputTypes" : [
+    "URLs",
+    "FileURLs",
+    "Text",
+    "Images",
+    "Files"
+  ],
+  "author" : null,
+  "contributors" : [
+
+  ],
+  "permissions" : null,
+  "description" : null,
+  "localizedNames" : {
+    "de" : "",
+    "zh" : "",
+    "it" : "",
+    "fr" : "",
+    "ja" : "",
+    "pt" : "",
+    "en" : "",
+    "ru" : "",
+    "es" : ""
+  },
+  "entry" : "index.tsx",
+  "version" : "1.2.3",
+  "iconImage" : null,
+  "icon" : "folder.fill",
+  "color" : "rgba(0, 0, 0, 1.00)",
+  "localizedDescriptions" : {
+    "zh" : "File Store, 文件挂载、预览各种文件类型",
+    "en" : "File Store, browse and preview various file types"
+  }
+}
