@@ -32,8 +32,7 @@
   ],
   "remoteResource" : {
     "autoUpdateInterval" : null,
-    "hash" : "fd3fee7a48d78a91090506ace17bf216",
-    "url" : "https:\/\/github.com\/Keywos\/rule\/raw\/refs\/heads\/main\/Scipting\/FileStore.scripting"
+    "url" : "https:\/\/github.com\/Keywos\/rule\/tree\/main\/Scipting\/FileStore"
   },
   "localizedDescriptions" : {
     "en" : "File Store, browse and preview various file types",
