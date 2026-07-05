@@ -1,14 +1,13 @@
 // 挂载目录标签 - 已挂载目录列表 + 添加/删除
 
-import { Navigation, NavigationStack, List, Section, Text, Button, HStack, Image, Spacer, VStack, ZStack, useState, useEffect, Menu, Divider, useObservable, NavigationDestination, Path, EmptyView } from "scripting";
-import { addDirectoryBookmark, removeBookmarkById, resolveBookmarkPath, renameBookmark, Bookmark } from "../manager/BookmarkManager";
+import { Navigation, NavigationStack, List, Section, Text, Button, HStack, Image, Spacer, VStack, ZStack, useState, useEffect, Menu, Divider, useObservable, NavigationDestination, Path, ForEach, EmptyView } from "scripting";
+import { addDirectoryBookmark, removeBookmarkById, resolveBookmarkPath, renameBookmark, Bookmark, reorderBookmarks } from "../manager/BookmarkManager";
 import { copyAndToast, copiedMessage, renameWithPrompt } from "../manager/utils";
 import { FileListItem } from "./FileListItem";
 import { GeneralBrowser } from "./GeneralBrowser";
 import { SettingsPage } from "./SettingsPage";
 import { saveSettings, readSettings, AppSettings } from '../manager/Settings'
 import { FileNavigationDest } from "./MediaViewer";
-import { DROP_ACCEPTED_TYPES, handleDropToDirectory } from "../manager/dropHandler";
 import { showToast } from "../manager/ToastManager";
 import { ToastOverlay } from "./ToastOverlay";
 
@@ -25,7 +24,7 @@ function getAccessiblePath(bookmark: Bookmark): string | null {
   if (bookmark.bookmarkId) {
     const resolved = resolveBookmarkPath(bookmark.bookmarkId);
     if (resolved) return resolved;
-    return null;
+    // 书签已失效（重启/重装后路径变更），回退到原始路径
   }
   return bookmark.path;
 }
@@ -180,18 +179,8 @@ export function MountDirectoriesPage({ bookmarks, showFolderItemCounts, onRefres
     }
   };
 
-  // 搜索结果 — 使用 observable，添加目录后立即更新
-  const displayBookmarks = useObservable<Array<Bookmark & {id: string}>>(bookmarks.map(b => ({ ...b, id: b.path })))
-
-  useEffect(() => {
-    const items = searchResults.length > 0 ? searchResults : (searchQuery.trim() ? [] : orderedBookmarks)
-    displayBookmarks.setValue(items.map(b => ({ ...b, id: b.path })))
-  }, [searchResults, searchQuery, orderedBookmarks])
-
-  useEffect(() => {
-    const items = searchResults.length > 0 ? searchResults : (searchQuery.trim() ? [] : bookmarks)
-    displayBookmarks.setValue(items.map(b => ({ ...b, id: b.path })))
-  }, [bookmarks])
+  // 搜索结果
+  const displayBookmarks = searchResults.length > 0 ? searchResults : (searchQuery.trim() ? [] : orderedBookmarks)
 
   /** 选择模式 */
   const toggleSelect = (name: string) => {
@@ -319,68 +308,8 @@ export function MountDirectoriesPage({ bookmarks, showFolderItemCounts, onRefres
   }
 
   // ── 从外部拖入文件到挂载目录 ──
-  const handleDropToBookmark = async (info: DropInfo) => {
-    // 获取所有可访问的书签（有有效路径且未被标记为不可访问）
-    const accessibleBookmarks = bookmarks
-      .map(b => ({
-        bookmark: b,
-        path: getAccessiblePath(b),
-      }))
-      .filter(item => item.path != null && !inaccessiblePaths.has(item.bookmark.path))
-
-    if (accessibleBookmarks.length === 0) {
-      console.log('无可用挂载目录，无法导入拖入文件')
-      return
-    }
-
-    // 通过落点 y 坐标估算目标书签的行号
-    // iOS List 行高约 56pt，Section header 约 40pt
-    const rowHeight = 56
-    const sectionHeaderHeight = 40
-    const headerOffset = sectionHeaderHeight + (systemDirs.length * rowHeight) + sectionHeaderHeight
-    const relativeY = info.location.y - headerOffset
-    let targetIndex = 0
-    if (relativeY >= 0) {
-      targetIndex = Math.floor(relativeY / rowHeight)
-    }
-    targetIndex = Math.max(0, Math.min(targetIndex, accessibleBookmarks.length - 1))
-
-    const target = accessibleBookmarks[targetIndex]
-    console.log(`拖拽导入到挂载目录「${target.bookmark.name}」(${target.path})`)
-    await handleDropToDirectory(info, target.path!, onRefresh)
-  }
 
     return (
-    <ZStack
-      frame={{ maxWidth: 'infinity', maxHeight: 'infinity' }}
-      onDrop={{
-        types: DROP_ACCEPTED_TYPES,
-        validateDrop: (info) => {
-          const ok = info.hasItemsConforming(DROP_ACCEPTED_TYPES);
-          console.log('MountDir ZStack validateDrop:', ok, 'location:', info.location);
-          return ok;
-        },
-        dropEntered: (info) => {
-          console.log('MountDir ZStack dropEntered at', info.location);
-        },
-        dropUpdated: (info) => {
-          console.log('MountDir ZStack dropUpdated at', info.location);
-          return "copy";
-        },
-        dropExited: (info) => {
-          console.log('MountDir ZStack dropExited at', info.location);
-        },
-        performDrop: (info) => {
-          console.log('MountDir ZStack performDrop at', info.location);
-          try {
-            handleDropToBookmark(info)
-          } catch (e) {
-            console.log('拖拽导入到挂载目录失败:', e)
-          }
-          return true
-        },
-      }}
-    >
       <NavigationStack path={navPath}>
       <VStack frame={{ maxWidth: 'infinity', maxHeight: 'infinity' }}>
       <List
@@ -499,9 +428,12 @@ export function MountDirectoriesPage({ bookmarks, showFolderItemCounts, onRefres
         </Section>
 
         {/* ── 已挂载目录 ── */}
-        {displayBookmarks.value.length > 0 ? (
+        {displayBookmarks.length > 0 ? (
           <Section>
-            {displayBookmarks.value.map((bookmark: Bookmark, index: number) => {
+            <ForEach
+              count={displayBookmarks.length}
+              itemBuilder={(index: number) => {
+                const bookmark = displayBookmarks[index]
                 const dirPath = getAccessiblePath(bookmark);
                 const bookmarkAsFile = {
                   name: bookmark.name,
@@ -548,22 +480,28 @@ export function MountDirectoriesPage({ bookmarks, showFolderItemCounts, onRefres
                     leadingActions={[
                       { title: '重命名', systemImage: 'pencil', action: () => handleRename(bookmark, onRefresh) },
                     ]}
-                    contextMenuItems={[
-                      { title: '简介', systemImage: 'info.circle', action: () => {
-                        Navigation.present({ element: <BookmarkInfoDialog bookmark={bookmark} />, modalPresentationStyle: 'pageSheet' });
-                      }},
-                      { title: '重命名', systemImage: 'pencil', action: () => handleRename(bookmark, onRefresh) },
-                      { title: '取消挂载', systemImage: 'trash', role: 'destructive', action: () => handleRemoveBookmark(bookmark) },
-                    ]}
                   />
                 );
-              })}
-            </Section>
-        ) : <EmptyView />}
+              }}
+              onMove={(indices: number[], newOffset: number) => {
+                const updated = [...orderedBookmarks]
+                const sourceIndex = indices[0]
+                const [moved] = updated.splice(sourceIndex, 1)
+                const adjustedOffset = newOffset > sourceIndex ? newOffset - 1 : newOffset
+                updated.splice(adjustedOffset, 0, moved)
+                reorderBookmarks(updated)
+                // 延迟更新状态，避免拖拽动画中重新渲染导致列表闪烁
+                setTimeout(() => {
+                  setOrderedBookmarks(updated)
+                  onRefresh()
+                }, 50)
+              }}
+            />
+          </Section>
+        ) : null}
       </List>
       </VStack>
     </NavigationStack>
-    </ZStack>
   );
 }
 

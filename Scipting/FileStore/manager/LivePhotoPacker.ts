@@ -64,24 +64,33 @@ export function unpackLivePhoto(data: Data): LivePhotoUnpacked | null {
   }
 
   const extLen = bytes[4]
+  // 扩展名长度必须在合理范围内（1~10，典型值为 3~4）
+  if (extLen < 1 || extLen > 10) return null
   if (bytes.length < 5 + extLen + 8) return null
 
-  // 读取扩展名
+  // 读取扩展名（校验均为可打印 ASCII）
   const extBytes = bytes.slice(5, 5 + extLen)
+  if (extBytes.some(b => b < 0x20 || b > 0x7E)) return null
   const imageExt = extBytes.map(b => String.fromCharCode(b)).join('')
 
   const offset = 5 + extLen
 
-  // 读取大端 uint32
-  const readUint32 = (arr: number[], pos: number) =>
-    (arr[pos] << 24) | (arr[pos + 1] << 16) | (arr[pos + 2] << 8) | arr[pos + 3]
+  // 读取大端 uint32（使用算术运算避免 JS 位运算的符号扩展问题）
+  const readUint32 = (arr: number[], pos: number): number =>
+    arr[pos] * 16777216 + arr[pos + 1] * 65536 + arr[pos + 2] * 256 + arr[pos + 3]
 
   const imgSize = readUint32(bytes, offset)
   const vidSize = readUint32(bytes, offset + 4)
 
+  // 图片和视频数据大小必须为正值
+  if (imgSize <= 0 || vidSize <= 0) return null
+
   const headerSize = offset + 8
 
+  // 校验文件总大小是否足够容纳所有数据
   if (bytes.length < headerSize + imgSize + vidSize) return null
+  // 校验 headerSize + imgSize 不溢出（安全性兜底）
+  if (headerSize + imgSize < headerSize) return null
 
   const imageData = data.slice(headerSize, headerSize + imgSize)
   const videoData = data.slice(headerSize + imgSize, headerSize + imgSize + vidSize)

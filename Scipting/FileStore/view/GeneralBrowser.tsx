@@ -197,7 +197,7 @@ function FileRowLink({ file, onRefresh, onDeleteFile, selectMode, isSelected, on
                     extractDir = Path.join(parentDir, `${archiveName}_${String(counter).padStart(2, '0')}`)
                   }
                   await FileManager.createDirectory(extractDir, true)
-                  await FileManager.unzip(file.path, extractDir)
+                  await safeUnzip(file.path, extractDir)
                   invalidateDirectoryCache(parentDir)
                   onRefresh()
                   showToast(`已解压到 ${Path.basename(extractDir)}`)
@@ -257,7 +257,7 @@ function FileRowLink({ file, onRefresh, onDeleteFile, selectMode, isSelected, on
                       extractDir = Path.join(dirPath || Path.dirname(file.path), `${archiveName}_${String(counter).padStart(2, '0')}`)
                     }
                     await FileManager.createDirectory(extractDir, true)
-                    await FileManager.unzip(file.path, extractDir)
+                    await safeUnzip(file.path, extractDir)
                     invalidateDirectoryCache(dirPath || Path.dirname(file.path))
                     onRefresh()
                     showToast(`已解压到 ${Path.basename(extractDir)}`)
@@ -372,7 +372,7 @@ function FileRowLink({ file, onRefresh, onDeleteFile, selectMode, isSelected, on
                     extractDir = Path.join(parentDir, `${archiveName}_${String(counter).padStart(2, '0')}`)
                   }
                   await FileManager.createDirectory(extractDir, true)
-                  await FileManager.unzip(file.path, extractDir)
+                  await safeUnzip(file.path, extractDir)
                   invalidateDirectoryCache(parentDir)
                   onRefresh()
                   showToast(`已解压到 ${Path.basename(extractDir)}`)
@@ -487,7 +487,7 @@ function FileRowLink({ file, onRefresh, onDeleteFile, selectMode, isSelected, on
                     extractDir = Path.join(dirPath || Path.dirname(file.path), `${archiveName}_${String(counter).padStart(2, '0')}`)
                   }
                   await FileManager.createDirectory(extractDir, true)
-                  await FileManager.unzip(file.path, extractDir)
+                  await safeUnzip(file.path, extractDir)
                   invalidateDirectoryCache(dirPath || Path.dirname(file.path))
                   onRefresh()
                   showToast(`已解压到 ${Path.basename(extractDir)}`)
@@ -586,6 +586,48 @@ function FileRowLink({ file, onRefresh, onDeleteFile, selectMode, isSelected, on
 function FileContentView({ file, parentFullscreen }: { file: FileInfo; parentFullscreen?: boolean }) {
   const cat = getFileCategory(file.extension)
 
+  // 必须在条件返回前声明所有 hooks，遵守 React 规则
+  const [content, setContent] = useState<string | null>(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      // 图片/视频走单独分支，无需加载文本内容
+      if (cat === 'image' || cat === 'video') {
+        setLoading(false)
+        return
+      }
+      setLoading(true)
+      const targetPath = file.path
+      if (cat === "text" || cat === "code" || cat === "data") {
+        try {
+          const isBinary = await FileManager.isBinaryFile(targetPath)
+          if (!isBinary && !cancelled) {
+            // 空文件也用编辑器打开（content = ""）
+            let found = false
+            for (const enc of ["utf8", "utf-16", "ascii"] as const) {
+              if (cancelled) return
+              try {
+                const text = await FileManager.readAsString(targetPath, enc)
+                if (text != null && !cancelled) {
+                  setContent(text)
+                  found = true
+                  break
+                }
+              } catch {}
+            }
+            if (!found && !cancelled) {
+              setContent("")
+            }
+          }
+        } catch {}
+      }
+      if (!cancelled) setLoading(false)
+    })()
+    return () => { cancelled = true }
+  }, [file.path, cat])
+
   // 图片 → ImageViewer
   if (cat === 'image') {
     return <ImageViewer filePath={file.path} nested />
@@ -594,40 +636,6 @@ function FileContentView({ file, parentFullscreen }: { file: FileInfo; parentFul
   // 视频 → VideoViewer
   if (cat === 'video') {
     return <VideoViewerPage filePath={file.path} nested />
-  }
-
-  const [content, setContent] = useState<string | null>(null)
-  const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    loadContent()
-  }, [])
-
-  const loadContent = async () => {
-    setLoading(true)
-    if (cat === "text" || cat === "code" || cat === "data") {
-      try {
-        const isBinary = await FileManager.isBinaryFile(file.path)
-        if (!isBinary) {
-          // 空文件也用编辑器打开（content = ""）
-          let found = false
-          for (const enc of ["utf8", "utf-16", "ascii"] as const) {
-            try {
-              const text = await FileManager.readAsString(file.path, enc)
-              if (text != null) {
-                setContent(text)
-                found = true
-                break
-              }
-            } catch {}
-          }
-          if (!found) {
-            setContent("")
-          }
-        }
-      } catch {}
-    }
-    setLoading(false)
   }
 
   if (loading) {
@@ -766,21 +774,25 @@ function GeneralBrowser({ dirPath = '', dirName, rootPath, rootName, parentFulls
   const firstLoadRef = useRef(true)
   const loadSeqRef = useRef(0)
   // 启动时和刷新时从文件恢复剪贴板路径
+  // 当 externalCopiedPath 由父组件管理（双栏模式）时，以外部来源为准，不读取文件
   useEffect(() => {
-    (async () => {
-      const p = await _readClipPath();
-      if (p != null) setCopiedFilePath(p);
-    })();
-  }, [refreshKey]);
-
-  // 仅同步剪贴板路径（不触发目录加载），由 clipboardSyncTrigger 驱动
-  useEffect(() => {
-    if (clipboardSyncTrigger == null) return
+    if (externalCopiedPath !== undefined) return;
     ;(async () => {
       const p = await _readClipPath();
       if (p != null) setCopiedFilePath(p);
     })();
-  }, [clipboardSyncTrigger]);
+  }, [refreshKey, externalCopiedPath]);
+
+  // 仅同步剪贴板路径（不触发目录加载），由 clipboardSyncTrigger 驱动
+  // 当 externalCopiedPath 由父组件管理时，以外部来源为准，不读取文件
+  useEffect(() => {
+    if (clipboardSyncTrigger == null) return
+    if (externalCopiedPath !== undefined) return;
+    ;(async () => {
+      const p = await _readClipPath();
+      if (p != null) setCopiedFilePath(p);
+    })();
+  }, [clipboardSyncTrigger, externalCopiedPath]);
 
   // 组件挂载时立即显示 spinner，消除空内容闪屏
   // 第二次及以后的 isLoading 变化仍由上方 100ms 延迟控制，防闪烁
@@ -829,6 +841,8 @@ function GeneralBrowser({ dirPath = '', dirName, rootPath, rootName, parentFulls
       return next ?? prev;
     });
   };
+  const mergeFolderCountUpdatesRef = useRef(mergeFolderCountUpdates)
+  mergeFolderCountUpdatesRef.current = mergeFolderCountUpdates
   const applyFolderCountUpdate = (folderPath: string, count: number, notifyPeer: boolean = true) => {
     setFolderCounts(prev => {
       if (prev.get(folderPath) === count) return prev;
@@ -854,12 +868,20 @@ function GeneralBrowser({ dirPath = '', dirName, rootPath, rootName, parentFulls
 
   const homeNavLength = isHomePage ? homeNavPath.value.length : 0
 
-  // 当 isHomePage 时使用内部状态管理目录路径和导航
-  if (isHomePage) {
-    // 覆盖 dirPath 和 outerNavPath，后续代码无需修改
-    dirPath = homeCurrentDir || defaultDir
-    outerNavPath = homeNavPath
-  }
+  // 首页模式使用内部状态管理目录路径和导航，非首页直接使用 prop
+  // const 声明避免函数参数可变性带来的不可预测行为
+  const activeDirPath = isHomePage ? (homeCurrentDir || defaultDir) : (dirPath || '')
+  const activeNavPath = isHomePage ? homeNavPath : outerNavPath
+
+  // Refs for stale-closure-safe access in effects（避免陈旧闭包）
+  const activeDirPathRef = useRef(activeDirPath)
+  activeDirPathRef.current = activeDirPath
+  const itemsRef = useRef(items)
+  itemsRef.current = items
+  const onItemsChangeRef = useRef(onItemsChange)
+  onItemsChangeRef.current = onItemsChange
+  const showFolderItemCountsRef = useRef(showFolderItemCounts)
+  showFolderItemCountsRef.current = showFolderItemCounts
 
   useEffect(() => {
     if (!isHomePage) return
@@ -884,7 +906,7 @@ function GeneralBrowser({ dirPath = '', dirName, rootPath, rootName, parentFulls
     }
   }, [settings?.homeCurrentPath, settings?.homeDirectoryBookmarkName])
 
-  const currentDirInternal = dirPath || ''
+  const currentDirInternal = activeDirPath || ''
 
   // 向父级报告当前目录路径（双栏浏览需知道对方目录）
   useEffect(() => {
@@ -902,27 +924,31 @@ function GeneralBrowser({ dirPath = '', dirName, rootPath, rootName, parentFulls
         loadDirectory(true);
       }
     }
-  }, [dirPath]);
+  }, [activeDirPath, items, initialLoadDelay]);
 
   useEffect(() => {
     if (refreshKey != null && refreshKey > 0) {
-      if (dirPath) invalidateDirectoryCache(dirPath);
+      const _items = itemsRef.current;
+      const _activeDirPath = activeDirPathRef.current;
+      const _onItemsChange = onItemsChangeRef.current;
+      const _showFolderItemCounts = showFolderItemCountsRef.current;
+      if (_activeDirPath) invalidateDirectoryCache(_activeDirPath);
       const doRefresh = async () => {
-        if (items && onItemsChange) {
-          if (dirPath) {
+        if (_items && _onItemsChange) {
+          if (_activeDirPath) {
             try {
-              const refreshed = await listDirectory(dirPath);
-              onItemsChange(refreshed);
+              const refreshed = await listDirectory(_activeDirPath);
+              _onItemsChange(refreshed);
             } catch {}
           }
         } else {
-          await loadDirectory(true);
+          await loadDirectoryRef.current(true);
         }
         // 目录刷新完成后，直接从 listDirectory（命中刚填充的缓存）获取子目录列表并计数。
         // 不依赖当前渲染切片，避免刷新后 React 尚未提交新列表时拿到旧数据。
-        if (showFolderItemCounts !== false && dirPath) {
+        if (_showFolderItemCounts !== false && _activeDirPath) {
           try {
-            const freshItems = await listDirectory(dirPath);
+            const freshItems = await listDirectory(_activeDirPath);
             const dirs = freshItems.filter(f => f.isDirectory);
             if (dirs.length === 0) return;
             const counts: { path: string; count: number }[] = [];
@@ -933,7 +959,7 @@ function GeneralBrowser({ dirPath = '', dirName, rootPath, rootName, parentFulls
               } catch {}
             }
             if (counts.length > 0) {
-              mergeFolderCountUpdates(counts);
+              mergeFolderCountUpdatesRef.current(counts);
             }
           } catch {}
         }
@@ -943,11 +969,11 @@ function GeneralBrowser({ dirPath = '', dirName, rootPath, rootName, parentFulls
   }, [refreshKey]);
 
   const loadDirectory = async (silent = false) => {
-    if (items || !dirPath) return;
+    if (items || !activeDirPath) return;
     const loadSeq = ++loadSeqRef.current
-    const loadingDir = dirPath
+    const loadingDir = activeDirPath
     if (!silent) setIsLoading(true)
-    const isLatestLoad = () => loadSeq === loadSeqRef.current && loadingDir === dirPath
+    const isLatestLoad = () => loadSeq === loadSeqRef.current && loadingDir === activeDirPath
     try {
       const itemsList = await listDirectory(loadingDir);
       if (!isLatestLoad()) return;
@@ -959,7 +985,7 @@ function GeneralBrowser({ dirPath = '', dirName, rootPath, rootName, parentFulls
             setFiles(itemsList)
             setHighlightedPath(matched.path)
           })
-          scrollProxy.current?.scrollTo(matched.path, 'center')
+          setTimeout(() => scrollProxy.current?.scrollTo(matched.path, 'center'), 450)
           setTimeout(() => {
             setHighlightedPath(null)
           }, 2000)
@@ -1002,15 +1028,17 @@ function GeneralBrowser({ dirPath = '', dirName, rootPath, rootName, parentFulls
       if (isLatestLoad()) setIsLoading(false)
     }
   };
+  const loadDirectoryRef = useRef(loadDirectory)
+  loadDirectoryRef.current = loadDirectory
 
   const refreshDirectory = async () => {
     // 强制清除缓存，确保从磁盘读取最新内容（拖拽/删除/重命名等操作依赖此行为）
-    if (dirPath) invalidateDirectoryCache(dirPath);
+    if (activeDirPath) invalidateDirectoryCache(activeDirPath);
     if (items && onItemsChange) {
       // items mode: reload from disk to get refreshed items
-      if (dirPath) {
+      if (activeDirPath) {
         try {
-          const refreshed = await listDirectory(dirPath);
+          const refreshed = await listDirectory(activeDirPath);
           onItemsChange(refreshed);
         } catch {}
       }
@@ -1020,11 +1048,11 @@ function GeneralBrowser({ dirPath = '', dirName, rootPath, rootName, parentFulls
   };
 
   const refresh = async () => {
-    if (!dirPath) return;
-    invalidateDirectoryCache(dirPath);
+    if (!activeDirPath) return;
+    invalidateDirectoryCache(activeDirPath);
     try {
       if (items && onItemsChange) {
-        const refreshed = await listDirectory(dirPath);
+        const refreshed = await listDirectory(activeDirPath);
         onItemsChange(refreshed);
       } else {
         await loadDirectory(true);
@@ -1041,25 +1069,29 @@ function GeneralBrowser({ dirPath = '', dirName, rootPath, rootName, parentFulls
   const prevPollRef = useRef<FileInfo[] | null>(null)
   const prevPollTokenRef = useRef<string | null>(null)
   const pollCountRef = useRef(0)
+  const pollSeqRef = useRef(0)
   useEffect(() => {
-    if (items || !dirPath) return
+    // 自增序列号：新目录的轮询启动时，旧目录正在进行的异步操作可检测到序号不匹配并自动中止
+    pollSeqRef.current += 1
+    const seq = pollSeqRef.current
+    if (items || !activeDirPath) return
     // 切换目录时重置轮询快照，避免用旧目录的文件列表与新目录比较而误高亮
     prevPollRef.current = null
     prevPollTokenRef.current = null
     pollCountRef.current = 0
-    let cancelled = false
     let pollTimer: number | null = null
+    const isLatestPoll = () => seq === pollSeqRef.current
     const scheduleNextPoll = () => {
-      if (!cancelled) {
+      if (isLatestPoll()) {
         pollTimer = setTimeout(poll, DIRECTORY_POLL_INTERVAL_MS)
       }
     }
     const poll = async () => {
-      if (cancelled) return
+      if (!isLatestPoll()) return
       try {
         pollCountRef.current += 1
-        const token = await getDirectoryPollToken(dirPath)
-        if (cancelled) return
+        const token = await getDirectoryPollToken(activeDirPath)
+        if (!isLatestPoll()) return
         const forceFullScan = pollCountRef.current % DIRECTORY_POLL_FORCE_FULL_EVERY === 0
         const tokenChanged = token == null || prevPollTokenRef.current == null || token !== prevPollTokenRef.current
         if (!tokenChanged && !forceFullScan) {
@@ -1067,9 +1099,9 @@ function GeneralBrowser({ dirPath = '', dirName, rootPath, rootName, parentFulls
           return
         }
         // 需要全量扫描时必须清除缓存，否则 listDirectory 返回缓存数据（30秒有效期），发现不了外部变化
-        invalidateDirectoryCache(dirPath)
-        const newList = await listDirectory(dirPath)
-        if (cancelled) return
+        invalidateDirectoryCache(activeDirPath)
+        const newList = await listDirectory(activeDirPath)
+        if (!isLatestPoll()) return
         const prev = prevPollRef.current
         if (prev !== null) {
           // 后续轮询：检测变化 + 新文件高亮
@@ -1088,7 +1120,7 @@ function GeneralBrowser({ dirPath = '', dirName, rootPath, rootName, parentFulls
             setFiles(newList)
             if (newFiles.length > 0) {
               setHighlightedPath(newFiles[0].path)
-              scrollProxy.current?.scrollTo(newFiles[0].path, 'center')
+              setTimeout(() => scrollProxy.current?.scrollTo(newFiles[0].path, 'center'), 100)
               setTimeout(() => setHighlightedPath(null), 2000)
             }
           }
@@ -1104,15 +1136,16 @@ function GeneralBrowser({ dirPath = '', dirName, rootPath, rootName, parentFulls
         prevPollRef.current = newList
         prevPollTokenRef.current = token
       } catch (e) {}
-      scheduleNextPoll()
+      if (isLatestPoll()) {
+        scheduleNextPoll()
+      }
     }
     const initialTimer = setTimeout(poll, initialLoadDelay || 0)
     return () => {
-      cancelled = true
       clearTimeout(initialTimer)
       if (pollTimer) clearTimeout(pollTimer)
     }
-  }, [items, dirPath])
+  }, [items, activeDirPath, initialLoadDelay])
 
   const displayFiles = useMemo(() => {
     let result = sourceFiles;
@@ -1131,7 +1164,7 @@ function GeneralBrowser({ dirPath = '', dirName, rootPath, rootName, parentFulls
     if (match) {
       console.log('highlightFile match via displayFiles:', match.path)
       setHighlightedPath(match.path)
-      scrollProxy.current?.scrollTo(match.path, 'center')
+      setTimeout(() => scrollProxy.current?.scrollTo(match.path, 'center'), 100)
       setTimeout(() => {
         setHighlightedPath(null)
       }, 2000)
@@ -1150,7 +1183,7 @@ function GeneralBrowser({ dirPath = '', dirName, rootPath, rootName, parentFulls
   const folderCountTimerRef = useRef<number | null>(null)
   useEffect(() => {
     if (showFolderItemCounts === false) return;
-    if (!dirPath) return;
+    if (!activeDirPath) return;
     const dirs = visibleFiles.filter(f => f.isDirectory);
     if (dirs.length === 0) return;
     // 防抖 666ms：只在 visibleFiles 变化（滚动）时触发，避免滚动时频繁 I/O
@@ -1244,7 +1277,7 @@ function GeneralBrowser({ dirPath = '', dirName, rootPath, rootName, parentFulls
     // 自动生成压缩包名称，不弹窗输入
     const defaultName = (paths.length === 1 ? Path.basename(paths[0], Path.extname(paths[0])) : 'archive') + '_' + String(Date.now()).slice(-6)
     const zipName = defaultName.endsWith('.zip') ? defaultName : `${defaultName}.zip`
-    const destPath = await uniquePath(Path.join(dirPath || '', zipName))
+    const destPath = await uniquePath(Path.join(activeDirPath || '', zipName))
     try {
       if (paths.length === 1) {
         await FileManager.zip(paths[0], destPath)
@@ -1261,7 +1294,7 @@ function GeneralBrowser({ dirPath = '', dirName, rootPath, rootName, parentFulls
           try { await FileManager.remove(tmpDir) } catch {}
         }
       }
-      invalidateDirectoryCache(dirPath || '')
+      invalidateDirectoryCache(activeDirPath || '')
       setSelectMode(false)
       setSelectedPaths(new Set())
       refreshDirectory()
@@ -1289,7 +1322,7 @@ function GeneralBrowser({ dirPath = '', dirName, rootPath, rootName, parentFulls
     const dest = await Dialog.prompt({
       title: "移动文件",
       message: `将 ${count} 项移动到:`,
-      defaultValue: dirPath,
+      defaultValue: activeDirPath,
       placeholder: "目标路径",
       cancelLabel: "取消",
       confirmLabel: "移动",
@@ -1305,7 +1338,7 @@ function GeneralBrowser({ dirPath = '', dirName, rootPath, rootName, parentFulls
     }
     setSelectedPaths(new Set());
     setSelectMode(false);
-    if (dirPath) invalidateDirectoryCache(dirPath);
+    if (activeDirPath) invalidateDirectoryCache(activeDirPath);
     loadDirectory(true);
   };
 
@@ -1356,8 +1389,8 @@ function GeneralBrowser({ dirPath = '', dirName, rootPath, rootName, parentFulls
 
   // ─ 新建文件 ─
   const handleCreateFile = async (type: 'folder' | 'js' | 'txt' | 'json' | 'md', quick?: boolean) => {
-    if (!dirPath) return;
-    const baseDir = dirPath;    const typeNames = { folder: '文件夹', js: 'JavaScript文件', txt: '文本文件', json: 'JSON文件', md: 'Markdown文件' }
+    if (!activeDirPath) return;
+    const baseDir = activeDirPath;    const typeNames = { folder: '文件夹', js: 'JavaScript文件', txt: '文本文件', json: 'JSON文件', md: 'Markdown文件' }
     const extensions = { folder: '', js: '.js', txt: '.txt', json: '.json', md: '.md' }
     
     // 快速模式：直接创建，不弹窗
@@ -1420,7 +1453,7 @@ function GeneralBrowser({ dirPath = '', dirName, rootPath, rootName, parentFulls
       setTimeout(() => scrollProxy.current?.scrollTo(targetPath, 'center'), 300)
       setTimeout(() => setHighlightedPath(null), 2500)
       // 后台静默刷新，确保数据与磁盘一致
-      invalidateDirectoryCache(dirPath)
+      invalidateDirectoryCache(activeDirPath)
       loadDirectory(true)
     } catch (e) {
       console.log('创建失败:', e)
@@ -1455,7 +1488,7 @@ function GeneralBrowser({ dirPath = '', dirName, rootPath, rootName, parentFulls
           setHighlightedPath(targetPath)
           setTimeout(() => scrollProxy.current?.scrollTo(targetPath, 'center'), 300)
           setTimeout(() => setHighlightedPath(null), 2500)
-          invalidateDirectoryCache(dirPath)
+          invalidateDirectoryCache(activeDirPath)
           loadDirectory(true)
           return
         } catch (e2) {}
@@ -1470,8 +1503,8 @@ function GeneralBrowser({ dirPath = '', dirName, rootPath, rootName, parentFulls
 
   /** 新建文件 - 通用：弹窗让用户输入文件名（含扩展名） */
   const handleCreateNewFile = async () => {
-    if (!dirPath) return;
-    const baseDir = dirPath;    const result = await Dialog.prompt({
+    if (!activeDirPath) return;
+    const baseDir = activeDirPath;    const result = await Dialog.prompt({
       title: '新建文件',
       message: '输入文件名（含扩展名，如 hello.js）',
       defaultValue: '新建文件.txt',
@@ -1519,7 +1552,7 @@ function GeneralBrowser({ dirPath = '', dirName, rootPath, rootName, parentFulls
       setTimeout(() => scrollProxy.current?.scrollTo(targetPath, 'center'), 300)
       setTimeout(() => setHighlightedPath(null), 2500)
       // 后台静默刷新
-      if (dirPath) invalidateDirectoryCache(dirPath)
+      if (activeDirPath) invalidateDirectoryCache(activeDirPath)
       loadDirectory(true)
     } catch (e) {
       console.log('创建失败:', e)
@@ -1551,7 +1584,7 @@ function GeneralBrowser({ dirPath = '', dirName, rootPath, rootName, parentFulls
           setHighlightedPath(targetPath)
           setTimeout(() => scrollProxy.current?.scrollTo(targetPath, 'center'), 300)
           setTimeout(() => setHighlightedPath(null), 2500)
-          if (dirPath) invalidateDirectoryCache(dirPath)
+          if (activeDirPath) invalidateDirectoryCache(activeDirPath)
           loadDirectory(true)
           return
         } catch (e2) {}
@@ -1592,11 +1625,11 @@ function GeneralBrowser({ dirPath = '', dirName, rootPath, rootName, parentFulls
     try {
       const files = await DocumentPicker.pickFiles({ shouldShowFileExtensions: true })
       if (files && files.length > 0) {
-        await ensureDir(dirPath)
+        await ensureDir(activeDirPath)
         const _newPaths: string[] = []
         for (const filePath of files) {
           const name = Path.basename(filePath)
-          const dest = Path.join(dirPath, name)
+          const dest = Path.join(activeDirPath, name)
           if (await FileManager.exists(dest)) await FileManager.remove(dest)
           await FileManager.copyFile(filePath, dest)
           _newPaths.push(dest)
@@ -1634,7 +1667,7 @@ function GeneralBrowser({ dirPath = '', dirName, rootPath, rootName, parentFulls
           setTimeout(() => scrollProxy.current?.scrollTo(_newPaths[0], 'center'), 300)
           setTimeout(() => setHighlightedPath(null), 2500)
         }
-        if (dirPath) invalidateDirectoryCache(dirPath)
+        if (activeDirPath) invalidateDirectoryCache(activeDirPath)
         loadDirectory(true)
       }
     } catch (e) { console.log('导入失败:', e) }
@@ -1644,10 +1677,10 @@ function GeneralBrowser({ dirPath = '', dirName, rootPath, rootName, parentFulls
     try {
       const results = await Photos.pick({ filter: PHPickerFilter.images(), limit: 0 })
       if (results && results.length > 0) {
-        await ensureDir(dirPath)
+        await ensureDir(activeDirPath)
         const _newPaths: string[] = []
         for (const result of results) {
-          const _p = await importSinglePhotoResult(result, dirPath)
+          const _p = await importSinglePhotoResult(result, activeDirPath)
           if (_p) _newPaths.push(_p)
         }
         if (_newPaths.length > 0) {
@@ -1673,7 +1706,7 @@ function GeneralBrowser({ dirPath = '', dirName, rootPath, rootName, parentFulls
           setTimeout(() => scrollProxy.current?.scrollTo(_newPaths[0], 'center'), 300)
           setTimeout(() => setHighlightedPath(null), 2500)
         }
-        if (dirPath) invalidateDirectoryCache(dirPath)
+        if (activeDirPath) invalidateDirectoryCache(activeDirPath)
         loadDirectory(true)
       }
     } catch (e) { console.log('图片导入失败:', e) }
@@ -1683,10 +1716,10 @@ function GeneralBrowser({ dirPath = '', dirName, rootPath, rootName, parentFulls
     try {
       const results = await Photos.pick({ filter: PHPickerFilter.livePhotos(), limit: 0 })
       if (results && results.length > 0) {
-        await ensureDir(dirPath)
+        await ensureDir(activeDirPath)
         const _newPaths: string[] = []
         for (const result of results) {
-          const _p = await importSinglePhotoResult(result, dirPath)
+          const _p = await importSinglePhotoResult(result, activeDirPath)
           if (_p) _newPaths.push(_p)
         }
         if (_newPaths.length > 0) {
@@ -1712,7 +1745,7 @@ function GeneralBrowser({ dirPath = '', dirName, rootPath, rootName, parentFulls
           setTimeout(() => scrollProxy.current?.scrollTo(_newPaths[0], 'center'), 300)
           setTimeout(() => setHighlightedPath(null), 2500)
         }
-        if (dirPath) invalidateDirectoryCache(dirPath)
+        if (activeDirPath) invalidateDirectoryCache(activeDirPath)
         loadDirectory(true)
       }
     } catch (e) { console.log('实况照片导入失败:', e) }
@@ -1722,10 +1755,10 @@ function GeneralBrowser({ dirPath = '', dirName, rootPath, rootName, parentFulls
     try {
       const results = await Photos.pick({ filter: PHPickerFilter.videos(), limit: 0 })
       if (results && results.length > 0) {
-        await ensureDir(dirPath)
+        await ensureDir(activeDirPath)
         const _newPaths: string[] = []
         for (const result of results) {
-          const _p = await importSinglePhotoResult(result, dirPath)
+          const _p = await importSinglePhotoResult(result, activeDirPath)
           if (_p) _newPaths.push(_p)
         }
         if (_newPaths.length > 0) {
@@ -1751,7 +1784,7 @@ function GeneralBrowser({ dirPath = '', dirName, rootPath, rootName, parentFulls
           setTimeout(() => scrollProxy.current?.scrollTo(_newPaths[0], 'center'), 300)
           setTimeout(() => setHighlightedPath(null), 2500)
         }
-        if (dirPath) invalidateDirectoryCache(dirPath)
+        if (activeDirPath) invalidateDirectoryCache(activeDirPath)
         loadDirectory(true)
       }
     } catch (e) { console.log('视频导入失败:', e) }
@@ -1759,12 +1792,12 @@ function GeneralBrowser({ dirPath = '', dirName, rootPath, rootName, parentFulls
 
   const handleTakePhoto = async () => {
     try {
-      await ensureDir(dirPath)
+      await ensureDir(activeDirPath)
       const result = await Photos.capture({ mode: 'photo', mediaTypes: ['public.image'], allowsEditing: false })
       if (result?.imagePath) {
         const ts = makeTimestamp()
         const ext = Path.extname(result.imagePath).toLowerCase() || '.jpg'
-        const dest = Path.join(dirPath, `IMG_${ts}${ext}`)
+        const dest = Path.join(activeDirPath, `IMG_${ts}${ext}`)
         if (await FileManager.exists(dest)) await FileManager.remove(dest)
         await FileManager.copyFile(result.imagePath, dest)
         try { await FileManager.remove(result.imagePath) } catch {}
@@ -1791,7 +1824,7 @@ function GeneralBrowser({ dirPath = '', dirName, rootPath, rootName, parentFulls
         setHighlightedPath(dest)
         setTimeout(() => scrollProxy.current?.scrollTo(dest, 'center'), 300)
         setTimeout(() => setHighlightedPath(null), 2500)
-        if (dirPath) invalidateDirectoryCache(dirPath)
+        if (activeDirPath) invalidateDirectoryCache(activeDirPath)
         loadDirectory(true)
       }
     } catch (e) { console.log('拍照失败:', e) }
@@ -1799,12 +1832,12 @@ function GeneralBrowser({ dirPath = '', dirName, rootPath, rootName, parentFulls
 
   const handleRecordVideo = async () => {
     try {
-      await ensureDir(dirPath)
+      await ensureDir(activeDirPath)
       const result = await Photos.capture({ mode: 'video', mediaTypes: ['public.movie'], allowsEditing: false, videoQuality: 'high', videoMaximumDuration: 600 })
       if (result?.mediaPath) {
         const ts = makeTimestamp()
         const ext = Path.extname(result.mediaPath).toLowerCase() || '.mov'
-        const dest = Path.join(dirPath, `VID_${ts}${ext}`)
+        const dest = Path.join(activeDirPath, `VID_${ts}${ext}`)
         if (await FileManager.exists(dest)) await FileManager.remove(dest)
         await FileManager.copyFile(result.mediaPath, dest)
         try { await FileManager.remove(result.mediaPath) } catch {}
@@ -1830,7 +1863,7 @@ function GeneralBrowser({ dirPath = '', dirName, rootPath, rootName, parentFulls
         setHighlightedPath(dest)
         setTimeout(() => scrollProxy.current?.scrollTo(dest, 'center'), 300)
         setTimeout(() => setHighlightedPath(null), 2500)
-        if (dirPath) invalidateDirectoryCache(dirPath)
+        if (activeDirPath) invalidateDirectoryCache(activeDirPath)
         loadDirectory(true)
       }
     } catch (e) { console.log('录像失败:', e) }
@@ -1840,10 +1873,10 @@ function GeneralBrowser({ dirPath = '', dirName, rootPath, rootName, parentFulls
     try {
       const results = await Photos.pick({ filter: PHPickerFilter.any([PHPickerFilter.images(), PHPickerFilter.livePhotos(), PHPickerFilter.videos()]), limit: 0 })
       if (results && results.length > 0) {
-        await ensureDir(dirPath)
+        await ensureDir(activeDirPath)
         const _newPaths: string[] = []
         for (const result of results) {
-          const _p = await importSinglePhotoResult(result, dirPath)
+          const _p = await importSinglePhotoResult(result, activeDirPath)
           if (_p) _newPaths.push(_p)
         }
         if (_newPaths.length > 0) {
@@ -1869,7 +1902,7 @@ function GeneralBrowser({ dirPath = '', dirName, rootPath, rootName, parentFulls
           setTimeout(() => scrollProxy.current?.scrollTo(_newPaths[0], 'center'), 300)
           setTimeout(() => setHighlightedPath(null), 2500)
         }
-        if (dirPath) invalidateDirectoryCache(dirPath)
+        if (activeDirPath) invalidateDirectoryCache(activeDirPath)
         loadDirectory(true)
       }
     } catch (e) { console.log('照片导入失败:', e) }
@@ -1917,7 +1950,7 @@ function GeneralBrowser({ dirPath = '', dirName, rootPath, rootName, parentFulls
               hFile = decodeURIComponent(dPath.slice(sepIdx + 2))
               dPath = dPath.slice(0, sepIdx)
             }
-            return <GeneralBrowser key={page + '@navGen' + navGen} dirPath={dPath} dirName={Path.basename(dPath)} rootPath={dPath} navPath={outerNavPath} highlightFile={hFile} isHomePage={false} onDirChange={onDirChange} oppositeDirName={oppositeDirName} onCopyToOppositeDir={onCopyToOppositeDir} externalCopiedPath={externalCopiedPath} onExternalCopy={onExternalCopy} onDropCompleted={onDropCompleted} onFolderCountChanged={onFolderCountChanged} folderCountUpdateRef={folderCountUpdateRef} refreshKey={refreshKey} />
+            return <GeneralBrowser key={page + '@navGen' + navGen} dirPath={dPath} dirName={Path.basename(dPath)} rootPath={dPath} navPath={activeNavPath} highlightFile={hFile} isHomePage={false} onDirChange={onDirChange} oppositeDirName={oppositeDirName} onCopyToOppositeDir={onCopyToOppositeDir} externalCopiedPath={externalCopiedPath} onExternalCopy={onExternalCopy} onDropCompleted={onDropCompleted} onFolderCountChanged={onFolderCountChanged} folderCountUpdateRef={folderCountUpdateRef} refreshKey={refreshKey} />
           }
           return <FileNavigationDest page={page} />
         }}
@@ -1930,19 +1963,19 @@ function GeneralBrowser({ dirPath = '', dirName, rootPath, rootName, parentFulls
   const allBookmarks = useMemo(() => getAllBookmarks(), [bookmarkRefreshKey, bookmarks])
   // 路径显示：根目录自定义名称 + 相对路径
   const displayPath = useMemo(() => {
-    if (!dirPath) return '文件列表';
-    const root = rootPath || dirPath;
+    if (!activeDirPath) return '文件列表';
+    const root = rootPath || activeDirPath;
     // 首页模式优先使用书签名称（支持重命名后显示实际名称）
     const bookmarkName = isHomePage && settings?.homeDirectoryBookmarkName
       ? (allBookmarks.find(b => b.bookmarkId === settings.homeDirectoryBookmarkName || b.name === settings.homeDirectoryBookmarkName)?.name || settings.homeDirectoryBookmarkName)
       : null;
-    const effectiveRootName = bookmarkName || rootName || dirName || Path.basename(dirPath);
-    if (dirPath === root) {
+    const effectiveRootName = bookmarkName || rootName || dirName || Path.basename(activeDirPath);
+    if (activeDirPath === root) {
       return effectiveRootName;
     }
-    const relativePath = dirPath.replace(root, '').replace(/^\//, '');
+    const relativePath = activeDirPath.replace(root, '').replace(/^\//, '');
     return relativePath ? `${effectiveRootName}/${relativePath}` : effectiveRootName;
-  }, [dirPath, dirName, rootPath, rootName, settings?.homeDirectoryBookmarkName, isHomePage, allBookmarks]);
+  }, [activeDirPath, dirName, rootPath, rootName, settings?.homeDirectoryBookmarkName, isHomePage, allBookmarks]);
   const titleDisplayPath = useMemo(() => tailDisplayPath(displayPath), [displayPath]);
 
 
@@ -1954,8 +1987,8 @@ function GeneralBrowser({ dirPath = '', dirName, rootPath, rootName, parentFulls
         const newSettings = { ...settings, homeDirectoryBookmarkName: bookmark.bookmarkId || bookmark.name, homeCurrentPath: bookmark.path }
         saveSettings(newSettings)
         onSettingsChange(newSettings)
-      } else if (outerNavPath) {
-        outerNavPath.setValue([...outerNavPath.value, 'browser:' + bookmark.path])
+      } else if (activeNavPath) {
+        activeNavPath.setValue([...activeNavPath.value, 'browser:' + bookmark.path])
       }
     }
   }
@@ -1964,7 +1997,7 @@ function GeneralBrowser({ dirPath = '', dirName, rootPath, rootName, parentFulls
     const input = await Dialog.prompt({
       title: '输入文件路径',
       message: '请输入要跳转的目录路径',
-      defaultValue: dirPath || defaultDir,
+      defaultValue: activeDirPath || defaultDir,
       placeholder: '/var/mobile/...',
       cancelLabel: '取消',
       confirmLabel: '确定',
@@ -1991,8 +2024,8 @@ function GeneralBrowser({ dirPath = '', dirName, rootPath, rootName, parentFulls
         const newSettings = { ...settings, homeCurrentPath: trimmed, homeDirectoryBookmarkName: null }
         saveSettings(newSettings)
         onSettingsChange(newSettings)
-      } else if (outerNavPath) {
-        outerNavPath.setValue([...outerNavPath.value, 'browser:' + trimmed])
+      } else if (activeNavPath) {
+        activeNavPath.setValue([...activeNavPath.value, 'browser:' + trimmed])
       }
     }
   }
@@ -2002,15 +2035,15 @@ function GeneralBrowser({ dirPath = '', dirName, rootPath, rootName, parentFulls
       const newSettings = { ...settings, homeCurrentPath: null, homeDirectoryBookmarkName: null }
       saveSettings(newSettings)
       onSettingsChange(newSettings)
-    } else if (outerNavPath) {
+    } else if (activeNavPath) {
       const target = rootPath || defaultDir
-      outerNavPath.setValue([...outerNavPath.value, 'browser:' + target])
+      activeNavPath.setValue([...activeNavPath.value, 'browser:' + target])
     }
   }
 
   const handleCopyPath = async () => {
-    if (!dirPath) return
-    await Pasteboard.setString(dirPath)
+    if (!activeDirPath) return
+    await Pasteboard.setString(activeDirPath)
     showToast('已复制路径')
   }
 
@@ -2031,8 +2064,8 @@ function GeneralBrowser({ dirPath = '', dirName, rootPath, rootName, parentFulls
         const newSettings = { ...settings, homeCurrentPath: trimmed, homeDirectoryBookmarkName: null }
         saveSettings(newSettings)
         onSettingsChange(newSettings)
-      } else if (outerNavPath) {
-        outerNavPath.setValue([...outerNavPath.value, 'browser:' + trimmed])
+      } else if (activeNavPath) {
+        activeNavPath.setValue([...activeNavPath.value, 'browser:' + trimmed])
       }
     } catch (e) {
       console.log('粘贴路径失败:', e)
@@ -2065,8 +2098,8 @@ function GeneralBrowser({ dirPath = '', dirName, rootPath, rootName, parentFulls
       }
       saveSettings(newSettings)
       onSettingsChange(newSettings)
-    } else if (outerNavPath) {
-      outerNavPath.setValue([...outerNavPath.value, 'browser:' + path])
+    } else if (activeNavPath) {
+      activeNavPath.setValue([...activeNavPath.value, 'browser:' + path])
     }
   }
 
@@ -2261,11 +2294,11 @@ function GeneralBrowser({ dirPath = '', dirName, rootPath, rootName, parentFulls
                         const baseName = Path.basename(effectiveCopiedPath);
                         const ext = Path.extname(baseName);
                         const nameBody = Path.basename(baseName, ext);
-                        let destPath = Path.join(dirPath || '', baseName);
+                        let destPath = Path.join(activeDirPath || '', baseName);
                         // 如果目标已存在则加数字后缀
                         let counter = 1;
                         while (await FileManager.exists(destPath)) {
-                          destPath = Path.join(dirPath || '', `${nameBody}_${counter}${ext}`);
+                          destPath = Path.join(activeDirPath || '', `${nameBody}_${counter}${ext}`);
                           counter++;
                         }
                         await FileManager.copyFile(effectiveCopiedPath, destPath);
@@ -2309,7 +2342,7 @@ function GeneralBrowser({ dirPath = '', dirName, rootPath, rootName, parentFulls
                           }
                         })();
                         // 后台静默刷新，确保数据与磁盘一致
-                        if (dirPath) invalidateDirectoryCache(dirPath);
+                        if (activeDirPath) invalidateDirectoryCache(activeDirPath);
                         refreshDirectory();
                       } catch (e) {
                         console.log('粘贴失败:', e);
@@ -2346,11 +2379,11 @@ function GeneralBrowser({ dirPath = '', dirName, rootPath, rootName, parentFulls
             }
           >
 
-            {showSearch && dirPath ? <SearchPanel
+            {showSearch && activeDirPath ? <SearchPanel
               searchQuery={searchQuery}
-              dirPath={dirPath}
+              dirPath={activeDirPath}
               onResultsChange={setDeepSearchResults}
-              navPath={outerNavPath}
+              navPath={activeNavPath}
               resultLeadingActions={(result) => [
                 {
                   title: '重命名',
@@ -2461,24 +2494,43 @@ function GeneralBrowser({ dirPath = '', dirName, rootPath, rootName, parentFulls
                 },
               ]}
               onResultTap={async (result) => {
-                if (result.isDirectory && outerNavPath) {
-                  outerNavPath.setValue([...outerNavPath.value, 'browser:' + result.path])
+                // 检查文件是否存在
+                const exists = await FileManager.exists(result.path)
+                if (!exists) {
+                  showToast('文件已不存在')
+                  return
+                }
+                // 非目录文件：检查是否已被更新（修改时间不同说明索引已过期）
+                if (!result.isDirectory) {
+                  try {
+                    const stat = await FileManager.stat(result.path)
+                    if (stat.modificationDate !== result.modificationDate) {
+                      showToast('文件已更新，请重新索引')
+                      return
+                    }
+                  } catch {
+                    showToast('文件不存在')
+                    return
+                  }
+                }
+                if (result.isDirectory && activeNavPath) {
+                  activeNavPath.setValue([...activeNavPath.value, 'browser:' + result.path])
                 } else if (!result.isDirectory) {
                   const prefix = await resolveOpenerForFile(result.path, result.category)
                   if (prefix) {
                     // editor 类型且有匹配行：直接 present 编辑器并跳转行号
                     if (prefix === 'editor:') {
                       const line = result.matchedLine || (result.allMatches && result.allMatches.length > 0 ? result.allMatches[0].line : undefined)
-                      if (line && outerNavPath) {
+                      if (line && activeNavPath) {
                         // 用 ::L 嵌入行号 = 导航栈方式（普通文件也用同一方式）
-                        outerNavPath.setValue([...outerNavPath.value, prefix + result.path + '::L' + line])
-                      } else if (outerNavPath) {
-                        outerNavPath.setValue([...outerNavPath.value, prefix + result.path])
+                        activeNavPath.setValue([...activeNavPath.value, prefix + result.path + '::L' + line])
+                      } else if (activeNavPath) {
+                        activeNavPath.setValue([...activeNavPath.value, prefix + result.path])
                       }
                     } else if (prefix === 'share:') {
                       await shareFilePath(result.path, result.name)
-                    } else if (outerNavPath) {
-                      outerNavPath.setValue([...outerNavPath.value, prefix + result.path])
+                    } else if (activeNavPath) {
+                      activeNavPath.setValue([...activeNavPath.value, prefix + result.path])
                     }
                   }
                 }
@@ -2493,7 +2545,7 @@ function GeneralBrowser({ dirPath = '', dirName, rootPath, rootName, parentFulls
             ) : (
               <Section>
                 {visibleFiles.map((file, fileIdx) => (
-                  <FileRowLink key={file.path} file={file} onRefresh={refreshDirectory} onDeleteFile={(filePath) => setFiles(prev => prev.filter(f => f.path !== filePath))} selectMode={selectMode} isSelected={selectedPaths.has(file.path)} onToggleSelect={() => toggleSelect(file.path)} rootPath={rootPath || dirPath} rootName={rootName || dirName} parentFullscreen={parentFullscreen} navPath={outerNavPath} hideTopSeparator={fileIdx === 0} folderCounts={folderCounts} onCopyPath={(path) => updateCopiedPath(path)} isHighlighted={file.path === highlightedPath} copyToDirTitle={oppositeDirName} onCopyToDir={onCopyToOppositeDir} dirPath={effectiveDropDir} onDropCompleted={onDropCompleted} onFolderCountChanged={applyFolderCountUpdate} />
+                  <FileRowLink key={file.path} file={file} onRefresh={refreshDirectory} onDeleteFile={(filePath) => setFiles(prev => prev.filter(f => f.path !== filePath))} selectMode={selectMode} isSelected={selectedPaths.has(file.path)} onToggleSelect={() => toggleSelect(file.path)} rootPath={rootPath || activeDirPath} rootName={rootName || dirName} parentFullscreen={parentFullscreen} navPath={activeNavPath} hideTopSeparator={fileIdx === 0} folderCounts={folderCounts} onCopyPath={(path) => updateCopiedPath(path)} isHighlighted={file.path === highlightedPath} copyToDirTitle={oppositeDirName} onCopyToDir={onCopyToOppositeDir} dirPath={effectiveDropDir} onDropCompleted={onDropCompleted} onFolderCountChanged={applyFolderCountUpdate} />
                 ))}
                 {hasMore ? (
                   <Button title="加载更多" onAppear={() => setVisibleCount(prev => prev + 50)} action={() => setVisibleCount(prev => prev + 50)} />
@@ -2528,7 +2580,7 @@ function GeneralBrowser({ dirPath = '', dirName, rootPath, rootName, parentFulls
       );
 
   // 计算当前目录路径（处理子文件夹导航：取导航栈中最新的 browser: 路径）
-  let effectiveDropDir = dirPath || ''
+  let effectiveDropDir = activeDirPath || ''
   if (isHomePage && homeNavPath.value.length > 0) {
     for (let i = homeNavPath.value.length - 1; i >= 0; i--) {
       const p = homeNavPath.value[i]

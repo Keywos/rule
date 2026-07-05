@@ -33,11 +33,11 @@ export function DualBrowserPage({
   onSettingsChange,
 }: DualBrowserPageProps) {
   // 跨栏复制文件乐观更新注入
-  const leftAddFilesRef = useRef<(files: FileInfo[]) => void>(() => {})
-  const rightAddFilesRef = useRef<(files: FileInfo[]) => void>(() => {})
-  const leftFolderCountUpdateRef = useRef<(folderPath: string, count: number) => void>(() => {})
-  const rightFolderCountUpdateRef = useRef<(folderPath: string, count: number) => void>(() => {})
-  
+  const leftAddFilesRef = useRef<(files: FileInfo[]) => void>(() => { })
+  const rightAddFilesRef = useRef<(files: FileInfo[]) => void>(() => { })
+  const leftFolderCountUpdateRef = useRef<(folderPath: string, count: number) => void>(() => { })
+  const rightFolderCountUpdateRef = useRef<(folderPath: string, count: number) => void>(() => { })
+
   // ── 左右各自独立的 settings（从专属持久键初始化，避免交叉覆盖） ──
   const [leftSettings, setLeftSettings] = useState<AppSettings>(() => ({
     ...settings,
@@ -144,7 +144,7 @@ export function DualBrowserPage({
       await FileManager.copyFile(filePath, destPath)
       // 乐观更新：立即在右侧显示复制的文件（同步注入，不等 isDirectory）
       {
-        const destExt = Path.extname(destPath);
+        const destExt = Path.extname(destPath)
         rightAddFilesRef.current([{
           name: Path.basename(destPath),
           path: destPath,
@@ -158,7 +158,7 @@ export function DualBrowserPage({
           mimeType: '',
           icon: 'doc.text',
           iconColor: 'systemGray',
-        }]);
+        }])
       }
       // 复制完成后刷新右侧并高亮新文件
       invalidateDirectoryCache(rightDir)
@@ -191,7 +191,7 @@ export function DualBrowserPage({
       await FileManager.copyFile(filePath, destPath)
       // 乐观更新：立即在左侧显示复制的文件（同步注入，不等 isDirectory）
       {
-        const destExt = Path.extname(destPath);
+        const destExt = Path.extname(destPath)
         leftAddFilesRef.current([{
           name: Path.basename(destPath),
           path: destPath,
@@ -205,7 +205,7 @@ export function DualBrowserPage({
           mimeType: '',
           icon: 'doc.text',
           iconColor: 'systemGray',
-        }]);
+        }])
       }
       // 复制完成后刷新左侧并高亮新文件
       invalidateDirectoryCache(leftDir)
@@ -229,6 +229,10 @@ export function DualBrowserPage({
   const [showCopyToast, setShowCopyToast] = useState(false)
   const [copyToastMessage, setCopyToastMessage] = useState('')
   const copyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // 组件卸载时清除活跃的 toast 超时，避免在已卸载的组件上 setState
+  useEffect(() => () => {
+    if (copyTimeoutRef.current) clearTimeout(copyTimeoutRef.current)
+  }, [])
 
   const showCopyToastAction = (msg: string) => {
     setCopyToastMessage(msg)
@@ -248,6 +252,7 @@ export function DualBrowserPage({
 
   return (
     <VStack
+      ignoresSafeArea={{ edges: ["bottom"] }}
       toast={{
         isPresented: showCopyToast,
         onChanged: setShowCopyToast,
@@ -423,6 +428,11 @@ function DraggableDivider({
 }) {
   // dragOffset 是本组件内部状态，变化时只重绘此组件和分隔线，不影响父级和两个 GeneralBrowser
   const [dragOffset, setDragOffset] = useState(0)
+  // 拖拽标记：有实际拖动时抑制松手后的 tap 手势，避免拖到边缘时误触布局切换
+  const wasDraggedRef = useRef(false)
+  // 触感触发器：每次事件递增，触发 sensoryFeedback
+  const [hapticTrigger, setHapticTrigger] = useState(0)
+  const [hapticEndTrigger, setHapticEndTrigger] = useState(0)
 
   const splitCenterX = totalW * ratio - totalW / 2
   const splitCenterY = totalH * ratio - totalH / 2
@@ -438,6 +448,13 @@ function DraggableDivider({
   }) => {
     const offset = layoutDir === 'horizontal' ? details.translation.width : details.translation.height
     setDragOffset(offset)
+    if (Math.abs(offset) > 5) {
+      if (!wasDraggedRef.current) {
+        // 首次有意义的拖拽移动 → 触感反馈
+        setHapticTrigger(v => v + 1)
+      }
+      wasDraggedRef.current = true
+    }
   }
 
   const handleDragEnded = () => {
@@ -448,6 +465,23 @@ function DraggableDivider({
       onDragEnd(clamped)
     }
     setDragOffset(0)
+    // 拖拽结束触感反馈
+    setHapticTrigger(v => v + 1)
+    // 拖拽结束后稍后重置标记，避免 lift-up 触发的 tap 误触发
+    setTimeout(() => { wasDraggedRef.current = false }, 100)
+  }
+
+  const handleTap = () => {
+    if (wasDraggedRef.current) return
+    setHapticTrigger(v => v + 1)  // 先触发触感反馈（render cycle 1）
+    // 等反馈播放后再切换布局，确保用户先感知触感再看到画面变化
+    setTimeout(() => {
+      onToggleLayout()
+      // 布局渲染后播放较轻的触感反馈
+      setTimeout(() => {
+        setHapticEndTrigger(v => v + 1)
+      }, 80)
+    }, 50)
   }
 
   return (
@@ -457,29 +491,37 @@ function DraggableDivider({
     //frame={layoutDir === 'horizontal' ? { width: 1, height: totalH } : { width: totalW, height: 1 }}
     //background={"rgba(128,128,128,0.5)"}
     >
-      <VStack frame={layoutDir === 'horizontal' ? { width: 35, height: 150 } : { width: 120, height: 35 }}
-        background={"rgba(0,0,0,0.0001)"}
-        offset={previewOffset}
-        onTapGesture={onToggleLayout}
-        onDragGesture={{
-          minDistance: 0,
-          coordinateSpace: 'global',
-          onChanged: handleDragChanged,
-          onEnded: handleDragEnded,
-        }}
-      >
-        <VStack
-          frame={layoutDir === 'horizontal' ? { width: 4, height: 130 } : { width: 100, height: 4 }}
-          background={"rgba(128,128,128,0.3)"}
-          clipShape="capsule"
-        />
+      <VStack sensoryFeedback={{ trigger: hapticEndTrigger, feedback: 'selection' }}>
+        <VStack frame={layoutDir === 'horizontal' ? { width: 35, height: 150 } : { width: 120, height: 35 }}
+          background={"rgba(0,0,0,0.0001)"}
+          offset={previewOffset}
+          sensoryFeedback={{ trigger: hapticTrigger, feedback: 'impact' }}
+          onTapGesture={handleTap}
+          onDragGesture={{
+            minDistance: 0,
+            coordinateSpace: 'global',
+            onChanged: handleDragChanged,
+            onEnded: handleDragEnded,
+          }}
+        >
+          <VStack
+            frame={
+              layoutDir === 'horizontal'
+                ? { width: 4, height: 130 }
+                : { width: 100, height: 4 }
+            }
+            background="regularMaterial"
+            overlay={
+              <VStack
+                frame={{ maxWidth: "infinity", maxHeight: "infinity" }}
+                background="rgba(128,128,128,0.25)"
+              />
+            }
+            clipShape="capsule"
+          />
+          
+        </VStack>
       </VStack>
     </VStack>
   )
 }
-
-
-
-
-
-

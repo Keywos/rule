@@ -226,9 +226,7 @@ export function FilePreviewPage({ file }: { file: FileInfo }) {
   const [loading, setLoading] = useState(true);
   const [content, setContent] = useState<string | null>(null);
   const cat = file.category;
-  if (cat === 'text' || cat === 'code' || cat === 'data') {
-    return <EditorPage path={file.path} />;
-  }
+
   useEffect(() => {
     (async () => {
       try {
@@ -238,6 +236,10 @@ export function FilePreviewPage({ file }: { file: FileInfo }) {
       setLoading(false);
     })();
   }, []);
+
+  if (cat === 'text' || cat === 'code' || cat === 'data') {
+    return <EditorPage path={file.path} />;
+  }
   if (loading) return <VStack><Text padding={16} foregroundStyle='secondaryLabel'>加载中...</Text></VStack>;
   return <FilePreviewView fileInfo={file} content={content} />;
 }

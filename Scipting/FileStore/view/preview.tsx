@@ -12,11 +12,8 @@ import { MountDirectoriesPage } from './MountDirectoriesPage'
 import { DualBrowserPage } from './DualBrowserPage'
 import { ToastOverlay } from './ToastOverlay'
 
-/* ───── 全屏切换标志（供 index.tsx 读取） ───── */
-export let isTogglingFullscreen = false
-
 /* ───── 主页视图 ───── */
-export function HomeView() {
+export function HomeView({ onFullscreenToggle }: { onFullscreenToggle?: () => void }) {
   const dismiss = Navigation.useDismiss()
   const initialSettings = readSettings()
   const [bookmarks, setBookmarks] = useState<Bookmark[]>(() => getAllBookmarks())
@@ -30,17 +27,13 @@ export function HomeView() {
     const newSettings = { ...settings, isFullscreen: newFullscreen }
     setSettings(newSettings)
     saveSettings(newSettings)
-    isTogglingFullscreen = true
+    onFullscreenToggle?.()  // 通知 index.tsx 进入全屏切换流程
     dismiss()
     setTimeout(async () => {
       await Navigation.present({
         element: <HomeView />,
         modalPresentationStyle: newFullscreen ? 'fullScreen' : 'pageSheet',
       })
-      if (!isTogglingFullscreen) {
-        Script.exit()
-      }
-      isTogglingFullscreen = false
     }, 300)
   }
 

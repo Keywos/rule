@@ -134,6 +134,8 @@ export function SearchPanel({
 }: SearchPanelProps) {
   /* ── 内部状态 ── */
   const [deepSearchResults, setDeepSearchResults] = useState<DeepSearchResult[]>([])
+  const deepSearchResultsRef = useRef<DeepSearchResult[]>(deepSearchResults)
+  deepSearchResultsRef.current = deepSearchResults
   // 默认关闭，后续 useEffect 检查偏好后自动开启
   const [deepSearchEnabled, setDeepSearchEnabled] = useState(false)
   const [isBuildingIndex, setIsBuildingIndex] = useState(false)
@@ -180,6 +182,10 @@ export function SearchPanel({
       }, forceRebuild)
       const stats = await getIndexStats(dirPath)
       setIndexStats(stats)
+      // 索引重建完成后自动重新搜索当前查询，确保结果列表与最新索引一致
+      if (searchQuery.trim()) {
+        await performDeepSearch(searchQuery)
+      }
     } catch (e) {
       console.log('构建索引失败:', e)
     } finally {
@@ -200,8 +206,10 @@ export function SearchPanel({
       const offset = append ? searchOffset : 0
       const results = await searchFromIndex(currentDirPath, query, pageSize, offset)
       if (append) {
-        setDeepSearchResults(prev => [...prev, ...results])
-        onResultsChange?.([...deepSearchResults, ...results])
+        const updated = [...deepSearchResultsRef.current, ...results]
+        setDeepSearchResults(updated)
+        deepSearchResultsRef.current = updated
+        onResultsChange?.(updated)
       } else {
         notifyResults(results)
       }
@@ -223,6 +231,7 @@ export function SearchPanel({
   const notifyResults = (results: DeepSearchResult[]) => {
     const filtered = results.filter(r => !deletedPathsRef.current.has(r.path))
     setDeepSearchResults(filtered)
+    deepSearchResultsRef.current = filtered
     onResultsChange?.(filtered)
   }
 
@@ -274,6 +283,7 @@ export function SearchPanel({
   useEffect(() => {
     if (!searchQuery.trim()) {
       setDeepSearchResults([])
+      deepSearchResultsRef.current = []
       setSearchOffset(0)
       setHasMoreResults(false)
       setIsBuildingIndex(false)
@@ -346,11 +356,10 @@ export function SearchPanel({
     const deleteFile = async (result: DeepSearchResult) => {
       // 立即从列表移除（乐观更新），再异步删除文件
       deletedPathsRef.current.add(result.path)
-      setDeepSearchResults(prev => {
-        const next = prev.filter(r => r.path !== result.path)
-        onResultsChange?.(next)
-        return next
-      })
+      const updated = deepSearchResultsRef.current.filter(r => r.path !== result.path)
+      deepSearchResultsRef.current = updated
+      setDeepSearchResults(updated)
+      onResultsChange?.(updated)
       try {
         await FileManager.remove(result.path)
       } catch (e) {
@@ -381,11 +390,10 @@ export function SearchPanel({
         } catch {
           // 文件已删除 → 从搜索列表移除
           deletedPathsRef.current.add(path)
-          setDeepSearchResults(prev => {
-            const next = prev.filter(r => r.path !== path)
-            onResultsChange?.(next)
-            return next
-          })
+          const updated = deepSearchResultsRef.current.filter(r => r.path !== path)
+          deepSearchResultsRef.current = updated
+          setDeepSearchResults(updated)
+          onResultsChange?.(updated)
         }
       }
     }

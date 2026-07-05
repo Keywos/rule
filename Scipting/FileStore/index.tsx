@@ -6,9 +6,10 @@ import {
 import { getFileInfo } from './manager/utils'
 import { FilePreviewView } from './view/FilePreview'
 import { readSettings } from './manager/Settings'
-import { HomeView, isTogglingFullscreen } from './view/preview'
+import { HomeView } from './view/preview'
 import { openEditorDirectly } from './view/EditorDirectly'
 
+let _isTogglingFullscreen = false
 
 async function run() {  
   // 检查是否有通过 Intent 传入的文件
@@ -68,13 +69,17 @@ async function run() {
   const settings = readSettings()
   const presentationStyle = settings.isFullscreen ? 'fullScreen' : 'pageSheet'
 
+  const handleToggleFullscreen = () => {
+    _isTogglingFullscreen = true
+  }
+
   // 显示文件管理器主页
   await Navigation.present({
-    element: <HomeView />,
+    element: <HomeView onFullscreenToggle={handleToggleFullscreen} />,
     modalPresentationStyle: presentationStyle,
   })
   // 如果是因为全屏切换而 dismiss 的，不退出脚本（由 toggleFullscreen 重新 present）
-  if (!isTogglingFullscreen) { 
+  if (!_isTogglingFullscreen) {
     Script.exit()
   }
 }

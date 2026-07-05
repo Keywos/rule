@@ -584,11 +584,50 @@ export function sanitizeExtractDirName(archiveName: string): string {
 }
 
 /** 解压到目标目录，避免覆盖已有文件。先解压到临时目录，再用 uniquePath 逐个移动 */
-export async function safeUnzip(zipPath: string, destDir: string): Promise<void> {
+export async function safeUnzip(archivePath: string, destDir: string): Promise<void> {
   const tmpDir = Path.join(FileManager.temporaryDirectory, `_unzip_${Date.now()}`)
   await FileManager.createDirectory(tmpDir)
   try {
-    await FileManager.unzip(zipPath, tmpDir)
+    const name = Path.basename(archivePath).toLowerCase()
+    const ext = Path.extname(archivePath).toLowerCase()
+
+    // 判断压缩格式并选择解压方式
+    const isTarGz = name.endsWith('.tar.gz')
+    const isTarBz2 = name.endsWith('.tar.bz2')
+    const isTarXz = name.endsWith('.tar.xz')
+    const isTgz = name.endsWith('.tgz')
+    const isTar = ext === '.tar' || isTarGz || isTarBz2 || isTarXz || isTgz
+
+    if (ext === '.zip') {
+      await FileManager.unzip(archivePath, tmpDir)
+    } else if (isTar) {
+      const r = await Shell.run(`tar -xf "${archivePath}"`, { cwd: tmpDir })
+      if (r.exitCode !== 0) {
+        throw new Error(`tar 解压失败: ${r.output}`)
+      }
+    } else if (ext === '.gz' && !isTarGz) {
+      // 单独 .gz 文件（非 tar.gz）
+      const outName = name.slice(0, -3)
+      const r = await Shell.run(`gzip -d -c "${archivePath}" > "${tmpDir}/${outName}"`)
+      if (r.exitCode !== 0) {
+        throw new Error(`gzip 解压失败: ${r.output}`)
+      }
+    } else if (ext === '.bz2' && !isTarBz2) {
+      const outName = name.slice(0, -4)
+      const r = await Shell.run(`bzip2 -d -c "${archivePath}" > "${tmpDir}/${outName}"`)
+      if (r.exitCode !== 0) {
+        throw new Error(`bzip2 解压失败: ${r.output}`)
+      }
+    } else if (ext === '.xz' && !isTarXz) {
+      const outName = name.slice(0, -3)
+      const r = await Shell.run(`xz -d -c "${archivePath}" > "${tmpDir}/${outName}"`)
+      if (r.exitCode !== 0) {
+        throw new Error(`xz 解压失败: ${r.output}`)
+      }
+    } else {
+      throw new Error(`不支持的压缩格式: ${ext}`)
+    }
+
     const entries = await FileManager.readDirectory(tmpDir)
     for (const entry of entries) {
       const src = Path.join(tmpDir, entry)
