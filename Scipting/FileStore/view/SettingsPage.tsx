@@ -5,7 +5,7 @@ import {
   NavigationStack,
   List, Section, Text, Button, Toggle,
   HStack, VStack, Spacer,
-  useState, useEffect, Path,
+  useState, Path,
 } from 'scripting'
 import { AppSettings } from '../manager/Settings'
 import { getMaxIndexFileSizeKB, setMaxIndexFileSizeKB } from '../manager/SearchState'
@@ -18,32 +18,10 @@ interface SettingsPageProps {
 
 export function SettingsPage({ settings, onUpdateSettings, onToggleFullscreen }: SettingsPageProps) {
   const dismiss = Navigation.useDismiss()
-  const [appVersion, setAppVersion] = useState('')
   const defaultDir = Path.join(FileManager.documentsDirectory, 'File Store')
   // 本地状态，选完立刻更新显示，无需等 modal 重新传入 props
   const [currentPath, setCurrentPath] = useState(settings.homeCurrentPath || defaultDir)
   const [maxFileSizeKB, setMaxFileSizeKB] = useState(getMaxIndexFileSizeKB())
-
-  useEffect(() => {
-    (async () => {
-      try {
-        const scriptsDir = FileManager.scriptsDirectory
-        // 遍历 scripts 目录查找当前项目的 script.json
-        const dirs = FileManager.readDirectorySync(scriptsDir, false)
-        for (const dirName of dirs) {
-          const jsonPath = Path.join(scriptsDir, dirName, 'script.json')
-          try {
-            const content = FileManager.readAsStringSync(jsonPath)
-            const data = JSON.parse(content)
-            if (data.version && data.entry === 'index.tsx') {
-              setAppVersion(data.version)
-              return
-            }
-          } catch {}
-        }
-      } catch {}
-    })()
-  }, [])
 
   const handleBrowse = async () => {
     try {
@@ -185,9 +163,9 @@ export function SettingsPage({ settings, onUpdateSettings, onToggleFullscreen }:
           </Button>
         </Section>
 
-        <Section title="关于">
+       {/*  <Section title="关于">
           <Text foregroundStyle="secondaryLabel">文件管理器 v{appVersion || '1.0.0'}</Text>
-        </Section>
+        </Section> */}
       </List>
     </NavigationStack>
   )
