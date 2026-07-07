@@ -4,7 +4,7 @@ import {
   NavigationStack, VStack,
   Spacer, Image, VideoPlayer, useState, useRef, Button,
   MagnifyGesture, DragGesture, TapGesture,
-  Navigation, useObservable, useEffect, useColorScheme,
+  useObservable, useEffect, useColorScheme,
   LivePhotoView, Size, Path, Text, EmptyView,
 } from 'scripting'
 import { unpackLivePhoto } from '../manager/LivePhotoPacker'

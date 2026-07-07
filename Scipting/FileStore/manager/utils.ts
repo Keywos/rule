@@ -1,5 +1,5 @@
 // 文件管理器工具函数
-import { Path } from "scripting";
+import { Path } from "scripting"
 
 /** 使用系统分享菜单分享文件 */
 export async function shareFilePath(filePath: string, fileName: string) {
@@ -10,7 +10,7 @@ export async function shareFilePath(filePath: string, fileName: string) {
     }
     await FileManager.copyFile(filePath, tmpPath)
     await DocumentInteraction.optionsMenu(tmpPath)
-    try { await FileManager.remove(tmpPath) } catch {}
+    try { await FileManager.remove(tmpPath) } catch { }
   } catch (e) {
     console.log('分享失败:', e)
   }
@@ -18,7 +18,7 @@ export async function shareFilePath(filePath: string, fileName: string) {
 
 /** 将路径转换为友好的显示名称 */
 export function pathToDisplayName(filePath: string): string {
-  let p = filePath.replace(/^file:\/\//, "");
+  let p = filePath.replace(/^file:\/\//, "")
 
   const rules: Array<[RegExp, string]> = [
     [
@@ -37,66 +37,66 @@ export function pathToDisplayName(filePath: string): string {
       /^\/private\/var\/mobile\/Containers\/Shared\/AppGroup\/[^/]+\/?/,
       "AppGroup/",
     ],
-  ];
+  ]
 
-  
+
   for (const [regex, replacement] of rules) {
     if (regex.test(p)) {
-      p = p.replace(regex, replacement);
-      break; // 只会匹配一种，匹配后结束
+      p = p.replace(regex, replacement)
+      break // 只会匹配一种，匹配后结束
     }
   }
 
-  return p.replace(/\/$/, "");
+  return p.replace(/\/$/, "")
 }
 /** 复制文本到剪贴板并弹出简短提示（无需确认） */
 export async function copyAndToast(text: string, label?: string): Promise<void> {
-  await Pasteboard.setString(text);
+  await Pasteboard.setString(text)
   // 返回提示信息，调用方可用 toast 展示
-  return;
+  return
 }
 
 /** 获取复制成功的 toast 消息，截取前几个字符 */
 export function copiedMessage(text: string): string {
-  const preview = text.length > 20 ? text.slice(0, 20) + ".." : text;
-  return `已复制 ${preview}`;
+  const preview = text.length > 20 ? text.slice(0, 20) + ".." : text
+  return `已复制 ${preview}`
 }
 
 /** 格式化文件大小 */
 export function fmtSize(b: number): string {
-  if (b < 1024) return `${b} B`;
-  if (b < 1048576) return `${(b / 1024).toFixed(1)} KB`;
-  if (b < 1073741824) return `${(b / 1048576).toFixed(1)} MB`;
-  return `${(b / 1073741824).toFixed(2)} GB`;
+  if (b < 1024) return `${b} B`
+  if (b < 1048576) return `${(b / 1024).toFixed(1)} KB`
+  if (b < 1073741824) return `${(b / 1048576).toFixed(1)} MB`
+  return `${(b / 1073741824).toFixed(2)} GB`
 }
 
 /** 格式化日期 */
 export function fmtDate(ts: number): string {
-  const d = new Date(ts > 1e12 ? ts : ts * 1000);
-  const now = new Date();
-  const pad = (n: number) => String(n).padStart(2, "0");
+  const d = new Date(ts > 1e12 ? ts : ts * 1000)
+  const now = new Date()
+  const pad = (n: number) => String(n).padStart(2, "0")
 
   if (d.toDateString() === now.toDateString()) {
-    return `今天 ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    return `今天 ${pad(d.getHours())}:${pad(d.getMinutes())}`
   }
 
-  const yesterday = new Date(now);
-  yesterday.setDate(yesterday.getDate() - 1);
+  const yesterday = new Date(now)
+  yesterday.setDate(yesterday.getDate() - 1)
   if (d.toDateString() === yesterday.toDateString()) {
-    return `昨天 ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    return `昨天 ${pad(d.getHours())}:${pad(d.getMinutes())}`
   }
 
   if (d.getFullYear() === now.getFullYear()) {
-    return `${d.getMonth() + 1}月${d.getDate()}日`;
+    return `${d.getMonth() + 1}月${d.getDate()}日`
   }
 
-  return `${d.getFullYear()}/${pad(d.getMonth() + 1)}/${pad(d.getDate())}`;
+  return `${d.getFullYear()}/${pad(d.getMonth() + 1)}/${pad(d.getDate())}`
 }
 
 /** 文件类型分类 */
-export type FileCategory = "text" | "code" | "image" | "pdf" | "audio" | "video" | "archive" | "data" | "unknown" | "livephoto";
+export type FileCategory = "text" | "code" | "image" | "pdf" | "audio" | "video" | "archive" | "data" | "unknown" | "livephoto"
 
-const TEXT_EXTS = new Set([".txt", ".md", ".rtf", ".csv", ".log", ".ini", ".conf", ".cfg"]);
+const TEXT_EXTS = new Set([".txt", ".md", ".rtf", ".csv", ".log", ".ini", ".conf", ".cfg"])
 const CODE_EXTS = new Set([
   ".js",
   ".ts",
@@ -138,102 +138,102 @@ const CODE_EXTS = new Set([
   ".gitignore",
   ".dockerfile",
   ".makefile",
-]);
-const IMAGE_EXTS = new Set([".jpg", ".jpeg", ".png", ".gif", ".bmp", ".tiff", ".tif", ".svg", ".webp", ".heic", ".heif", ".ico", ".icns", ".dng", ".raw", ".cr2", ".cr3", ".nef", ".arw", ".orf", ".rw2", ".raf", ".pef", ".srw"]);
-const RAW_IMAGE_EXTS = new Set([".dng", ".raw", ".cr2", ".cr3", ".nef", ".arw"]);
-const AUDIO_EXTS = new Set([".mp3", ".m4a", ".wav", ".aac", ".flac", ".ogg", ".wma", ".aiff"]);
-const VIDEO_EXTS = new Set([".mp4", ".mov", ".m4v", ".avi", ".mkv", ".wmv", ".flv", ".webm"]);
-const ARCHIVE_EXTS = new Set([".zip", ".rar", ".7z", ".tar", ".gz", ".bz2", ".xz"]);
-const DATA_EXTS = new Set([".plist", ".db", ".sqlite", ".sqlite3"]);
+])
+const IMAGE_EXTS = new Set([".jpg", ".jpeg", ".png", ".gif", ".bmp", ".tiff", ".tif", ".svg", ".webp", ".heic", ".heif", ".ico", ".icns", ".dng", ".raw", ".cr2", ".cr3", ".nef", ".arw", ".orf", ".rw2", ".raf", ".pef", ".srw"])
+const RAW_IMAGE_EXTS = new Set([".dng", ".raw", ".cr2", ".cr3", ".nef", ".arw"])
+const AUDIO_EXTS = new Set([".mp3", ".m4a", ".wav", ".aac", ".flac", ".ogg", ".wma", ".aiff"])
+const VIDEO_EXTS = new Set([".mp4", ".mov", ".m4v", ".avi", ".mkv", ".wmv", ".flv", ".webm"])
+const ARCHIVE_EXTS = new Set([".zip", ".rar", ".7z", ".tar", ".gz", ".bz2", ".xz"])
+const DATA_EXTS = new Set([".plist", ".db", ".sqlite", ".sqlite3"])
 
 /** 获取文件类型分类 */
 export function getFileCategory(ext: string): FileCategory {
-  const e = ext.toLowerCase();
+  const e = ext.toLowerCase()
 
-  if (TEXT_EXTS.has(e)) return "text";
-  if (CODE_EXTS.has(e)) return "code";
-  if (e === ".live") return "livephoto";
-  if (IMAGE_EXTS.has(e)) return "image";
-  if (e === ".pdf") return "pdf";
-  if (AUDIO_EXTS.has(e)) return "audio";
-  if (VIDEO_EXTS.has(e)) return "video";
-  if (ARCHIVE_EXTS.has(e)) return "archive";
-  if (DATA_EXTS.has(e)) return "data";
+  if (TEXT_EXTS.has(e)) return "text"
+  if (CODE_EXTS.has(e)) return "code"
+  if (e === ".live") return "livephoto"
+  if (IMAGE_EXTS.has(e)) return "image"
+  if (e === ".pdf") return "pdf"
+  if (AUDIO_EXTS.has(e)) return "audio"
+  if (VIDEO_EXTS.has(e)) return "video"
+  if (ARCHIVE_EXTS.has(e)) return "archive"
+  if (DATA_EXTS.has(e)) return "data"
 
-  return "unknown";
+  return "unknown"
 }
 
 /** 获取文件图标 */
 export function getFileIcon(ext: string, isDirectory: boolean, category?: FileCategory): string {
-  if (isDirectory) return "folder.fill";
+  if (isDirectory) return "folder.fill"
 
-  const e = ext.toLowerCase();
-  if (e === ".live") return "livephoto";
-  const cat = category ?? getFileCategory(e);
+  const e = ext.toLowerCase()
+  if (e === ".live") return "livephoto"
+  const cat = category ?? getFileCategory(e)
 
   switch (cat) {
     case "text":
-      if (e === ".md") return "doc.text";
-      if (e === ".csv") return "tablecells";
-      if (e === ".rtf") return "doc.richtext";
-      if (e === ".log") return "doc.text";
-      return "doc.plaintext";
+      if (e === ".md") return "doc.text"
+      if (e === ".csv") return "tablecells"
+      if (e === ".rtf") return "doc.richtext"
+      if (e === ".log") return "doc.text"
+      return "doc.plaintext"
     case "code":
-      if (e === ".json") return "curlybraces";
-      if (e === ".html" || e === ".htm") return "globe";
-      if (e === ".css" || e === ".scss" || e === ".less") return "paintbrush.fill";
-      if (e === ".sh" || e === ".bash") return "terminal";
-      if (e === ".sql") return "cylinder";
-      if (e === ".py") return "text.word.spacing";
-      if (e === ".swift") return "bird.fill";
-      return "chevron.left.forwardslash.chevron.right";
+      if (e === ".json") return "curlybraces"
+      if (e === ".html" || e === ".htm") return "globe"
+      if (e === ".css" || e === ".scss" || e === ".less") return "paintbrush.fill"
+      if (e === ".sh" || e === ".bash") return "terminal"
+      if (e === ".sql") return "cylinder"
+      if (e === ".py") return "text.word.spacing"
+      if (e === ".swift") return "bird.fill"
+      return "chevron.left.forwardslash.chevron.right"
     case "image":
-      if (e === ".svg") return "photo.on.rectangle";
-      if (RAW_IMAGE_EXTS.has(e)) return "camera.aperture";
-      return "photo";
+      if (e === ".svg") return "photo.on.rectangle"
+      if (RAW_IMAGE_EXTS.has(e)) return "camera.aperture"
+      return "photo"
     case "pdf":
-      return "doc.richtext";
+      return "doc.richtext"
     case "audio":
-      return "waveform";
+      return "waveform"
     case "video":
-      return "film";
+      return "film"
     case "archive":
-      return "archivebox";
+      return "archivebox"
     case "data":
-      if (e === ".plist") return "list.clipboard";
-      return "externaldrive";
+      if (e === ".plist") return "list.clipboard"
+      return "externaldrive"
     case "livephoto":
-      return "livephoto";
+      return "livephoto"
     default:
-      return "doc";
+      return "doc"
   }
 }
 
 /** 获取文件图标颜色 */
 export function getFileIconColor(ext: string, isDirectory: boolean, category?: FileCategory): FileInfo["iconColor"] {
-  if (isDirectory) return "systemBlue";
+  if (isDirectory) return "systemBlue"
 
-  if (ext.toLowerCase() === ".live") return "systemPink";
-  const cat = category ?? getFileCategory(ext);
+  if (ext.toLowerCase() === ".live") return "systemPink"
+  const cat = category ?? getFileCategory(ext)
   switch (cat) {
     case "text":
-      return "systemGray";
+      return "systemGray"
     case "code":
-      return "systemOrange";
+      return "systemOrange"
     case "image":
-      return "systemGreen";
+      return "systemGreen"
     case "pdf":
-      return "systemRed";
+      return "systemRed"
     case "audio":
-      return "systemPurple";
+      return "systemPurple"
     case "video":
-      return "systemPink";
+      return "systemPink"
     case "archive":
-      return "systemIndigo";
+      return "systemIndigo"
     case "data":
-      return "systemTeal";
+      return "systemTeal"
     default:
-      return "systemGray";
+      return "systemGray"
   }
 }
 
@@ -275,11 +275,11 @@ export const langMap: Record<string, string> = {
   ".lua": "Lua",
   ".r": "R",
   ".toml": "TOML",
-};
+}
 
 /** MIME 类型映射（用于导出） */
 export function getMimeType(ext: string): string {
-  const e = ext.toLowerCase();
+  const e = ext.toLowerCase()
   const mimeMap: Record<string, string> = {
     ".txt": "text/plain",
     ".md": "text/markdown",
@@ -305,48 +305,48 @@ export function getMimeType(ext: string): string {
     ".zip": "application/zip",
     ".csv": "text/csv",
     ".rtf": "application/rtf",
-  };
-  return mimeMap[e] || "application/octet-stream";
+  }
+  return mimeMap[e] || "application/octet-stream"
 }
 
 /** 文件信息接口 */
 export interface FileInfo {
-  name: string;
-  path: string;
-  isDirectory: boolean;
-  isLink: boolean;
-  size: number;
-  creationDate: number;
-  modificationDate: number;
-  extension: string;
-  category: FileCategory;
-  mimeType: string;
-  icon: string;
+  name: string
+  path: string
+  isDirectory: boolean
+  isLink: boolean
+  size: number
+  creationDate: number
+  modificationDate: number
+  extension: string
+  category: FileCategory
+  mimeType: string
+  icon: string
   iconColor:
-    | "systemRed"
-    | "systemGreen"
-    | "systemBlue"
-    | "systemOrange"
-    | "systemYellow"
-    | "systemPink"
-    | "systemPurple"
-    | "systemTeal"
-    | "systemIndigo"
-    | "systemBrown"
-    | "systemMint"
-    | "systemCyan"
-    | "systemGray"
-    | "systemGray2"
-    | "systemGray3"
-    | "systemGray4"
-    | "systemGray5"
-    | "systemGray6"
-    | "accentColor";
+  | "systemRed"
+  | "systemGreen"
+  | "systemBlue"
+  | "systemOrange"
+  | "systemYellow"
+  | "systemPink"
+  | "systemPurple"
+  | "systemTeal"
+  | "systemIndigo"
+  | "systemBrown"
+  | "systemMint"
+  | "systemCyan"
+  | "systemGray"
+  | "systemGray2"
+  | "systemGray3"
+  | "systemGray4"
+  | "systemGray5"
+  | "systemGray6"
+  | "accentColor"
 }
 
 /** 获取文件信息 */
 export async function getFileInfo(filePath: string): Promise<FileInfo> {
-  const name = Path.basename(filePath);
+  const name = Path.basename(filePath)
   // 先判断符号链接，再判断目录
   const isLink = await FileManager.isLink(filePath)
   const isDir = (await FileManager.isDirectory(filePath)) && !isLink
@@ -355,10 +355,10 @@ export async function getFileInfo(filePath: string): Promise<FileInfo> {
   if (isDir) {
     let cDate = 0, mDate = 0
     try {
-      const stat = await FileManager.stat(filePath);
+      const stat = await FileManager.stat(filePath)
       cDate = stat.creationDate || 0
       mDate = stat.modificationDate || 0
-    } catch {}
+    } catch { }
     return {
       name,
       path: filePath,
@@ -372,12 +372,12 @@ export async function getFileInfo(filePath: string): Promise<FileInfo> {
       mimeType: '',
       icon: getFileIcon("", true),
       iconColor: getFileIconColor("", true),
-    };
+    }
   }
 
-  const stat = await FileManager.stat(filePath);
-  const ext = Path.extname(name);
-  const category = getFileCategory(ext);
+  const stat = await FileManager.stat(filePath)
+  const ext = Path.extname(name)
+  const category = getFileCategory(ext)
 
   return {
     name,
@@ -392,7 +392,7 @@ export async function getFileInfo(filePath: string): Promise<FileInfo> {
     mimeType: getMimeType(ext),
     icon: getFileIcon(ext, false, category),
     iconColor: getFileIconColor(ext, false, category),
-  };
+  }
 }
 
 /** ── 目录列表缓存（防止返回导航时闪屏） ── */
@@ -438,26 +438,26 @@ export async function listDirectory(dirPath: string): Promise<FileInfo[]> {
   if (inflight) return inflight
 
   const promise = (async () => {
-    const entries = await FileManager.readDirectory(dirPath);
+    const entries = await FileManager.readDirectory(dirPath)
 
     const results = await Promise.all(
       entries.map(async (entry) => {
         try {
-          const fullPath = Path.join(dirPath, entry);
-          const info = await getFileInfo(fullPath);
-          return info;
+          const fullPath = Path.join(dirPath, entry)
+          const info = await getFileInfo(fullPath)
+          return info
         } catch (e) {
-          return null; // 跳过无法访问的文件
+          return null // 跳过无法访问的文件
         }
       })
-    );
+    )
 
-    const items: FileInfo[] = results.filter((item): item is FileInfo => item != null);
+    const items: FileInfo[] = results.filter((item): item is FileInfo => item != null)
 
     // 自动缓存列表结果，供 GeneralBrowser 回退时使用
     cacheDirectoryListing(dirPath, items)
 
-    return items;
+    return items
   })()
 
   _inflightRequests.set(dirPath, promise)
@@ -473,52 +473,52 @@ export async function listDirectory(dirPath: string): Promise<FileInfo[]> {
  *  始终从磁盘实时读取，不使用列表缓存——文件夹计数徽标必须反映即时状态，
  *  避免跨栏拖拽后另一栏的计数因缓存过期而不刷新。 */
 export async function countDirectoryItems(dirPath: string): Promise<number> {
-  const entries = await FileManager.readDirectory(dirPath);
-  return entries.length;
+  const entries = await FileManager.readDirectory(dirPath)
+  return entries.length
 }
 
 /** 排序方式 */
-export type SortMode = "name" | "date" | "size" | "type" | "createdate";
-export type SortOrder = "asc" | "desc";
+export type SortMode = "name" | "date" | "size" | "type" | "createdate"
+export type SortOrder = "asc" | "desc"
 
 /** 排序文件列表 */
 export function sortFiles(files: FileInfo[], mode: SortMode, order: SortOrder): FileInfo[] {
-  const sorted = [...files];
-  const dirFirst = true;
-  const mult = order === "asc" ? 1 : -1;
+  const sorted = [...files]
+  const dirFirst = true
+  const mult = order === "asc" ? 1 : -1
 
   sorted.sort((a, b) => {
     // 目录优先
     if (dirFirst) {
-      if (a.isDirectory && !b.isDirectory) return -1;
-      if (!a.isDirectory && b.isDirectory) return 1;
+      if (a.isDirectory && !b.isDirectory) return -1
+      if (!a.isDirectory && b.isDirectory) return 1
     }
 
     switch (mode) {
       case "name":
-        return mult * a.name.localeCompare(b.name, "zh-CN", { numeric: true });
+        return mult * a.name.localeCompare(b.name, "zh-CN", { numeric: true })
       case "date":
-        return mult * (a.modificationDate - b.modificationDate);
+        return mult * (a.modificationDate - b.modificationDate)
       case "createdate":
-        return mult * (a.creationDate - b.creationDate);
+        return mult * (a.creationDate - b.creationDate)
       case "size":
-        return mult * (a.size - b.size);
+        return mult * (a.size - b.size)
       case "type":
-        const catCmp = mult * a.category.localeCompare(b.category);
-        return catCmp !== 0 ? catCmp : mult * a.name.localeCompare(b.name, "zh-CN", { numeric: true });
+        const catCmp = mult * a.category.localeCompare(b.category)
+        return catCmp !== 0 ? catCmp : mult * a.name.localeCompare(b.name, "zh-CN", { numeric: true })
       default:
-        return 0;
+        return 0
     }
-  });
+  })
 
-  return sorted;
+  return sorted
 }
 
 /** 搜索文件 */
 export function searchFiles(files: FileInfo[], query: string): FileInfo[] {
-  if (!query.trim()) return files;
-  const q = query.toLowerCase();
-  return files.filter((f) => f.name.toLowerCase().includes(q));
+  if (!query.trim()) return files
+  const q = query.toLowerCase()
+  return files.filter((f) => f.name.toLowerCase().includes(q))
 }
 
 /* ─── 剪贴板路径管理（跨标签/子目录保留） ─── */
@@ -531,7 +531,7 @@ export async function readClipboardPath(): Promise<string | null> {
     if (await FileManager.exists(_CLIPBOARD_PATH_FILE)) {
       return await FileManager.readAsString(_CLIPBOARD_PATH_FILE)
     }
-  } catch {}
+  } catch { }
   return null
 }
 
@@ -545,7 +545,7 @@ export async function writeClipboardPath(path: string | null) {
         await FileManager.remove(_CLIPBOARD_PATH_FILE)
       }
     }
-  } catch {}
+  } catch { }
 }
 
 /** 生成不重名的路径，自动加 _01 _02 后缀 */
@@ -625,7 +625,11 @@ export async function safeUnzip(archivePath: string, destDir: string): Promise<v
         throw new Error(`xz 解压失败: ${r.output}`)
       }
     } else {
-      throw new Error(`不支持的压缩格式: ${ext}`)
+      try {
+        await FileManager.unzip(archivePath, tmpDir)
+      } catch {
+        throw new Error(`不支持的压缩格式: ${ext}`)
+      }
     }
 
     const entries = await FileManager.readDirectory(tmpDir)
@@ -633,10 +637,10 @@ export async function safeUnzip(archivePath: string, destDir: string): Promise<v
       const src = Path.join(tmpDir, entry)
       const dest = await uniquePath(Path.join(destDir, entry))
       await FileManager.copyFile(src, dest)
-      try { await FileManager.remove(src) } catch {}
+      try { await FileManager.remove(src) } catch { }
     }
   } finally {
-    try { await FileManager.remove(tmpDir) } catch {}
+    try { await FileManager.remove(tmpDir) } catch { }
   }
 }
 
