@@ -64,7 +64,7 @@ export function HomeView() {
 
         <Tab title="双栏浏览" systemImage="r.square.on.square.fill" value={2}>
           <Group labelStyle="titleAndIcon">
-            <DualBrowserPage settings={settings} refreshKey={refreshKey} setRefreshKey={setRefreshKey} onSettingsChange={setSettings} />
+            <DualBrowserPage settings={settings} refreshKey={refreshKey} setRefreshKey={setRefreshKey} onSettingsChange={setSettings} bookmarks={bookmarks} />
           </Group>
         </Tab>
 

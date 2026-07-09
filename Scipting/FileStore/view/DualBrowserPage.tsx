@@ -3,6 +3,7 @@
 import { HStack, VStack, ZStack, Image, Text, GeometryReader, useState, useEffect, useRef, useCallback, Path } from "scripting";
 import { GeneralBrowser } from "./GeneralBrowser";
 import { AppSettings, saveSettings } from "../manager/Settings";
+import { Bookmark, getAllBookmarks } from "../manager/BookmarkManager";
 import { invalidateDirectoryCache, FileInfo, getFileCategory } from "../manager/utils";
 
 interface DualBrowserPageProps {
@@ -10,9 +11,10 @@ interface DualBrowserPageProps {
   refreshKey: number;
   setRefreshKey: (fn: (k: number) => number) => void;
   onSettingsChange?: (settings: AppSettings) => void;
+  bookmarks?: Bookmark[];
 }
 
-export function DualBrowserPage({ settings, refreshKey }: DualBrowserPageProps) {
+export function DualBrowserPage({ settings, refreshKey, bookmarks }: DualBrowserPageProps) {
   // 跨栏复制文件乐观更新注入
   const leftAddFilesRef = useRef<(files: FileInfo[]) => void>(() => {});
   const rightAddFilesRef = useRef<(files: FileInfo[]) => void>(() => {});
@@ -280,6 +282,7 @@ export function DualBrowserPage({ settings, refreshKey }: DualBrowserPageProps) 
                       onCopyToOppositeDir={rightDir ? handleCopyLeftToRight : undefined}
                       addFilesRef={leftAddFilesRef}
                       folderCountUpdateRef={leftFolderCountUpdateRef}
+                      bookmarks={bookmarks}
                       onFolderCountChanged={(folderPath, count) => {
                         rightFolderCountUpdateRef.current(folderPath, count);
                       }}
@@ -308,6 +311,7 @@ export function DualBrowserPage({ settings, refreshKey }: DualBrowserPageProps) 
                       initialLoadDelay={300}
                       addFilesRef={rightAddFilesRef}
                       folderCountUpdateRef={rightFolderCountUpdateRef}
+                      bookmarks={bookmarks}
                       onFolderCountChanged={(folderPath, count) => {
                         leftFolderCountUpdateRef.current(folderPath, count);
                       }}
@@ -337,6 +341,7 @@ export function DualBrowserPage({ settings, refreshKey }: DualBrowserPageProps) 
                       onCopyToOppositeDir={rightDir ? handleCopyLeftToRight : undefined}
                       addFilesRef={leftAddFilesRef}
                       folderCountUpdateRef={leftFolderCountUpdateRef}
+                      bookmarks={bookmarks}
                       onFolderCountChanged={(folderPath, count) => {
                         rightFolderCountUpdateRef.current(folderPath, count);
                       }}
@@ -365,9 +370,7 @@ export function DualBrowserPage({ settings, refreshKey }: DualBrowserPageProps) 
                       initialLoadDelay={300}
                       addFilesRef={rightAddFilesRef}
                       folderCountUpdateRef={rightFolderCountUpdateRef}
-                      onFolderCountChanged={(folderPath, count) => {
-                        leftFolderCountUpdateRef.current(folderPath, count);
-                      }}
+                      bookmarks={bookmarks}
                       onFilesAdded={(files) => {
                         if (leftDir === rightDir && leftDir) {
                           leftAddFilesRef.current(files);
@@ -451,16 +454,11 @@ function DraggableDivider({
 
   const handleTap = () => {
     if (wasDraggedRef.current) return;
-    setHapticTrigger((v) => v + 1); // 先触发触感反馈（render cycle 1）
-    // 等反馈播放后再切换布局，确保用户先感知触感再看到画面变化
-    setTimeout(() => {
-      onToggleLayout();
-      // 布局渲染后播放较轻的触感反馈
-      setTimeout(() => {
-        setHapticEndTrigger((v) => v + 1);
-      }, 80);
-    }, 50);
+    setHapticTrigger((v) => v + 1);
+    // 立即切换布局，无需等待触感反馈（触感反馈异步执行不阻塞渲染）
+    onToggleLayout();
   };
+
 
   return (
     <VStack

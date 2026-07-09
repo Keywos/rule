@@ -1112,6 +1112,14 @@ function GeneralBrowser({
               saveSettings(restored);
               onSettingsChange(restored);
             }
+            // 确保默认目录存在
+            if (!(await FileManager.exists(defaultDir))) {
+              try {
+                await FileManager.createDirectory(defaultDir, true);
+              } catch (e2) {
+                console.log("创建默认目录失败:", e2);
+              }
+            }
             // 重新加载默认目录
             const itemsList = await listDirectory(defaultDir);
             if (!isLatestLoad()) return;
