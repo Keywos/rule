@@ -53,7 +53,7 @@ import { FileRowContent } from "./FileRowContent";
 import { DeepSearchResult } from "./SearchPanel";
 import { SearchPanel } from "./SearchPanel";
 import { onSearchStateChange } from "../manager/SearchState";
-import { FileNavigationDest } from "./MediaViewer";
+import { ArchiveBrowserPage, FileNavigationDest } from "./MediaViewer";
 import { ToolbarMenu } from "./ToolbarMenu";
 import { FileListItem, FileInfoDialog } from "./FileListItem";
 import { filterFiles, sortFilesByOrder, DEFAULT_SORT_ORDER, DEFAULT_FILTER_TYPE } from "../manager/sortFilter";
@@ -67,6 +67,8 @@ import { ensureDir, makeTimestamp, importSinglePhotoResult } from "../manager/im
 import { DROP_ACCEPTED_TYPES, handleDropToDirectory } from "../manager/dropHandler";
 import { makeDragConfig } from "./FileListItem";
 import { showToast } from "../manager/ToastManager";
+import { startLocalHttpServer, getActiveServers, stopServer, subscribe } from "../manager/LocalHttpServer";
+import { WebPreviewPage } from "./WebPreviewPage";
 
 // 剪贴板路径文件（用文件持久化，跨 tab/子目录保留）
 const _readClipPath = readClipboardPath;
@@ -234,6 +236,11 @@ function FileRowLink({
                   console.log("解压失败:", e);
                   showToast("解压失败");
                 }
+              } else if (prefix === "archive:") {
+                await Navigation.present({
+                  element: <ArchiveBrowserPage filePath={file.path} />,
+                  modalPresentationStyle: "fullScreen",
+                });
               } else if (prefix === "share:") {
                 await handleShare();
               } else if (prefix === "pdf:") {
@@ -321,6 +328,16 @@ function FileRowLink({
               {/* 压缩/解压 — 所有文件都有压缩选项，归档文件额外有解压选项 */}
               {getFileCategory(file.extension) === "archive" ? (
                 <>
+                  <Button
+                    title="查看压缩文件"
+                    systemImage="archivebox.fill"
+                    action={() => {
+                      Navigation.present({
+                        element: <ArchiveBrowserPage filePath={file.path} />,
+                        modalPresentationStyle: "fullScreen",
+                      });
+                    }}
+                  />
                   <Button
                     title="解压到当前目录"
                     systemImage="archivebox"
@@ -492,6 +509,11 @@ function FileRowLink({
                   console.log("解压失败:", e);
                   showToast("解压失败");
                 }
+              } else if (prefix === "archive:") {
+                await Navigation.present({
+                  element: <ArchiveBrowserPage filePath={file.path} />,
+                  modalPresentationStyle: "fullScreen",
+                });
               } else if (prefix === "share:") {
                 await handleShare();
               } else if (prefix === "pdf:") {
@@ -607,6 +629,16 @@ function FileRowLink({
             {/* 压缩/解压 — 所有非目录文件都有压缩选项，归档文件额外有解压选项 */}
             {!file.isDirectory && getFileCategory(file.extension) === "archive" ? (
               <>
+                <Button
+                  title="查看压缩文件"
+                  systemImage="archivebox.fill"
+                  action={() => {
+                    Navigation.present({
+                      element: <ArchiveBrowserPage filePath={file.path} />,
+                      modalPresentationStyle: "fullScreen",
+                    });
+                  }}
+                />
                 <Button
                   title="解压到当前目录"
                   systemImage="archivebox"
@@ -781,6 +813,7 @@ function GeneralBrowser({
   items,
   onItemsChange,
   toolbarOtherItems,
+  toolbarTrailingItems,
   showFolderItemCounts,
   onOpenSettings,
   initialSortOrder,
@@ -814,6 +847,7 @@ function GeneralBrowser({
   items?: FileInfo[];
   onItemsChange?: (items: FileInfo[]) => void;
   toolbarOtherItems?: any;
+  toolbarTrailingItems?: any;
   showFolderItemCounts?: boolean;
   onOpenSettings?: () => void;
   initialSortOrder?: import("../manager/sortFilter").SortOrder;
@@ -1004,6 +1038,10 @@ function GeneralBrowser({
       applyFolderCountUpdate(folderPath, count, false);
     };
   }
+
+  const [serverTick, setServerTick] = useState(0);
+  // 所有目录浏览器订阅同一服务状态；任一侧启停服务时双列都会刷新。
+  useEffect(() => subscribe(() => setServerTick((t) => t + 1)), []);
 
   // ── 首页专用状态 ──
   const defaultDir = Path.join(FileManager.documentsDirectory, "File Store");
@@ -1300,6 +1338,13 @@ function GeneralBrowser({
     };
   }, [items, activeDirPath, initialLoadDelay]);
 
+  // serverTick 由所有浏览器实例共同订阅的 HTTP 服务事件更新，
+  // 因此双列中的两侧菜单都会重新读取服务列表。
+  const hasHttpServerEntry = sourceFiles.some(
+    (file) => !file.isDirectory && (file.name.toLowerCase() === "index.html" || file.name.toLowerCase() === "index.htm"),
+  );
+  const activeServers = getActiveServers();
+
   const displayFiles = useMemo(() => {
     let result = sourceFiles;
     if (searchQuery.trim()) {
@@ -1472,6 +1517,7 @@ function GeneralBrowser({
     const paths = Array.from(selectedPaths);
     const text = paths.join("\n");
     await Pasteboard.setString(text);
+    showToast(paths.length === 1 ? "已复制文件路径" : `已复制 ${paths.length} 个文件路径`);
     setSelectMode(false);
     deselectAll();
   };
@@ -2517,6 +2563,7 @@ function GeneralBrowser({
                         )}
                       </Menu>
                     </ToolbarItem>
+                    {toolbarTrailingItems ?? <EmptyView />}
                     <ToolbarItem placement="topBarTrailing">
                       <ToolbarMenu
                         key={"tm-" + (effectiveCopiedPath ? "1" : "0")}
@@ -2548,7 +2595,59 @@ function GeneralBrowser({
                           onFilterChange: handleFilterChange,
                         }}
                         extraItems={
-                          <Group key={"cp-" + (effectiveCopiedPath ? "1" : "0")}>
+                          <Group key={"extra-" + (effectiveCopiedPath ? "1" : "0") + "-s" + serverTick}>
+                            {hasHttpServerEntry ? (
+                              <>
+                                <Button
+                                  title="启动 HTTP Server"
+                                  systemImage="network"
+                                  action={async () => {
+                                    if (!activeDirPath) return;
+                                    const hasEntry = (await FileManager.exists(Path.join(activeDirPath, "index.html"))) || (await FileManager.exists(Path.join(activeDirPath, "index.htm")));
+                                    if (!hasEntry) {
+                                      showToast("当前目录没有 index.html 入口");
+                                      return;
+                                    }
+                                    try {
+                                      const actualUrl = await startLocalHttpServer(activeDirPath);
+                                      setServerTick((t) => t + 1);
+                                      console.log("[HTTP Preview] 预览:", actualUrl);
+                                      await Pasteboard.setString(actualUrl);
+                                      await Navigation.present({
+                                        element: <WebPreviewPage url={actualUrl} />,
+                                        modalPresentationStyle: "fullScreen",
+                                      });
+                                    } catch (e) {
+                                      console.log("启动 HTTP Server 或打开预览失败:", e);
+                                      showToast("HTTP Server 启动或预览打开失败");
+                                    }
+                                  }}
+                                />
+                                <Divider />
+                              </>
+                            ) : (
+                              <EmptyView />
+                            )}
+                            {activeServers.length > 0 ? (
+                              <>
+                                <Divider />
+                                {activeServers.map((srv) => (
+                                  <Button
+                                    key={srv.directory}
+                                    title={`关闭 ${srv.url} · ${Path.basename(srv.directory)}`}
+                                    systemImage="xmark.circle"
+                                    role="destructive"
+                                    action={async () => {
+                                      await stopServer(srv.directory);
+                                      setServerTick((t) => t + 1);
+                                      showToast(`已停止 ${Path.basename(srv.directory)}`);
+                                    }}
+                                  />
+                                ))}
+                              </>
+                            ) : (
+                              <EmptyView />
+                            )}
                             {effectiveCopiedPath ? (
                               <>
                                 <Divider />

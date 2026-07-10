@@ -1,6 +1,6 @@
 // 文件预览视图 - 文本/代码使用 Editor 组件 + searchable 原生搜索
 
-import { Navigation, NavigationStack, VStack, HStack, Text, Button, Image, useState, useEffect, useMemo, useRef, Path, Spacer, EmptyView } from "scripting";
+import { Navigation, NavigationStack, VStack, HStack, Text, Button, Image, useState, useEffect, useMemo, useRef, Spacer, EmptyView } from "scripting";
 import { getFileCategory, langMap, FileInfo } from "../manager/utils";
 import { getEditorExt } from "../manager/editorConfig";
 
@@ -219,29 +219,6 @@ export function FilePreviewView({ fileInfo, content }: FilePreviewViewProps) {
           <Spacer frame={{ height: 100 }} />
         </VStack>
       </NavigationStack>
-    );
-  }
-
-  // ─── 压缩文件 ───
-  if (category === "archive") {
-    const handleUnzip = async () => {
-      try {
-        const destDir = Path.join(Path.dirname(fileInfo.path), Path.basename(fileInfo.name, ext));
-        await FileManager.unzip(fileInfo.path, destDir);
-      } catch (e) {
-        console.log("解压失败:", e);
-      }
-    };
-
-    return (
-      <VStack alignment="center" spacing={16} padding={32}>
-        <Image systemName="archivebox.fill" foregroundStyle="secondaryLabel" frame={{ width: 60, height: 60 }} />
-        <Text font="headline">{fileInfo.name}</Text>
-        <Text font="body" foregroundStyle="secondaryLabel">
-          压缩文件
-        </Text>
-        <Button title="解压" systemImage="archivebox" action={handleUnzip} />
-      </VStack>
     );
   }
 

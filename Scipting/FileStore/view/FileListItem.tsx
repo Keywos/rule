@@ -4,6 +4,7 @@ import { Navigation, NavigationStack, List, Section, HStack, VStack, Spacer, Tex
 import { fmtSize, fmtDate, FileInfo, getFileInfo } from "../manager/utils";
 import { unpackLivePhoto } from "../manager/LivePhotoPacker";
 import { setDragSourcePath } from "../manager/dropHandler";
+import { showToast } from "../manager/ToastManager";
 
 /* ─── 上下文菜单项配置 ─── */
 export interface ContextMenuItem {
@@ -418,8 +419,6 @@ function flattenMeta(meta: any, prefix = ""): Array<{ key: string; label: string
 export function FileInfoDialog({ file, nested }: { file: FileInfo; nested?: boolean }) {
   const modalDismiss = Navigation.useDismiss();
   const dismiss = nested ? () => {} : modalDismiss;
-  const [showToast, setShowToast] = useState(false);
-  const [toastMsg, setToastMsg] = useState("");
   const [imageMeta, setImageMeta] = useState<any>(null);
 
   useEffect(() => {
@@ -468,9 +467,7 @@ export function FileInfoDialog({ file, nested }: { file: FileInfo; nested?: bool
 
   const handleCopyPath = async () => {
     await Pasteboard.setString(file.path);
-    setToastMsg("路径已复制");
-    setShowToast(true);
-    setTimeout(() => setShowToast(false), 1000);
+    showToast("已复制路径");
   };
 
   // 提取 EXIF 元数据（支持 live photo 多段）
@@ -487,7 +484,6 @@ export function FileInfoDialog({ file, nested }: { file: FileInfo; nested?: bool
         toolbar={{
           topBarLeading: nested ? undefined : [<Button title="关闭" systemImage="xmark" action={dismiss} />],
         }}
-        toast={{ isPresented: showToast, onChanged: setShowToast, message: toastMsg, duration: 1, position: "top" }}
       >
         {/* 基本信息 */}
         <Section title="基本信息">

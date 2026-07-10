@@ -2,7 +2,7 @@ import { Intent, Navigation, Script, Path } from "scripting";
 import { resolveOpenerForFile } from "./view/DefaultOpenerPicker";
 import { getFileCategory, sanitizeExtractDirName, safeUnzip, readTextFile, ensureLocalFile } from "./manager/utils";
 import { EditorPage } from "./view/EditorPage";
-import { ImageViewer, VideoViewerPage, LivePhotoPreviewPage } from "./view/MediaViewer";
+import { ArchiveBrowserPage, ImageViewer, VideoViewerPage, LivePhotoPreviewPage } from "./view/MediaViewer";
 
 async function run() {
   const files = Intent.fileURLsParameter;
@@ -39,6 +39,10 @@ async function run() {
         />
       ),
       modalPresentationStyle: prefix === "editor:" ? "overFullScreen" : undefined,
+    });
+  } else if (prefix === "archive:") {
+    await Navigation.present({
+      element: <ArchiveBrowserPage filePath={path} />,
     });
   } else if (prefix === "video:") {
     await Navigation.present({

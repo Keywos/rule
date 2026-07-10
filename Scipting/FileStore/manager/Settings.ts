@@ -74,7 +74,9 @@ function normalizeSettings(raw: unknown): AppSettings | null {
   if (!obj || typeof obj !== "object") return null;
 
   const settings = { ...defaultSettings, ...obj };
-  if (typeof settings.defaultTab !== "number" || settings.defaultTab < 0 || settings.defaultTab > 3) {
+  // 退出 Tab（3）是操作入口，不能作为启动时恢复的页面。
+  // 将旧版本已持久化的 3 自动迁移回主页。
+  if (typeof settings.defaultTab !== "number" || settings.defaultTab < 0 || settings.defaultTab > 2) {
     settings.defaultTab = 0;
   }
   return settings;
@@ -111,11 +113,13 @@ export function readSettings(): AppSettings {
 
 /** 保存设置（直接存对象，符合 Storage 支持的 JSON 类型） */
 export function saveSettings(settings: AppSettings): void {
+  // 防御性处理：任何调用方都不能把退出 Tab 写入持久化设置。
+  const safeSettings = { ...settings, defaultTab: settings.defaultTab >= 0 && settings.defaultTab <= 2 ? settings.defaultTab : 0 };
   const st = getStorage();
   try {
-    st?.set?.(SETTINGS_KEY, settings, SHARED_OPTIONS);
+    st?.set?.(SETTINGS_KEY, safeSettings, SHARED_OPTIONS);
   } catch {}
   try {
-    st?.set?.(SETTINGS_KEY, settings);
+    st?.set?.(SETTINGS_KEY, safeSettings);
   } catch {}
 }

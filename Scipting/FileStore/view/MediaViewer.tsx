@@ -1,19 +1,20 @@
 // 通用媒体预览组件 - ImageViewer 和 VideoViewer
 
 import {
-  NavigationStack, VStack, Text,
+  Navigation, NavigationStack, VStack, Text,
   Spacer, Image, VideoPlayer, useState, useRef, Button,
   MagnifyGesture, DragGesture, TapGesture,
   useObservable, useEffect, useColorScheme,
-  LivePhotoView, Size, Path, EmptyView,
+  LivePhotoView, Size, Path, EmptyView, NavigationDestination, ToolbarItem,
   Markdown, ScrollView, 
 } from 'scripting'
 
 import { unpackLivePhoto } from '../manager/LivePhotoPacker'
 import { FilePreviewView } from './FilePreview'
 import { EditorPage } from './EditorPage'
-import { FileInfo, getFileCategory, ensureLocalFile, readTextFile } from '../manager/utils'
+import { FileInfo, getFileCategory, ensureLocalFile, readTextFile, safeUnzip } from '../manager/utils'
 import { FileInfoPage } from './FileListItem'
+import { GeneralBrowser } from './GeneralBrowser'
 
 /* ───── 共享手势 hook ───── */
 
@@ -314,13 +315,103 @@ function MarkdownPreviewPage({ filePath }: { filePath: string }) {
   )
 }
 
+/* ───── Archive 临时目录浏览器 ───── */
+function ArchiveBrowserDirectory({ dirPath, rootPath, rootName, navPath, onSaveAndExit }: { dirPath: string; rootPath: string; rootName: string; navPath: any; onSaveAndExit: () => void }) {
+  return (
+    <GeneralBrowser
+      dirPath={dirPath}
+      dirName={dirPath === rootPath ? rootName : Path.basename(dirPath)}
+      rootPath={rootPath}
+      rootName={rootName}
+      navPath={navPath}
+      toolbarTrailingItems={<ToolbarItem placement="topBarTrailing"><Button title="保存并退出" systemImage="checkmark" action={onSaveAndExit} /></ToolbarItem>}
+      navigationDestination={
+        <NavigationDestination>
+          {(page) => {
+            if (page.startsWith("browser:")) {
+              return <ArchiveBrowserDirectory dirPath={page.slice(8)} rootPath={rootPath} rootName={rootName} navPath={navPath} onSaveAndExit={onSaveAndExit} />
+            }
+            return <FileNavigationDest page={page} navigationPath={navPath} />
+          }}
+        </NavigationDestination>
+      }
+    />
+  )
+}
+
+export function ArchiveBrowserPage({ filePath, navigationPath }: { filePath: string; navigationPath?: any }) {
+  const [extractDir, setExtractDir] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [isSaving, setIsSaving] = useState(false)
+  const dismiss = Navigation.useDismiss()
+  const localNavPath = useObservable<string[]>([])
+  const navPath = navigationPath || localNavPath
+
+  useEffect(() => {
+    let disposed = false
+    const tempDir = Path.join(FileManager.temporaryDirectory, `archive-view-${Date.now()}-${Math.random().toString(36).slice(2)}`)
+
+    ;(async () => {
+      try {
+        await ensureLocalFile(filePath)
+        await FileManager.createDirectory(tempDir, true)
+        await safeUnzip(filePath, tempDir)
+        if (!disposed) setExtractDir(tempDir)
+      } catch (e) {
+        console.log("准备压缩文件目录失败:", e)
+        if (!disposed) setError("无法读取压缩文件内容")
+      }
+    })()
+
+    return () => {
+      disposed = true
+      try { FileManager.remove(tempDir) } catch {}
+    }
+  }, [filePath])
+
+  const handleSaveAndExit = async () => {
+    if (!extractDir || isSaving) return
+    setIsSaving(true)
+    try {
+      const savePath = `${filePath}.saving-${Date.now()}.zip`
+      await FileManager.zip(extractDir, savePath, false)
+      await FileManager.remove(filePath)
+      await FileManager.rename(savePath, filePath)
+      dismiss()
+    } catch (e) {
+      console.log("保存压缩文件失败:", e)
+      setError("保存压缩文件失败")
+      setIsSaving(false)
+    }
+  }
+
+  const content = error ? (
+    <VStack alignment="center" spacing={12} padding={32}>
+      <Image systemName="exclamationmark.triangle" foregroundStyle="systemOrange" frame={{ width: 48, height: 48 }} />
+      <Text>{error}</Text>
+    </VStack>
+  ) : !extractDir ? (
+    <VStack alignment="center" padding={32}>
+      <Text foregroundStyle="secondaryLabel">正在读取压缩文件…</Text>
+    </VStack>
+  ) : (
+    <ArchiveBrowserDirectory dirPath={extractDir} rootPath={extractDir} rootName={Path.basename(filePath)} navPath={navPath} onSaveAndExit={handleSaveAndExit} />
+  )
+
+  // 独立模态页从首次渲染起就保持 NavigationStack，避免加载完成时切换根视图。
+  return navigationPath ? content : <NavigationStack path={localNavPath}>{content}</NavigationStack>
+}
+
 /* ───── 共享文件导航分发（image/video/preview/livephoto/editor/info/markdown）───── */
-export function FileNavigationDest({ page }: { page: string }) {
+export function FileNavigationDest({ page, navigationPath }: { page: string; navigationPath?: any }) {
   if (page.startsWith('image:')) {
     return <ImageViewer filePath={page.slice(6)} nested />
   }
   if (page.startsWith('video:')) {
     return <VideoViewerPage filePath={page.slice(6)} nested />
+  }
+  if (page.startsWith('archive:')) {
+    return <ArchiveBrowserPage filePath={page.slice(8)} navigationPath={navigationPath} />
   }
   if (page.startsWith('preview:')) {
     const fp = page.slice(8)

@@ -9,6 +9,7 @@ import { FileInfo, FileCategory, writeClipboardPath, shareFilePath } from "../ma
 import { ContextMenuItem } from "./FileListItem";
 import { resolveOpenerForFile } from "./DefaultOpenerPicker";
 import { setDefaultOpener, OPENER_OPTIONS } from "../manager/DefaultOpener";
+import { showToast } from "../manager/ToastManager";
 
 interface SearchPanelProps {
   /** 当前搜索关键字 */
@@ -362,6 +363,7 @@ export function SearchPanel({ searchQuery, dirPath, enableDeepSearch = true, onR
     const copyToStorage = async (result: DeepSearchResult) => {
       try {
         await writeClipboardPath(result.path);
+        showToast("已复制路径");
       } catch (e) {
         console.log("拷贝失败:", e);
       }
@@ -369,6 +371,7 @@ export function SearchPanel({ searchQuery, dirPath, enableDeepSearch = true, onR
 
     const copyFilePath = (result: DeepSearchResult) => {
       Clipboard.copyText(result.path);
+      showToast("已复制路径");
     };
 
     /* 包装左滑删除操作，仅文件真被删除后才更新搜索列表 */

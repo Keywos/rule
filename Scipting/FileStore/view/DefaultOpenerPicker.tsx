@@ -69,6 +69,7 @@ function openerIcon(prefix: OpenerPrefix): string {
     case 'pdf:': return 'doc.richtext'
     case 'webpage:': return 'safari'
     case 'markdown:': return 'doc.text.magnifyingglass'
+    case 'archive:': return 'archivebox.fill'
     case 'livephoto:': return 'livephoto'
     case 'extract:': return 'archivebox'
     case 'extractfolder:': return 'folder.badge.gearshape'
@@ -85,6 +86,7 @@ function openerDescription(prefix: OpenerPrefix): string {
     case 'pdf:': return '使用系统 PDF 预览器打开'
     case 'webpage:': return '使用内置浏览器预览 HTML 页面'
     case 'markdown:': return '使用系统预览渲染 Markdown 文档'
+    case 'archive:': return '在内存中查看压缩文件目录，不解压到磁盘'
     case 'livephoto:': return '使用 Live Photo 查看器打开'
     case 'extract:': return '解压归档文件到当前目录'
     case 'extractfolder:': return '解压到以文件名命名的子文件夹'
@@ -173,6 +175,11 @@ export async function resolveOpenerForFile(
     return null
   }
 
-  // 其他已知类型（audio/archive）默认预览
+  // 压缩文件默认以内存方式读取并查看目录
+  if (category === 'archive') {
+    return 'archive:'
+  }
+
+  // 其他已知类型（audio）默认预览
   return 'preview:'
 }

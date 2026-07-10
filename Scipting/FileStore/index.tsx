@@ -3,6 +3,7 @@
 import { Script, Intent, Navigation } from "scripting";
 import { getFileInfo, readTextFile } from "./manager/utils";
 import { FilePreviewView } from "./view/FilePreview";
+import { ArchiveBrowserPage } from "./view/MediaViewer";
 import { HomeView } from "./view/preview";
 import { openEditorDirectly } from "./view/EditorDirectly";
 
@@ -29,7 +30,7 @@ async function run() {
 
       // 其他文件类型：用 Navigation.present()
       await Navigation.present({
-        element: <FilePreviewView fileInfo={fileInfo} content={content} />,
+        element: cat === "archive" ? <ArchiveBrowserPage filePath={filePath} /> : <FilePreviewView fileInfo={fileInfo} content={content} />,
         modalPresentationStyle: "fullScreen",
       });
       Script.exit();

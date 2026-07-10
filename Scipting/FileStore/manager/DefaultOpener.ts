@@ -1,7 +1,7 @@
 // 扩展名 → 默认打开方式 持久化存储
 // 使用 Storage API 存储
 
-export type OpenerPrefix = 'editor:' | 'preview:' | 'image:' | 'video:' | 'livephoto:' | 'pdf:' | 'webpage:' | 'markdown:' | 'extract:' | 'extractfolder:' | 'share:'
+export type OpenerPrefix = 'editor:' | 'preview:' | 'image:' | 'video:' | 'livephoto:' | 'pdf:' | 'webpage:' | 'markdown:' | 'archive:' | 'extract:' | 'extractfolder:' | 'share:'
 
 // 所有可选的打开方式
 export const OPENER_OPTIONS: { label: string; prefix: OpenerPrefix }[] = [
@@ -12,6 +12,7 @@ export const OPENER_OPTIONS: { label: string; prefix: OpenerPrefix }[] = [
   { label: 'PDF 预览', prefix: 'pdf:' },
   { label: '网页预览', prefix: 'webpage:' },
   { label: 'Markdown 预览', prefix: 'markdown:' },
+  { label: '查看压缩文件', prefix: 'archive:' },
   { label: '解压文件', prefix: 'extract:' },
   { label: '解压到文件夹内', prefix: 'extractfolder:' },
   { label: '分享', prefix: 'share:' },
