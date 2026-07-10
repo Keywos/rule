@@ -22,8 +22,18 @@ import {
   ForEach,
   EmptyView,
 } from "scripting";
-import { addDirectoryBookmark, removeBookmarkById, resolveBookmarkPath, renameBookmark, Bookmark, reorderBookmarks } from "../manager/BookmarkManager";
-import { copyAndToast, copiedMessage, renameWithPrompt } from "../manager/utils";
+import {
+  addDirectoryBookmark,
+  addBookmarkManually,
+  removeBookmarkById,
+  resolveBookmarkPath,
+  renameBookmark,
+  Bookmark,
+  reorderBookmarks,
+  getBuiltinDirectories,
+  getAllBookmarks,
+} from "../manager/BookmarkManager";
+import { copyAndToast, copiedMessage, renameWithPrompt, buildSystemDirDefs } from "../manager/utils";
 import { FileListItem } from "./FileListItem";
 import { GeneralBrowser } from "./GeneralBrowser";
 import { SettingsPage } from "./SettingsPage";
@@ -264,32 +274,42 @@ export function MountDirectoriesPage({ bookmarks, showFolderItemCounts, onRefres
     });
   };
 
-  // ── 系统目录缓存 ──
+  // ── 系统目录缓存（路径可能因容器 UUID 变化而失效，需动态重建） ──
   const SYS_DIR_CACHE_KEY = "FileStore_Dirs";
-  const systemDirDefs = [{ name: "iPhone/Scripting", relativePath: "" } as const, { name: "iPhone/Scripting/File Store", relativePath: "File Store" } as const];
   function readSysDirCache(): Record<string, { cachedPath: string; displayName?: string }> {
     try {
       const st = (globalThis as any).Storage;
-      const raw = st.get?.(SYS_DIR_CACHE_KEY, { shared: true }) ?? st.getString?.(SYS_DIR_CACHE_KEY, { shared: true });
-      if (raw) return JSON.parse(raw);
+      const raw = st.get?.(SYS_DIR_CACHE_KEY, { shared: true });
+      if (raw && typeof raw === "object" && !Array.isArray(raw)) return raw as Record<string, { cachedPath: string; displayName?: string }>;
+      if (typeof raw === "string") return JSON.parse(raw);
+      const legacy = st.getString?.(SYS_DIR_CACHE_KEY, { shared: true });
+      if (legacy) return JSON.parse(legacy);
     } catch {}
     return {};
   }
   function saveSysDirCache(cache: Record<string, { cachedPath: string; displayName?: string }>) {
     try {
       const st = (globalThis as any).Storage;
-      st.set?.(SYS_DIR_CACHE_KEY, JSON.stringify(cache, null, 2), { shared: true });
+      st.set?.(SYS_DIR_CACHE_KEY, cache, { shared: true });
     } catch {}
   }
 
   // 从缓存解析系统目录：有缓存路径就用缓存，否则动态重建
   function resolveSystemDirs() {
     const cache = readSysDirCache();
-    return systemDirDefs.map((def) => {
-      const entry = cache[def.name];
-      const path = entry?.cachedPath || (def.relativePath === "" ? FileManager.documentsDirectory : Path.join(FileManager.documentsDirectory, def.relativePath));
-      return { name: def.name, path, displayName: entry?.displayName };
-    });
+    const defs = buildSystemDirDefs();
+    return defs
+      .map((def) => {
+        const entry = cache[def.name];
+        let path = entry?.cachedPath || "";
+        try {
+          if (!path) path = def.getPath();
+        } catch {
+          path = entry?.cachedPath || "";
+        }
+        return { name: def.name, path, displayName: entry?.displayName, icon: def.icon, tag: def.tag };
+      })
+      .filter((d) => !!d.path);
   }
 
   const [systemDirs, setSystemDirs] = useState(() => resolveSystemDirs());
@@ -299,16 +319,23 @@ export function MountDirectoriesPage({ bookmarks, showFolderItemCounts, onRefres
       const counts = new Map<string, number>();
       let cache = readSysDirCache();
       let cacheDirty = false;
-      const updatedDirs = [...systemDirs];
+      const defs = buildSystemDirDefs();
+      // 以最新 defs 为准（iCloud/WebDAV 可用性可能变化）
+      const updatedDirs = resolveSystemDirs();
       for (let i = 0; i < updatedDirs.length; i++) {
         const sysDir = updatedDirs[i];
+        const def = defs.find((d) => d.name === sysDir.name);
         try {
           const exists = await FileManager.exists(sysDir.path);
-          if (!exists) {
+          if (!exists && def) {
             // 缓存路径失效（UUID变化），重新动态构建
-            const def = systemDirDefs.find((d) => d.name === sysDir.name)!;
-            const newPath = def.relativePath === "" ? FileManager.documentsDirectory : Path.join(FileManager.documentsDirectory, def.relativePath);
-            updatedDirs[i] = { ...sysDir, path: newPath };
+            let newPath = "";
+            try {
+              newPath = def.getPath();
+            } catch {
+              continue;
+            }
+            updatedDirs[i] = { ...sysDir, path: newPath, icon: def.icon, tag: def.tag };
             cache[def.name] = { ...cache[def.name], cachedPath: newPath };
             cacheDirty = true;
             const exists2 = await FileManager.exists(newPath);
@@ -316,22 +343,28 @@ export function MountDirectoriesPage({ bookmarks, showFolderItemCounts, onRefres
               const items = await FileManager.readDirectory(newPath);
               counts.set(sysDir.name, items.length);
             }
-          } else if (showFolderItemCounts !== false) {
+          } else if (exists && showFolderItemCounts !== false) {
             const items = await FileManager.readDirectory(sysDir.path);
             counts.set(sysDir.name, items.length);
           }
         } catch {
-          const def = systemDirDefs.find((d) => d.name === sysDir.name)!;
-          const newPath = def.relativePath === "" ? FileManager.documentsDirectory : Path.join(FileManager.documentsDirectory, def.relativePath);
-          if (newPath !== sysDir.path) {
-            updatedDirs[i] = { ...sysDir, path: newPath };
-            cache[def.name] = { ...cache[def.name], cachedPath: newPath };
-            cacheDirty = true;
+          if (def) {
+            let newPath = "";
+            try {
+              newPath = def.getPath();
+            } catch {
+              continue;
+            }
+            if (newPath !== sysDir.path) {
+              updatedDirs[i] = { ...sysDir, path: newPath, icon: def.icon, tag: def.tag };
+              cache[def.name] = { ...cache[def.name], cachedPath: newPath };
+              cacheDirty = true;
+            }
           }
         }
       }
-      if (cacheDirty) {
-        saveSysDirCache(cache);
+      if (cacheDirty || updatedDirs.length !== systemDirs.length || updatedDirs.some((d, i) => d.path !== systemDirs[i]?.path || d.name !== systemDirs[i]?.name)) {
+        if (cacheDirty) saveSysDirCache(cache);
         setSystemDirs(updatedDirs);
       }
       setSystemDirCounts(counts);
@@ -350,7 +383,6 @@ export function MountDirectoriesPage({ bookmarks, showFolderItemCounts, onRefres
       setSystemDirs((prev) => prev.map((d) => (d.name === sysDirName ? { ...d, displayName: trimmed } : d)));
     }
   };
- 
 
   return (
     <NavigationStack path={navPath}>
@@ -427,13 +459,36 @@ export function MountDirectoriesPage({ bookmarks, showFolderItemCounts, onRefres
                 )}
                 <Divider />
                 <Button title="添加目录" systemImage="folder.badge.plus" action={handleAdd} />
+                <Menu title="挂载内置目录" systemImage="internaldrive">
+                  {getBuiltinDirectories().map((dir) => (
+                    <Button
+                      key={dir.path}
+                      title={dir.name}
+                      systemImage={dir.icon}
+                      action={() => {
+                        const already = getAllBookmarks().some((b) => b.path === dir.path);
+                        if (already) {
+                          showToast(`${dir.name} 已在挂载列表中`);
+                          return;
+                        }
+                        const added = addBookmarkManually(dir.path, dir.name);
+                        if (added) {
+                          showToast(`已挂载 ${dir.name}`);
+                          onRefresh();
+                        } else {
+                          showToast("挂载失败");
+                        }
+                      }}
+                    />
+                  ))}
+                </Menu>
                 <Divider />
                 <Button title="设置" systemImage="gearshape" action={handleOpenSettings} />
               </Menu>,
             ],
           }}
         >
-          {/* ── 本机目录（写死，不可删除） ── */}
+          {/* ── 本机 / 系统目录（不可删除） ── */}
           <Section>
             {systemDirs.map((sysDir, idx) => {
               const count = systemDirCounts.get(sysDir.name);
@@ -444,7 +499,7 @@ export function MountDirectoriesPage({ bookmarks, showFolderItemCounts, onRefres
                 size: 0,
                 modificationDate: Date.now(),
                 extension: "",
-                icon: "folder.fill",
+                icon: (sysDir as any).icon || "folder.fill",
                 iconColor: "systemGray",
                 category: "folder",
               } as any;
@@ -456,7 +511,7 @@ export function MountDirectoriesPage({ bookmarks, showFolderItemCounts, onRefres
                     name: sysDir.displayName || sysDir.name,
                   }}
                   destination={<GeneralBrowser dirPath={sysDir.path} dirName={sysDir.displayName || sysDir.name} rootPath={sysDir.path} />}
-                  subtitle={showFolderItemCounts !== false && count != null ? `${count} 项` : "本机"}
+                  subtitle={showFolderItemCounts !== false && count != null ? `${count} 项` : (sysDir as any).tag || "本机"}
                   subtitleForegroundStyle="tertiaryLabel"
                   hideTopSeparator={idx === 0}
                   navPath={navPath}

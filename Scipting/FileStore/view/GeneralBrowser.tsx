@@ -47,9 +47,9 @@ import {
   sanitizeExtractDirName,
   safeUnzip,
   shareFilePath,
+  buildSystemDirDefs,
 } from "../manager/utils";
 import { FileRowContent } from "./FileRowContent";
-import { FilePreviewView } from "./FilePreview";
 import { DeepSearchResult } from "./SearchPanel";
 import { SearchPanel } from "./SearchPanel";
 import { onSearchStateChange } from "../manager/SearchState";
@@ -236,6 +236,13 @@ function FileRowLink({
                 }
               } else if (prefix === "share:") {
                 await handleShare();
+              } else if (prefix === "pdf:") {
+                await QuickLook.previewURLs([file.path], true);
+              } else if (prefix === "webpage:") {
+                const wv = new WebViewController();
+                await wv.loadFile(file.path);
+                await wv.present({ fullscreen: true, navigationTitle: file.name });
+                wv.dispose();
               } else {
                 navPath.setValue([...navPath.value, prefix + file.path]);
               }
@@ -253,6 +260,44 @@ function FileRowLink({
         contextMenu={{
           menuItems: (
             <Group>
+              {!file.isDirectory && (file.extension.toLowerCase() === '.html' || file.extension.toLowerCase() === '.htm' || file.extension.toLowerCase() === '.md') ? (
+                <>
+                  {file.extension.toLowerCase() === '.md' ? (
+                    <Button
+                      title="预览 Markdown"
+                      systemImage="doc.text.magnifyingglass"
+                      action={async () => {
+                        if (navPath) {
+                          navPath.setValue([...navPath.value, 'markdown:' + file.path]);
+                        }
+                      }}
+                    />
+                  ) : (
+                    <Button
+                      title="预览网页"
+                      systemImage="safari"
+                      action={async () => {
+                        const wv = new WebViewController();
+                        await wv.loadFile(file.path);
+                        await wv.present({ fullscreen: true, navigationTitle: file.name });
+                        wv.dispose();
+                      }}
+                    />
+                  )}
+                  <Button
+                    title="编辑"
+                    systemImage="chevron.left.forwardslash.chevron.right"
+                    action={async () => {
+                      if (navPath) {
+                        navPath.setValue([...navPath.value, 'editor:' + file.path]);
+                      }
+                    }}
+                  />
+                  <Divider />
+                </>
+              ) : (
+                <EmptyView />
+              )}
               <Button title="重命名" systemImage="pencil" action={handleRename} />
               <Button
                 title="拷贝"
@@ -449,6 +494,13 @@ function FileRowLink({
                 }
               } else if (prefix === "share:") {
                 await handleShare();
+              } else if (prefix === "pdf:") {
+                await QuickLook.previewURLs([file.path], true);
+              } else if (prefix === "webpage:") {
+                const wv = new WebViewController();
+                await wv.loadFile(file.path);
+                await wv.present({ fullscreen: true, navigationTitle: file.name });
+                wv.dispose();
               } else {
                 navPath.setValue([...navPath.value, prefix + file.path]);
               }
@@ -1766,7 +1818,7 @@ function GeneralBrowser({
                   modificationDate: Date.now(),
                   extension: ext,
                   category: getFileCategory(ext),
-                  mimeType: getMimeType(ext),
+                  mimeType: getMimeType(ext, p),
                   icon: "doc.text",
                   iconColor: "systemGray",
                 } as FileInfo;
@@ -2117,6 +2169,30 @@ function GeneralBrowser({
   // ─ 收藏夹状态 ─
   const [bookmarkRefreshKey, setBookmarkRefreshKey] = useState(0);
   const allBookmarks = useMemo(() => getAllBookmarks(), [bookmarkRefreshKey, bookmarks]);
+
+  // ─ 系统目录 ─
+  interface SystemDirEntry {
+    name: string;
+    path: string;
+    icon: string;
+    tag: string;
+  }
+  const [systemDirEntries, setSystemDirEntries] = useState<SystemDirEntry[]>([]);
+  useEffect(() => {
+    (async () => {
+      const defs = buildSystemDirDefs();
+      const entries: SystemDirEntry[] = [];
+      for (const def of defs) {
+        try {
+          const path = def.getPath();
+          if (path) {
+            entries.push({ name: def.name, path, icon: def.icon, tag: def.tag });
+          }
+        } catch {}
+      }
+      setSystemDirEntries(entries);
+    })();
+  }, []);
   // 路径显示：根目录自定义名称 + 相对路径
   const displayPath = useMemo(() => {
     if (!activeDirPath) return "文件列表";
@@ -2395,9 +2471,7 @@ function GeneralBrowser({
                           </Text>
                         }
                       >
-                        <Button title="选择当前 • 路径" systemImage="folder" action={handlePickDirectory} />
                         <Button title="访问 • 输入路径" systemImage="pencil.and.outline" action={handleInputPath} />
-                        <Button title="访问 • 剪贴板路径" systemImage="clipboard" action={handlePastePath} />
                         <Button title="访问 • 默认路径" systemImage="arrow.counterclockwise" action={handleResetPath} />
                         <Divider />
                         <Button title="复制当前路径" systemImage="doc.on.clipboard" action={handleCopyPath} />
@@ -2408,6 +2482,34 @@ function GeneralBrowser({
                             <Divider />
                             {allBookmarks.map((bm) => (
                               <Button title={bm.name} systemImage="folder" action={() => handleNavigateToBookmark(bm)} />
+                            ))}
+                          </>
+                        ) : (
+                          <EmptyView />
+                        )}
+                        {systemDirEntries.length > 0 ? (
+                          <>
+                            <Divider />
+                            {systemDirEntries.map((entry) => (
+                              <Button
+                                key={entry.name}
+                                title={entry.name}
+                                systemImage={entry.icon}
+                                action={async () => {
+                                  const exists = await FileManager.exists(entry.path);
+                                  if (!exists) {
+                                    await Dialog.alert({ title: "提示", message: "目录不存在：" + entry.path, buttonLabel: "确定" });
+                                    return;
+                                  }
+                                  if (isHomePage && settings && onSettingsChange) {
+                                    const newSettings = { ...settings, homeCurrentPath: entry.path, homeDirectoryBookmarkName: null };
+                                    saveSettings(newSettings);
+                                    onSettingsChange(newSettings);
+                                  } else if (activeNavPath) {
+                                    activeNavPath.setValue([...activeNavPath.value, "browser:" + entry.path]);
+                                  }
+                                }}
+                              />
                             ))}
                           </>
                         ) : (
@@ -2736,6 +2838,13 @@ function GeneralBrowser({
                             }
                           } else if (prefix === "share:") {
                             await shareFilePath(result.path, result.name);
+                          } else if (prefix === "pdf:") {
+                            await QuickLook.previewURLs([result.path], true);
+                          } else if (prefix === "webpage:") {
+                            const wv = new WebViewController();
+                            await wv.loadFile(result.path);
+                            await wv.present({ fullscreen: true, navigationTitle: result.name });
+                            wv.dispose();
                           } else if (activeNavPath) {
                             activeNavPath.setValue([...activeNavPath.value, prefix + result.path]);
                           }
@@ -2801,13 +2910,7 @@ function GeneralBrowser({
           }}
         </ScrollViewReader>
       </VStack>
-      {showSpinner ? (
-        <VStack alignment="center" frame={{ maxWidth: "infinity", maxHeight: "infinity" }}>
-          <Image systemName="progress.indicator" symbolEffect={{ effect: "rotate", value: tick }} frame={{ width: 32, height: 32 }} foregroundStyle="tertiaryLabel" />
-        </VStack>
-      ) : (
-        <EmptyView />
-      )}
+      <EmptyView />
     </ZStack>
   );
 

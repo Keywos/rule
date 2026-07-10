@@ -1,18 +1,19 @@
 // 通用媒体预览组件 - ImageViewer 和 VideoViewer
 
 import {
-  NavigationStack, VStack,
+  NavigationStack, VStack, Text,
   Spacer, Image, VideoPlayer, useState, useRef, Button,
   MagnifyGesture, DragGesture, TapGesture,
   useObservable, useEffect, useColorScheme,
-  LivePhotoView, Size, Path, Text, EmptyView,
+  LivePhotoView, Size, Path, EmptyView,
+  Markdown, ScrollView, 
 } from 'scripting'
+
 import { unpackLivePhoto } from '../manager/LivePhotoPacker'
 import { FilePreviewView } from './FilePreview'
 import { EditorPage } from './EditorPage'
-import { FileInfo } from '../manager/utils'
+import { FileInfo, getFileCategory, ensureLocalFile, readTextFile } from '../manager/utils'
 import { FileInfoPage } from './FileListItem'
-import { getFileCategory } from '../manager/utils'
 
 /* ───── 共享手势 hook ───── */
 
@@ -230,8 +231,8 @@ export function FilePreviewPage({ file }: { file: FileInfo }) {
   useEffect(() => {
     (async () => {
       try {
-        const text = await FileManager.readAsString(file.path);
-        setContent(text);
+        const text = await readTextFile(file.path);
+        if (text != null) setContent(text);
       } catch {}
       setLoading(false);
     })();
@@ -244,7 +245,76 @@ export function FilePreviewPage({ file }: { file: FileInfo }) {
   return <FilePreviewView fileInfo={file} content={content} />;
 }
 
-/* ───── 共享文件导航分发（image/video/preview/livephoto/editor/info）───── */
+/* ───── Markdown 预览页面 ───── */
+
+function MarkdownPreviewPage({ filePath }: { filePath: string }) {
+    const colorSchemeMd = useColorScheme()
+    const bgColor = colorSchemeMd === 'dark' ? '#17181C' : '#FFFFFF'
+  const [content, setContent] = useState<string | null>(null)
+  const [loading, setLoading] = useState(true)
+  const fileName = Path.basename(filePath)
+
+  useEffect(() => {
+    (async () => {
+      let text: string | null = null
+      try {
+        await ensureLocalFile(filePath);
+        text = await FileManager.readAsString(filePath);
+      } catch (e) {
+        console.log('读取 Markdown 失败(utf8):', e)
+        for (const enc of ["utf-8", "utf-16", "ascii"] as const) {
+          try {
+            text = await FileManager.readAsString(filePath, enc);
+            if (text != null) break;
+          } catch {}
+        }
+      }
+      if (text != null) setContent(text)
+      setLoading(false)
+    })()
+  }, [])
+
+  if (loading) {
+    return (
+      <VStack frame={{ maxWidth: "infinity", maxHeight: "infinity" }}>
+        <Text padding={16} foregroundStyle='secondaryLabel'>加载中...</Text>
+      </VStack>
+    )
+  }
+
+  if (content == null) {
+    return (
+      <VStack
+        frame={{ maxWidth: "infinity", maxHeight: "infinity" }}
+        navigationTitle={fileName}
+      >
+        <Text padding={16} foregroundStyle='secondaryLabel'>无法读取文件内容，请尝试用"编辑"打开</Text>
+      </VStack>
+    )
+  }
+
+  return (
+    <VStack 
+      frame={{ maxWidth: "infinity", maxHeight: "infinity" }} ignoresSafeArea={{ edges: ["bottom"], regions: "container" }} 
+     tabBarVisibility="hidden"
+     background={bgColor}
+      >      
+    <ScrollView
+      navigationTitle={fileName}
+    > 
+      <Markdown
+        safeAreaPadding={{ top: 20, horizontal: 8 }}
+        content={content}
+        theme="github"
+        useDefaultHighlighterTheme={true}
+        scrollable={false}
+      />
+    </ScrollView>
+    </VStack>
+  )
+}
+
+/* ───── 共享文件导航分发（image/video/preview/livephoto/editor/info/markdown）───── */
 export function FileNavigationDest({ page }: { page: string }) {
   if (page.startsWith('image:')) {
     return <ImageViewer filePath={page.slice(6)} nested />
@@ -268,6 +338,9 @@ export function FileNavigationDest({ page }: { page: string }) {
       filePath = filePath.slice(0, lineIdx)
     }
     return <EditorPage path={filePath} scrollToLine={scrollToLine} />
+  }
+  if (page.startsWith('markdown:')) {
+    return <MarkdownPreviewPage filePath={page.slice(9)} />
   }
   if (page.startsWith('info:')) {
     return <FileInfoPage filePath={page.slice(5)} />

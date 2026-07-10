@@ -1,0 +1,6 @@
+{
+  "dependencies" : {
+    "prettier" : "^3.9.5",
+    "terser" : "^5.49.0"
+  }
+}

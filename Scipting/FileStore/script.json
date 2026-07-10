@@ -1,27 +1,12 @@
 {
-  "entry" : "index.tsx",
-  "color" : "rgba(0, 0, 0, 1.00)",
-  "localizedNames" : {
-    "it" : "",
-    "zh" : "",
-    "pt" : "",
-    "ja" : "",
-    "ru" : "",
-    "fr" : "",
-    "de" : "",
-    "en" : "",
-    "es" : ""
-  },
-  "icon" : "folder.fill",
-  "runInApp" : false,
-  "author" : null,
+  "name" : "FileStore",
+  "version" : "1.3.0",
+  "description" : null,
+  "permissions" : null,
   "iconImage" : null,
-  "contributors" : [
-
-  ],
   "localizedDescriptions" : {
-    "en" : "File Store, browse and preview various file types",
-    "zh" : "File Store, 文件挂载、预览各种文件类型"
+    "zh" : "File Store, 文件挂载、预览各种文件类型",
+    "en" : "File Store, browse and preview various file types"
   },
   "intentInputTypes" : [
     "URLs",
@@ -30,13 +15,28 @@
     "Images",
     "Files"
   ],
-  "description" : null,
   "remoteResource" : {
     "url" : "https:\/\/github.com\/Keywos\/rule\/tree\/main\/Scipting\/FileStore",
     "hash" : "",
     "autoUpdateInterval" : 86400
   },
-  "version" : "1.2.38",
-  "permissions" : null,
-  "name" : "FileStore"
+  "runInApp" : false,
+  "entry" : "index.tsx",
+  "contributors" : [
+
+  ],
+  "color" : "rgba(0, 0, 0, 1.00)",
+  "icon" : "folder.fill",
+  "localizedNames" : {
+    "it" : "",
+    "ru" : "",
+    "pt" : "",
+    "es" : "",
+    "de" : "",
+    "zh" : "",
+    "fr" : "",
+    "en" : "",
+    "ja" : ""
+  },
+  "author" : null
 }

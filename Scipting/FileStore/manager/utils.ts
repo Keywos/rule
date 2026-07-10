@@ -1,49 +1,270 @@
 // 文件管理器工具函数
 import { Path } from "scripting"
 
-/** 使用系统分享菜单分享文件 */
+/** 确保 iCloud 文件已下载到本地（FileManager iCloud APIs） */
+export async function ensureLocalFile(filePath: string): Promise<boolean> {
+  try {
+    if (typeof FileManager.isFileStoredIniCloud === "function" && FileManager.isFileStoredIniCloud(filePath)) {
+      if (typeof FileManager.isiCloudFileDownloaded === "function" && !FileManager.isiCloudFileDownloaded(filePath)) {
+        if (typeof FileManager.downloadFileFromiCloud === "function") {
+          return await FileManager.downloadFileFromiCloud(filePath)
+        }
+      }
+    }
+  } catch { }
+  return true
+}
+
+export function buildSystemDirDefs(): Array<{ name: string; getPath: () => string; icon: string; tag: string }> {
+  const defs: Array<{ name: string; getPath: () => string; icon: string; tag: string }> = [
+    { name: "iPhone/Scripting", getPath: () => FileManager.documentsDirectory, icon: "paperclip", tag: "本机" },
+    {
+      name: "iPhone/Scripting/File Store",
+      getPath: () => Path.join(FileManager.documentsDirectory, "File Store"),
+      icon: "book.pages.fill",
+      tag: "本机",
+    },
+  ]
+  try {
+    defs.push({
+      name: "Scripts",
+      getPath: () => FileManager.scriptsDirectory,
+      icon: "chevron.left.forwardslash.chevron.right",
+      tag: "脚本",
+    })
+  } catch { }
+  return defs
+}
+/**
+ * 读取文本文件（统一入口）：
+ * - 先 ensureLocalFile（iCloud 按需下载）
+ * - 用 isBinaryFile 跳过二进制
+ * - 多编码回退
+ */
+export async function readTextFile(filePath: string): Promise<string | null> {
+  try {
+    await ensureLocalFile(filePath)
+
+    let fileSize = -1
+    try {
+      const stat = await FileManager.stat(filePath)
+      fileSize = typeof stat.size === "number" ? stat.size : -1
+    } catch { }
+
+    const isUsableText = (text: string | null | undefined) => {
+      // 只有明确知道文件大小为 0 时才接受空字符串；stat 失败/未知大小不能把空字符串当成功。
+      return text != null && (text.length > 0 || fileSize === 0)
+    }
+
+    // 1. 默认编码（通常会自动识别 UTF-8/BOM）
+    try {
+      const text = await FileManager.readAsString(filePath)
+      if (isUsableText(text)) return text
+    } catch { }
+
+    // 2. 多编码回退，避免 GBK/UTF-16/Shift-JIS 等文件打开为空白
+    const encodings = [
+      "utf-8",
+      "utf-16",
+      "utf16LittleEndian",
+      "utf16BigEndian",
+      "gb18030",
+      "gbk",
+      "shiftJIS",
+      "japaneseEUC",
+      "windowsCP1252",
+      "isoLatin1",
+      "ascii",
+    ] as const
+
+    for (const enc of encodings) {
+      try {
+        const text = await FileManager.readAsString(filePath, enc)
+        console.log(enc)
+
+        if (isUsableText(text)) return text
+      } catch { }
+    }
+
+    // 3. readAsString 可能对部分安全域/iCloud/特殊编码文件返回空字符串。
+    //    直接读 Data 再解码，至少保证非空文件不会空白打开。
+    try {
+      const data = await FileManager.readAsData(filePath)
+      const dataSize = data?.size ?? 0
+      for (const enc of encodings) {
+        try {
+          const text = data.toRawString(enc as any)
+          if (text != null && (text.length > 0 || dataSize === 0)) return text
+        } catch { }
+      }
+      if (dataSize > 0) {
+        try {
+          const decoded = data.toDecodedString("utf8")
+          if (decoded != null) return decoded
+        } catch { }
+      }
+    } catch { }
+  } catch { }
+
+  return null
+}
+/** 使用系统分享 / Open in… 菜单分享文件（DocumentInteraction） */
 export async function shareFilePath(filePath: string, fileName: string) {
   try {
+    // 优先直接对原路径弹出菜单，避免多余拷贝
+    try {
+      await DocumentInteraction.optionsMenu(filePath)
+      return
+    } catch { }
+    // 安全域 / 无法直接分享时，复制到临时目录再分享
     const tmpPath = Path.join(FileManager.temporaryDirectory, fileName)
     if (await FileManager.exists(tmpPath)) {
       await FileManager.remove(tmpPath)
     }
     await FileManager.copyFile(filePath, tmpPath)
     await DocumentInteraction.optionsMenu(tmpPath)
-    try { await FileManager.remove(tmpPath) } catch { }
+    try {
+      await FileManager.remove(tmpPath)
+    } catch { }
   } catch (e) {
-    console.log('分享失败:', e)
+    console.log("分享失败:", e)
   }
+}
+
+/** 用 FileManager 已知根目录做前缀替换（比纯正则更准确） */
+function replaceKnownRoots(filePath: string): string | null {
+  const roots: Array<[() => string | null, string]> = [
+    [
+      () => {
+        try {
+          return FileManager.isiCloudEnabled ? FileManager.iCloudDocumentsDirectory : null
+        } catch {
+          return null
+        }
+      },
+      "iCloud/",
+    ],
+    [
+      () => {
+        try {
+          return FileManager.isWebDAVAvailable ? FileManager.webDAVDocumentsDirectory : null
+        } catch {
+          return null
+        }
+      },
+      "WebDAV/",
+    ],
+    [
+      () => {
+        try {
+          return FileManager.safariBrowserDownloadsDirectory
+        } catch {
+          return null
+        }
+      },
+      "Safari/Downloads/",
+    ],
+    [
+      () => {
+        try {
+          return FileManager.safariBrowserUserscriptsDirectory
+        } catch {
+          return null
+        }
+      },
+      "Safari/Userscripts/",
+    ],
+    [
+      () => {
+        try {
+          return FileManager.safariBrowserStorageDirectory
+        } catch {
+          return null
+        }
+      },
+      "Safari/Storages/",
+    ],
+    [
+      () => {
+        try {
+          return FileManager.safariBrowserDirectory
+        } catch {
+          return null
+        }
+      },
+      "Safari/",
+    ],
+    [
+      () => {
+        try {
+          return FileManager.scriptsDirectory
+        } catch {
+          return null
+        }
+      },
+      "Scripts/",
+    ],
+    [
+      () => {
+        try {
+          return FileManager.documentsDirectory
+        } catch {
+          return null
+        }
+      },
+      "Documents/",
+    ],
+    [
+      () => {
+        try {
+          return FileManager.appGroupDocumentsDirectory
+        } catch {
+          return null
+        }
+      },
+      "AppGroup/",
+    ],
+    [
+      () => {
+        try {
+          return FileManager.temporaryDirectory
+        } catch {
+          return null
+        }
+      },
+      "Temp/",
+    ],
+  ]
+
+  for (const [getRoot, label] of roots) {
+    const root = getRoot()
+    if (!root) continue
+    const normalized = root.replace(/\/$/, "")
+    if (filePath === normalized || filePath.startsWith(normalized + "/")) {
+      return label + filePath.slice(normalized.length).replace(/^\//, "")
+    }
+  }
+  return null
 }
 
 /** 将路径转换为友好的显示名称 */
 export function pathToDisplayName(filePath: string): string {
   let p = filePath.replace(/^file:\/\//, "")
 
-  const rules: Array<[RegExp, string]> = [
-    [
-      /^\/private\/var\/mobile\/Containers\/Shared\/AppGroup\/[^/]+\/File Provider Storage\/?/,
-      "iPhone/",
-    ],
-    [
-      /^(\/private)?\/var\/mobile\/Library\/Mobile Documents\/(?:com~apple~CloudDocs|iCloud~com~[^/]+)?\/?/,
-      "iCloud/",
-    ],
-    [
-      /^\/private\/var\/mobile\/Containers\/Data\/Application\/[^/]+\/Documents\/?/,
-      "Documents/",
-    ],
-    [
-      /^\/private\/var\/mobile\/Containers\/Shared\/AppGroup\/[^/]+\/?/,
-      "AppGroup/",
-    ],
-  ]
+  const known = replaceKnownRoots(p)
+  if (known != null) return known.replace(/\/$/, "")
 
+  const rules: Array<[RegExp, string]> = [
+    [/^\/private\/var\/mobile\/Containers\/Shared\/AppGroup\/[^/]+\/File Provider Storage\/?/, "iPhone/"],
+    [/^(\/private)?\/var\/mobile\/Library\/Mobile Documents\/(?:com~apple~CloudDocs|iCloud~com~[^/]+)?\/?/, "iCloud/"],
+    [/^\/private\/var\/mobile\/Containers\/Data\/Application\/[^/]+\/Documents\/?/, "Documents/"],
+    [/^\/private\/var\/mobile\/Containers\/Shared\/AppGroup\/[^/]+\/?/, "AppGroup/"],
+  ]
 
   for (const [regex, replacement] of rules) {
     if (regex.test(p)) {
       p = p.replace(regex, replacement)
-      break // 只会匹配一种，匹配后结束
+      break
     }
   }
 
@@ -139,7 +360,32 @@ const CODE_EXTS = new Set([
   ".dockerfile",
   ".makefile",
 ])
-const IMAGE_EXTS = new Set([".jpg", ".jpeg", ".png", ".gif", ".bmp", ".tiff", ".tif", ".svg", ".webp", ".heic", ".heif", ".ico", ".icns", ".dng", ".raw", ".cr2", ".cr3", ".nef", ".arw", ".orf", ".rw2", ".raf", ".pef", ".srw"])
+const IMAGE_EXTS = new Set([
+  ".jpg",
+  ".jpeg",
+  ".png",
+  ".gif",
+  ".bmp",
+  ".tiff",
+  ".tif",
+  ".svg",
+  ".webp",
+  ".heic",
+  ".heif",
+  ".ico",
+  ".icns",
+  ".dng",
+  ".raw",
+  ".cr2",
+  ".cr3",
+  ".nef",
+  ".arw",
+  ".orf",
+  ".rw2",
+  ".raf",
+  ".pef",
+  ".srw",
+])
 const RAW_IMAGE_EXTS = new Set([".dng", ".raw", ".cr2", ".cr3", ".nef", ".arw"])
 const AUDIO_EXTS = new Set([".mp3", ".m4a", ".wav", ".aac", ".flac", ".ogg", ".wma", ".aiff"])
 const VIDEO_EXTS = new Set([".mp4", ".mov", ".m4v", ".avi", ".mkv", ".wmv", ".flv", ".webm"])
@@ -277,36 +523,49 @@ export const langMap: Record<string, string> = {
   ".toml": "TOML",
 }
 
-/** MIME 类型映射（用于导出） */
-export function getMimeType(ext: string): string {
-  const e = ext.toLowerCase()
-  const mimeMap: Record<string, string> = {
-    ".txt": "text/plain",
-    ".md": "text/markdown",
-    ".html": "text/html",
-    ".htm": "text/html",
-    ".css": "text/css",
-    ".js": "text/javascript",
-    ".ts": "text/typescript",
-    ".json": "application/json",
-    ".xml": "application/xml",
-    ".pdf": "application/pdf",
-    ".png": "image/png",
-    ".jpg": "image/jpeg",
-    ".jpeg": "image/jpeg",
-    ".gif": "image/gif",
-    ".svg": "image/svg+xml",
-    ".webp": "image/webp",
-    ".mp3": "audio/mpeg",
-    ".m4a": "audio/mp4",
-    ".wav": "audio/wav",
-    ".mp4": "video/mp4",
-    ".mov": "video/quicktime",
-    ".zip": "application/zip",
-    ".csv": "text/csv",
-    ".rtf": "application/rtf",
+/** 本地扩展名 MIME 回退表 */
+const MIME_FALLBACK: Record<string, string> = {
+  ".txt": "text/plain",
+  ".md": "text/markdown",
+  ".html": "text/html",
+  ".htm": "text/html",
+  ".css": "text/css",
+  ".js": "text/javascript",
+  ".ts": "text/typescript",
+  ".json": "application/json",
+  ".xml": "application/xml",
+  ".pdf": "application/pdf",
+  ".png": "image/png",
+  ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg",
+  ".gif": "image/gif",
+  ".svg": "image/svg+xml",
+  ".webp": "image/webp",
+  ".heic": "image/heic",
+  ".heif": "image/heif",
+  ".mp3": "audio/mpeg",
+  ".m4a": "audio/mp4",
+  ".wav": "audio/wav",
+  ".mp4": "video/mp4",
+  ".mov": "video/quicktime",
+  ".zip": "application/zip",
+  ".csv": "text/csv",
+  ".rtf": "application/rtf",
+}
+
+/**
+ * 获取 MIME 类型。
+ * 优先使用 FileManager.mimeType(path)（系统按扩展名识别），再回退本地映射。
+ */
+export function getMimeType(ext: string, filePath?: string): string {
+  if (filePath) {
+    try {
+      const m = FileManager.mimeType(filePath)
+      if (m && typeof m === "string" && m.length > 0) return m
+    } catch { }
   }
-  return mimeMap[e] || "application/octet-stream"
+  const e = ext.toLowerCase()
+  return MIME_FALLBACK[e] || "application/octet-stream"
 }
 
 /** 文件信息接口 */
@@ -344,38 +603,46 @@ export interface FileInfo {
   | "accentColor"
 }
 
-/** 获取文件信息 */
+/** 获取文件信息（并行 isLink / isDirectory / stat，减少串行 I/O） */
 export async function getFileInfo(filePath: string): Promise<FileInfo> {
   const name = Path.basename(filePath)
-  // 先判断符号链接，再判断目录
-  const isLink = await FileManager.isLink(filePath)
-  const isDir = (await FileManager.isDirectory(filePath)) && !isLink
 
-  // 目录不需要 stat，直接返回
+  // 并行探测：链接判定 + 目录判定 + 元数据
+  // 注意：stat 对符号链接会解析目标，因此 isLink 仍需单独查询
+  const [isLink, isDirHint, stat] = await Promise.all([
+    FileManager.isLink(filePath).catch(() => false),
+    FileManager.isDirectory(filePath).catch(() => false),
+    FileManager.stat(filePath).catch(
+      () =>
+        null as {
+          creationDate: number
+          modificationDate: number
+          type: string
+          size: number
+        } | null,
+    ),
+  ])
+
+  // 优先用 isDirectory；stat.type 作补充（link 已解析时可能是 directory/file）
+  const isDir = (!!isDirHint && !isLink) || (!isLink && !!stat && stat.type === "directory")
+
   if (isDir) {
-    let cDate = 0, mDate = 0
-    try {
-      const stat = await FileManager.stat(filePath)
-      cDate = stat.creationDate || 0
-      mDate = stat.modificationDate || 0
-    } catch { }
     return {
       name,
       path: filePath,
       isDirectory: true,
-      isLink,
+      isLink: !!isLink,
       size: 0,
-      creationDate: cDate,
-      modificationDate: mDate,
+      creationDate: stat?.creationDate || 0,
+      modificationDate: stat?.modificationDate || 0,
       extension: "",
       category: "unknown",
-      mimeType: '',
+      mimeType: "",
       icon: getFileIcon("", true),
       iconColor: getFileIconColor("", true),
     }
   }
 
-  const stat = await FileManager.stat(filePath)
   const ext = Path.extname(name)
   const category = getFileCategory(ext)
 
@@ -383,13 +650,13 @@ export async function getFileInfo(filePath: string): Promise<FileInfo> {
     name,
     path: filePath,
     isDirectory: false,
-    isLink,
-    size: stat.size,
-    creationDate: stat.creationDate,
-    modificationDate: stat.modificationDate,
+    isLink: !!isLink,
+    size: stat?.size || 0,
+    creationDate: stat?.creationDate || 0,
+    modificationDate: stat?.modificationDate || 0,
     extension: ext,
     category,
-    mimeType: getMimeType(ext),
+    mimeType: getMimeType(ext, filePath),
     icon: getFileIcon(ext, false, category),
     iconColor: getFileIconColor(ext, false, category),
   }
@@ -449,7 +716,7 @@ export async function listDirectory(dirPath: string): Promise<FileInfo[]> {
         } catch (e) {
           return null // 跳过无法访问的文件
         }
-      })
+      }),
     )
 
     const items: FileInfo[] = results.filter((item): item is FileInfo => item != null)
@@ -470,7 +737,7 @@ export async function listDirectory(dirPath: string): Promise<FileInfo[]> {
 }
 
 /** 快速获取目录条目数（只读目录，不做 getFileInfo）
- *  始终从磁盘实时读取，不使用列表缓存——文件夹计数徽标必须反映即时状态，
+ *  始终从磁盘实时读取，不使用列表缓存----文件夹计数徽标必须反映即时状态，
  *  避免跨栏拖拽后另一栏的计数因缓存过期而不刷新。 */
 export async function countDirectoryItems(dirPath: string): Promise<number> {
   const entries = await FileManager.readDirectory(dirPath)
@@ -523,7 +790,7 @@ export function searchFiles(files: FileInfo[], query: string): FileInfo[] {
 
 /* ─── 剪贴板路径管理（跨标签/子目录保留） ─── */
 
-const _CLIPBOARD_PATH_FILE = Path.join(FileManager.temporaryDirectory, '.fstore_copied_path')
+const _CLIPBOARD_PATH_FILE = Path.join(FileManager.temporaryDirectory, ".fstore_copied_path")
 
 /** 读取剪贴板中存储的路径 */
 export async function readClipboardPath(): Promise<string | null> {
@@ -554,7 +821,7 @@ export async function uniquePath(targetPath: string): Promise<string> {
   const ext = Path.extname(targetPath)
   const base = targetPath.slice(0, targetPath.length - ext.length)
   for (let i = 1; i <= 999; i++) {
-    const suffix = `_${String(i).padStart(2, '0')}`
+    const suffix = `_${String(i).padStart(2, "0")}`
     const candidate = `${base}${suffix}${ext}`
     if (!(await FileManager.exists(candidate))) return candidate
   }
@@ -568,7 +835,7 @@ export async function uniquePath(targetPath: string): Promise<string> {
  */
 export function sanitizeExtractDirName(archiveName: string): string {
   // 手动去除压缩扩展名（Path.extname 对 .hidden.zip 返回空）
-  const knownExts = ['.zip', '.rar', '.7z', '.tar.gz', '.tgz', '.tar.bz2', '.tar.xz', '.tar', '.gz', '.bz2', '.xz']
+  const knownExts = [".zip", ".rar", ".7z", ".tar.gz", ".tgz", ".tar.bz2", ".tar.xz", ".tar", ".gz", ".bz2", ".xz"]
   let base = archiveName
   for (const ext of knownExts) {
     if (base.toLowerCase().endsWith(ext)) {
@@ -577,9 +844,9 @@ export function sanitizeExtractDirName(archiveName: string): string {
     }
   }
   // 删除路径分隔符和非法字符
-  base = base.replace(/[/\\:*?"<>|]/g, '_').trim()
+  base = base.replace(/[/\\:*?"<>|]/g, "_").trim()
   // 防止空目录名或
-  if (!base || base === '.' || base === '..') base = 'extracted'
+  if (!base || base === "." || base === "..") base = "extracted"
   return base
 }
 
@@ -592,33 +859,33 @@ export async function safeUnzip(archivePath: string, destDir: string): Promise<v
     const ext = Path.extname(archivePath).toLowerCase()
 
     // 判断压缩格式并选择解压方式
-    const isTarGz = name.endsWith('.tar.gz')
-    const isTarBz2 = name.endsWith('.tar.bz2')
-    const isTarXz = name.endsWith('.tar.xz')
-    const isTgz = name.endsWith('.tgz')
-    const isTar = ext === '.tar' || isTarGz || isTarBz2 || isTarXz || isTgz
+    const isTarGz = name.endsWith(".tar.gz")
+    const isTarBz2 = name.endsWith(".tar.bz2")
+    const isTarXz = name.endsWith(".tar.xz")
+    const isTgz = name.endsWith(".tgz")
+    const isTar = ext === ".tar" || isTarGz || isTarBz2 || isTarXz || isTgz
 
-    if (ext === '.zip') {
+    if (ext === ".zip") {
       await FileManager.unzip(archivePath, tmpDir)
     } else if (isTar) {
       const r = await Shell.run(`tar -xf "${archivePath}"`, { cwd: tmpDir })
       if (r.exitCode !== 0) {
         throw new Error(`tar 解压失败: ${r.output}`)
       }
-    } else if (ext === '.gz' && !isTarGz) {
+    } else if (ext === ".gz" && !isTarGz) {
       // 单独 .gz 文件（非 tar.gz）
       const outName = name.slice(0, -3)
       const r = await Shell.run(`gzip -d -c "${archivePath}" > "${tmpDir}/${outName}"`)
       if (r.exitCode !== 0) {
         throw new Error(`gzip 解压失败: ${r.output}`)
       }
-    } else if (ext === '.bz2' && !isTarBz2) {
+    } else if (ext === ".bz2" && !isTarBz2) {
       const outName = name.slice(0, -4)
       const r = await Shell.run(`bzip2 -d -c "${archivePath}" > "${tmpDir}/${outName}"`)
       if (r.exitCode !== 0) {
         throw new Error(`bzip2 解压失败: ${r.output}`)
       }
-    } else if (ext === '.xz' && !isTarXz) {
+    } else if (ext === ".xz" && !isTarXz) {
       const outName = name.slice(0, -3)
       const r = await Shell.run(`xz -d -c "${archivePath}" > "${tmpDir}/${outName}"`)
       if (r.exitCode !== 0) {
@@ -637,10 +904,14 @@ export async function safeUnzip(archivePath: string, destDir: string): Promise<v
       const src = Path.join(tmpDir, entry)
       const dest = await uniquePath(Path.join(destDir, entry))
       await FileManager.copyFile(src, dest)
-      try { await FileManager.remove(src) } catch { }
+      try {
+        await FileManager.remove(src)
+      } catch { }
     }
   } finally {
-    try { await FileManager.remove(tmpDir) } catch { }
+    try {
+      await FileManager.remove(tmpDir)
+    } catch { }
   }
 }
 

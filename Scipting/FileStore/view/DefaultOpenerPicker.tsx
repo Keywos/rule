@@ -7,6 +7,7 @@ import {
   VStack, HStack, Image,
 } from 'scripting'
 import { OPENER_OPTIONS, getDefaultOpener, setDefaultOpener, isKnownCategory, OpenerPrefix } from '../manager/DefaultOpener'
+import { ensureLocalFile } from '../manager/utils'
 
 // ============ 选择器页面组件 ============
 
@@ -65,6 +66,9 @@ function openerIcon(prefix: OpenerPrefix): string {
     case 'preview:': return 'doc.text'
     case 'image:': return 'photo'
     case 'video:': return 'video'
+    case 'pdf:': return 'doc.richtext'
+    case 'webpage:': return 'safari'
+    case 'markdown:': return 'doc.text.magnifyingglass'
     case 'livephoto:': return 'livephoto'
     case 'extract:': return 'archivebox'
     case 'extractfolder:': return 'folder.badge.gearshape'
@@ -78,6 +82,9 @@ function openerDescription(prefix: OpenerPrefix): string {
     case 'preview:': return '使用文件预览查看'
     case 'image:': return '使用图片查看器打开'
     case 'video:': return '使用视频播放器打开'
+    case 'pdf:': return '使用系统 PDF 预览器打开'
+    case 'webpage:': return '使用内置浏览器预览 HTML 页面'
+    case 'markdown:': return '使用系统预览渲染 Markdown 文档'
     case 'livephoto:': return '使用 Live Photo 查看器打开'
     case 'extract:': return '解压归档文件到当前目录'
     case 'extractfolder:': return '解压到以文件名命名的子文件夹'
@@ -117,6 +124,9 @@ export async function resolveOpenerForFile(
   filePath: string,
   category: string,
 ): Promise<OpenerPrefix | null> {
+  // iCloud 仅云端文件先下载再打开（FileManager.downloadFileFromiCloud）
+  await ensureLocalFile(filePath)
+
   const ext = Path.extname(filePath)
 
   // livephoto 只能用专用处理器，ImageViewer/VideoViewer 无法处理
@@ -128,6 +138,16 @@ export async function resolveOpenerForFile(
   const saved = await getDefaultOpener(ext)
   if (saved) return saved
 
+  // .html/.htm 文件默认使用网页预览（而非代码编辑器）
+  if (ext === '.html' || ext === '.htm') {
+    return 'webpage:'
+  }
+
+  // .md 文件默认使用 Markdown 预览
+  if (ext === '.md' || ext === '.markdown') {
+    return 'markdown:'
+  }
+
   // 已有专用处理器的类型（无用户默认时）
   if (category === 'text' || category === 'code' || category === 'data') {
     return 'editor:'
@@ -135,6 +155,10 @@ export async function resolveOpenerForFile(
   if (category === 'image') {
     return 'image:'
   }
+  if (category === 'pdf') {
+    return 'pdf:'
+  }
+
   if (category === 'video') {
     return 'video:'
   }
@@ -149,6 +173,6 @@ export async function resolveOpenerForFile(
     return null
   }
 
-  // 其他已知类型（pdf/audio/archive）默认预览
+  // 其他已知类型（audio/archive）默认预览
   return 'preview:'
 }

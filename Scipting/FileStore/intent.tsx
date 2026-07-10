@@ -1,6 +1,6 @@
 import { Intent, Navigation, Script, Path } from "scripting";
 import { resolveOpenerForFile } from "./view/DefaultOpenerPicker";
-import { getFileCategory, sanitizeExtractDirName, safeUnzip } from "./manager/utils";
+import { getFileCategory, sanitizeExtractDirName, safeUnzip, readTextFile, ensureLocalFile } from "./manager/utils";
 import { EditorPage } from "./view/EditorPage";
 import { ImageViewer, VideoViewerPage, LivePhotoPreviewPage } from "./view/MediaViewer";
 
@@ -11,6 +11,8 @@ async function run() {
     return;
   }
   const path = files[0];
+  await ensureLocalFile(path);
+
   const ext = Path.extname(path);
   const category = getFileCategory(ext);
 
@@ -20,55 +22,23 @@ async function run() {
     return;
   }
 
-  if (prefix === "editor:") {
+  if (prefix === "editor:" || prefix === "preview:") {
     let fileSize = 0;
     try {
       fileSize = (await FileManager.stat(path)).size;
     } catch {}
-    let content: string | undefined = undefined;
-    try {
-      content = await FileManager.readAsString(path);
-    } catch {
-      for (const enc of ["utf8", "utf-16", "ascii"] as const) {
-        try {
-          content = await FileManager.readAsString(path, enc);
-          if (content && content.length > 0) break;
-        } catch {}
-      }
-      if (!content) {
-        try {
-          content = await FileManager.readAsString(path, "utf-8");
-        } catch {}
-      }
-    }
+    const content = (await readTextFile(path)) ?? undefined;
     await Navigation.present({
-      element: <EditorPage path={path} content={content} fileName={Path.basename(path)} fileSize={fileSize} mode="present" />,
-      modalPresentationStyle: "overFullScreen",
-    });
-  } else if (prefix === "preview:") {
-    let fileSize = 0;
-    try {
-      fileSize = (await FileManager.stat(path)).size;
-    } catch {}
-    let content: string | undefined = undefined;
-    // 先试不传 encoding（系统自动检测）
-    try {
-      content = await FileManager.readAsString(path);
-    } catch {
-      for (const enc of ["utf8", "utf-16", "ascii"] as const) {
-        try {
-          content = await FileManager.readAsString(path, enc);
-          if (content && content.length > 0) break;
-        } catch {}
-      }
-      if (!content) {
-        try {
-          content = await FileManager.readAsString(path, "utf-8");
-        } catch {}
-      }
-    }
-    await Navigation.present({
-      element: <EditorPage path={path} content={content} fileName={Path.basename(path)} fileSize={fileSize} mode="present" />,
+      element: (
+        <EditorPage
+          path={path}
+          content={content}
+          fileName={Path.basename(path)}
+          fileSize={fileSize}
+          mode="present"
+        />
+      ),
+      modalPresentationStyle: prefix === "editor:" ? "overFullScreen" : undefined,
     });
   } else if (prefix === "video:") {
     await Navigation.present({

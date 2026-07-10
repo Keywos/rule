@@ -1,4 +1,5 @@
 // 书签管理器 - 使用 Storage API 持久化
+import { Path } from "scripting";
 import { pathToDisplayName } from "./utils";
 
 export interface Bookmark {
@@ -15,50 +16,58 @@ function getStorage(): any {
   return (globalThis as any).Storage;
 }
 
-/** 读取书签列表 */
+/** 解析 Storage 值（兼容对象 / JSON 字符串） */
+function parseStoredBookmarks(raw: unknown): Bookmark[] | null {
+  if (raw == null) return null;
+  if (Array.isArray(raw)) return raw as Bookmark[];
+  if (typeof raw === "string") {
+    try {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) return parsed as Bookmark[];
+    } catch {}
+  }
+  return null;
+}
+
+/** 读取书签列表（优先 shared 域，兼容旧 JSON 字符串） */
 function readBookmarks(): Bookmark[] {
   try {
     const st = getStorage();
     if (!st) return [];
 
-    let raw: string | null = null;
+    let raw: unknown = null;
     try {
-      raw = st.get?.(BOOKMARKS_KEY, SHARED_OPTIONS) ?? st.getString?.(BOOKMARKS_KEY, SHARED_OPTIONS);
+      raw = st.get?.(BOOKMARKS_KEY, SHARED_OPTIONS);
     } catch {}
     if (raw == null) {
       try {
-        raw = st.get?.(BOOKMARKS_KEY) ?? st.getString?.(BOOKMARKS_KEY);
+        raw = st.get?.(BOOKMARKS_KEY);
       } catch {}
     }
-    if (raw && typeof raw === "string") {
+    // 兼容旧 setString API
+    if (raw == null) {
       try {
-        const parsed = JSON.parse(raw);
-        if (Array.isArray(parsed)) return parsed;
+        raw = st.getString?.(BOOKMARKS_KEY, SHARED_OPTIONS) ?? st.getString?.(BOOKMARKS_KEY);
       } catch {}
     }
+
+    const parsed = parseStoredBookmarks(raw);
+    // console.log("读取书签列表:", parsed);
+    if (parsed) return parsed;
   } catch (e) {
     console.log("读取书签失败:", e);
   }
   return [];
 }
 
-/** 保存书签列表 */
+/** 保存书签列表（直接存 JSON 对象，符合 Storage 支持的类型） */
 function saveBookmarks(bookmarks: Bookmark[]): void {
-  const json = JSON.stringify(bookmarks, null, 2);
   const st = getStorage();
   try {
-    if (typeof st?.set === "function") {
-      st.set(BOOKMARKS_KEY, json, SHARED_OPTIONS);
-    } else {
-      st?.setString?.(BOOKMARKS_KEY, json, SHARED_OPTIONS);
-    }
+    st?.set?.(BOOKMARKS_KEY, bookmarks, SHARED_OPTIONS);
   } catch {}
   try {
-    if (typeof st?.set === "function") {
-      st.set(BOOKMARKS_KEY, json);
-    } else {
-      st?.setString?.(BOOKMARKS_KEY, json);
-    }
+    st?.set?.(BOOKMARKS_KEY, bookmarks);
   } catch {}
 }
 
@@ -214,7 +223,7 @@ export function getBookmarkPath(name: string): string | null {
   return bookmark.path;
 }
 
-/** 获取内置目录列表 */
+/** 获取内置目录列表（对齐 Scripting FileManager 官方路径 API） */
 export interface BuiltinDirectory {
   name: string;
   path: string;
@@ -222,48 +231,33 @@ export interface BuiltinDirectory {
   description: string;
 }
 
+function pushBuiltin(dirs: BuiltinDirectory[], name: string, getPath: () => string, icon: string, description: string, available: () => boolean = () => true) {
+  try {
+    if (!available()) return;
+    const path = getPath();
+    if (!path) return;
+    dirs.push({ name, path, icon, description });
+  } catch {}
+}
+
 export function getBuiltinDirectories(): BuiltinDirectory[] {
   const dirs: BuiltinDirectory[] = [];
-
-  // 文档目录
-  try {
-    dirs.push({
-      name: "文档",
-      path: FileManager.documentsDirectory,
-      icon: "doc.text.fill",
-      description: "Files app 可访问",
-    });
-  } catch {}
-
-  // 脚本目录
-  try {
-    dirs.push({
-      name: "脚本",
-      path: FileManager.scriptsDirectory,
-      icon: "chevron.left.forwardslash.chevron.right",
-      description: "脚本存储位置",
-    });
-  } catch {}
-
-  // App Group 目录
-  try {
-    dirs.push({
-      name: "App Group",
-      path: FileManager.appGroupDocumentsDirectory,
-      icon: "square.grid.2x2.fill",
-      description: "小组件可访问",
-    });
-  } catch {}
-
-  // 临时目录
-  try {
-    dirs.push({
-      name: "临时",
-      path: FileManager.temporaryDirectory,
-      icon: "clock.fill",
-      description: "可随时清理",
-    });
-  } catch {}
+  pushBuiltin(dirs, "File Store", () => Path.join(FileManager.documentsDirectory, "File Store"), "folder.fill", "默认文件仓库");
+  pushBuiltin(dirs, "脚本", () => FileManager.scriptsDirectory, "chevron.left.forwardslash.chevron.right", "脚本存储位置");
+  pushBuiltin(
+    dirs,
+    "iCloud 文档",
+    () => FileManager.iCloudDocumentsDirectory,
+    "icloud.fill",
+    "iCloud Drive Documents",
+    () => !!FileManager.isiCloudEnabled,
+  );
+  pushBuiltin(dirs, "App Group", () => FileManager.appGroupDocumentsDirectory, "square.grid.2x2.fill", "小组件可访问");
+  pushBuiltin(dirs, "临时", () => FileManager.temporaryDirectory, "clock.fill", "系统临时目录，可被清理");
+  pushBuiltin(dirs, "Safari 扩展", () => FileManager.safariBrowserDirectory, "safari", "Safari 用户脚本数据根目录");
+  pushBuiltin(dirs, "Safari 下载", () => FileManager.safariBrowserDownloadsDirectory, "arrow.down.circle.fill", "GM.download 下载目录");
+  pushBuiltin(dirs, "Safari 脚本", () => FileManager.safariBrowserUserscriptsDirectory, "doc.badge.gearshape", "已安装的 userscripts");
+  pushBuiltin(dirs, "Safari 存储", () => FileManager.safariBrowserStorageDirectory, "internaldrive", "GM 值 JSON 存储");
 
   return dirs;
 }

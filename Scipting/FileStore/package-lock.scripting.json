@@ -1,0 +1,136 @@
+{
+  "lockfileVersion" : 1,
+  "packages" : {
+    "@jridgewell/gen-mapping@0.3.13" : {
+      "dependencies" : {
+        "@jridgewell/sourcemap-codec" : "1.5.5",
+        "@jridgewell/trace-mapping" : "0.3.31"
+      },
+      "integrity" : "sha512-2kkt/7niJ6MgEPxF0bYdQ6etZaA+fQvDcLKckhy1yIQOzaoKjBBjSj63/aLVjYE3qhRt5dvM+uUyfCg6UKCBbA==",
+      "name" : "@jridgewell/gen-mapping",
+      "shasum" : "6342a19f44347518c93e43b1ac69deb3c4656a1f",
+      "tarball" : "https://registry.npmjs.org/@jridgewell/gen-mapping/-/gen-mapping-0.3.13.tgz",
+      "version" : "0.3.13"
+    },
+    "@jridgewell/resolve-uri@3.1.2" : {
+      "dependencies" : {
+
+      },
+      "integrity" : "sha512-bRISgCIjP20/tbWSPWMEi54QVPRZExkuD9lJL+UIxUKtwVJA8wW1Trb1jMs1RFXo1CBTNZ/5hpC9QvmKWdopKw==",
+      "name" : "@jridgewell/resolve-uri",
+      "shasum" : "7a0ee601f60f99a20c7c7c5ff0c80388c1189bd6",
+      "tarball" : "https://registry.npmjs.org/@jridgewell/resolve-uri/-/resolve-uri-3.1.2.tgz",
+      "version" : "3.1.2"
+    },
+    "@jridgewell/source-map@0.3.11" : {
+      "dependencies" : {
+        "@jridgewell/gen-mapping" : "0.3.13",
+        "@jridgewell/trace-mapping" : "0.3.31"
+      },
+      "integrity" : "sha512-ZMp1V8ZFcPG5dIWnQLr3NSI1MiCU7UETdS/A0G8V/XWHvJv3ZsFqutJn1Y5RPmAPX6F3BiE397OqveU/9NCuIA==",
+      "name" : "@jridgewell/source-map",
+      "shasum" : "b21835cbd36db656b857c2ad02ebd413cc13a9ba",
+      "tarball" : "https://registry.npmjs.org/@jridgewell/source-map/-/source-map-0.3.11.tgz",
+      "version" : "0.3.11"
+    },
+    "@jridgewell/sourcemap-codec@1.5.5" : {
+      "dependencies" : {
+
+      },
+      "integrity" : "sha512-cYQ9310grqxueWbl+WuIUIaiUaDcj7WOq5fVhEljNVgRfOUhY9fy2zTvfoqWsnebh8Sl70VScFbICvJnLKB0Og==",
+      "name" : "@jridgewell/sourcemap-codec",
+      "shasum" : "6912b00d2c631c0d15ce1a7ab57cd657f2a8f8ba",
+      "tarball" : "https://registry.npmjs.org/@jridgewell/sourcemap-codec/-/sourcemap-codec-1.5.5.tgz",
+      "version" : "1.5.5"
+    },
+    "@jridgewell/trace-mapping@0.3.31" : {
+      "dependencies" : {
+        "@jridgewell/resolve-uri" : "3.1.2",
+        "@jridgewell/sourcemap-codec" : "1.5.5"
+      },
+      "integrity" : "sha512-zzNR+SdQSDJzc8joaeP8QQoCQr8NuYx2dIIytl1QeBEZHJ9uW6hebsrYgbz8hJwUQao3TWCMtmfV8Nu1twOLAw==",
+      "name" : "@jridgewell/trace-mapping",
+      "shasum" : "db15d6781c931f3a251a3dac39501c98a6082fd0",
+      "tarball" : "https://registry.npmjs.org/@jridgewell/trace-mapping/-/trace-mapping-0.3.31.tgz",
+      "version" : "0.3.31"
+    },
+    "acorn@8.17.0" : {
+      "dependencies" : {
+
+      },
+      "integrity" : "sha512-xRQbDb9BnwDafYNn6Vwl839DYVjqXYb1XVGtWAZ1kcDc6iwAL4hg3B1dZlRiuENFeO2H53gFG3in621AdERVAg==",
+      "name" : "acorn",
+      "shasum" : "1785adb84faf8d8add10369b93826fc2bd08f1fe",
+      "tarball" : "https://registry.npmjs.org/acorn/-/acorn-8.17.0.tgz",
+      "version" : "8.17.0"
+    },
+    "buffer-from@1.1.2" : {
+      "dependencies" : {
+
+      },
+      "integrity" : "sha512-E+XQCRwSbaaiChtv6k6Dwgc+bx+Bs6vuKJHHl5kox/BaKbhiXzqQOwK4cO22yElGp2OCmjwVhT3HmxgyPGnJfQ==",
+      "name" : "buffer-from",
+      "shasum" : "2b146a6fd72e80b4f55d255f35ed59a3a9a41bd5",
+      "tarball" : "https://registry.npmjs.org/buffer-from/-/buffer-from-1.1.2.tgz",
+      "version" : "1.1.2"
+    },
+    "commander@2.20.3" : {
+      "dependencies" : {
+
+      },
+      "integrity" : "sha512-GpVkmM8vF2vQUkj2LvZmD35JxeJOLCwJ9cUkugyk2nuhbv3+mJvpLYYt+0+USMxE+oj+ey/lJEnhZw75x/OMcQ==",
+      "name" : "commander",
+      "shasum" : "fd485e84c03eb4881c20722ba48035e8531aeb33",
+      "tarball" : "https://registry.npmjs.org/commander/-/commander-2.20.3.tgz",
+      "version" : "2.20.3"
+    },
+    "prettier@3.9.5" : {
+      "dependencies" : {
+
+      },
+      "integrity" : "sha512-/FVl766LpUfB5vXgCYOYa0MeV/441Ia99AeICQIQFTY/Nw0roZwULcXpku5i1/m5kt/baz+s4Zogspd839HSMg==",
+      "name" : "prettier",
+      "shasum" : "4fec97736e33b9d0b620b48914fe93b530e835ad",
+      "tarball" : "https://registry.npmjs.org/prettier/-/prettier-3.9.5.tgz",
+      "version" : "3.9.5"
+    },
+    "source-map-support@0.5.21" : {
+      "dependencies" : {
+        "buffer-from" : "1.1.2",
+        "source-map" : "0.6.1"
+      },
+      "integrity" : "sha512-uBHU3L3czsIyYXKX88fdrGovxdSCoTGDRZ6SYXtSRxLZUzHg5P/66Ht6uoUlHu9EZod+inXhKo3qQgwXUT/y1w==",
+      "name" : "source-map-support",
+      "shasum" : "04fe7c7f9e1ed2d662233c28cb2b35b9f63f6e4f",
+      "tarball" : "https://registry.npmjs.org/source-map-support/-/source-map-support-0.5.21.tgz",
+      "version" : "0.5.21"
+    },
+    "source-map@0.6.1" : {
+      "dependencies" : {
+
+      },
+      "integrity" : "sha512-UjgapumWlbMhkBgzT7Ykc5YXUT46F0iKu8SGXq0bcwP5dz/h0Plj6enJqjz1Zbq2l5WaqYnrVbwWOWMyF3F47g==",
+      "name" : "source-map",
+      "shasum" : "74722af32e9614e9c287a8d0bbde48b5e2f1a263",
+      "tarball" : "https://registry.npmjs.org/source-map/-/source-map-0.6.1.tgz",
+      "version" : "0.6.1"
+    },
+    "terser@5.49.0" : {
+      "dependencies" : {
+        "@jridgewell/source-map" : "0.3.11",
+        "acorn" : "8.17.0",
+        "commander" : "2.20.3",
+        "source-map-support" : "0.5.21"
+      },
+      "integrity" : "sha512-SNiDnXyHSrxVcIOtVbULzcTmniUiwcV7Nwdyj1twVubeTmbjoa8p69KKDpfkdoOavuM4/GRm1+ykI8qqnavHoA==",
+      "name" : "terser",
+      "shasum" : "30b341fdf70cfc98486965125ae660fda8403670",
+      "tarball" : "https://registry.npmjs.org/terser/-/terser-5.49.0.tgz",
+      "version" : "5.49.0"
+    }
+  },
+  "roots" : {
+    "prettier" : "3.9.5",
+    "terser" : "5.49.0"
+  }
+}

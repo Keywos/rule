@@ -62,56 +62,60 @@ const defaultSettings: AppSettings = {
   dualLayoutDir: "horizontal",
 };
 
-/** 读取设置 */
+function normalizeSettings(raw: unknown): AppSettings | null {
+  let obj: any = raw;
+  if (typeof raw === "string") {
+    try {
+      obj = JSON.parse(raw);
+    } catch {
+      return null;
+    }
+  }
+  if (!obj || typeof obj !== "object") return null;
+
+  const settings = { ...defaultSettings, ...obj };
+  if (typeof settings.defaultTab !== "number" || settings.defaultTab < 0 || settings.defaultTab > 3) {
+    settings.defaultTab = 0;
+  }
+  return settings;
+}
+
+/** 读取设置（兼容对象 / JSON 字符串、shared / private 域） */
 export function readSettings(): AppSettings {
   try {
     const st = getStorage();
     if (!st) return { ...defaultSettings };
 
-    let raw: string | null = null;
+    let raw: unknown = null;
     try {
-      raw = st.get?.(SETTINGS_KEY, SHARED_OPTIONS) ?? st.getString?.(SETTINGS_KEY, SHARED_OPTIONS);
+      raw = st.get?.(SETTINGS_KEY, SHARED_OPTIONS);
     } catch {}
     if (raw == null) {
       try {
-        raw = st.get?.(SETTINGS_KEY) ?? st.getString?.(SETTINGS_KEY);
+        raw = st.get?.(SETTINGS_KEY);
       } catch {}
     }
-    if (raw && typeof raw === "string") {
+    if (raw == null) {
       try {
-        const parsed = JSON.parse(raw);
-        if (parsed && typeof parsed === "object") {
-          const settings = { ...defaultSettings, ...parsed };
-          // 校验 defaultTab 范围
-          if (typeof settings.defaultTab !== "number" || settings.defaultTab < 0 || settings.defaultTab > 3) {
-            settings.defaultTab = 0;
-          }
-          return settings;
-        }
+        raw = st.getString?.(SETTINGS_KEY, SHARED_OPTIONS) ?? st.getString?.(SETTINGS_KEY);
       } catch {}
     }
+
+    const settings = normalizeSettings(raw);
+    if (settings) return settings;
   } catch (e) {
     console.log("读取设置失败:", e);
   }
   return { ...defaultSettings };
 }
 
-/** 保存设置 */
+/** 保存设置（直接存对象，符合 Storage 支持的 JSON 类型） */
 export function saveSettings(settings: AppSettings): void {
-  const json = JSON.stringify(settings, null, 2);
   const st = getStorage();
   try {
-    if (typeof st?.set === "function") {
-      st.set(SETTINGS_KEY, json, SHARED_OPTIONS);
-    } else {
-      st?.setString?.(SETTINGS_KEY, json, SHARED_OPTIONS);
-    }
+    st?.set?.(SETTINGS_KEY, settings, SHARED_OPTIONS);
   } catch {}
   try {
-    if (typeof st?.set === "function") {
-      st.set(SETTINGS_KEY, json);
-    } else {
-      st?.setString?.(SETTINGS_KEY, json);
-    }
+    st?.set?.(SETTINGS_KEY, settings);
   } catch {}
 }

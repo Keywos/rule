@@ -4,6 +4,57 @@ import { Navigation, NavigationStack, VStack, HStack, Text, Button, Image, useSt
 import { getFileCategory, langMap, FileInfo } from "../manager/utils";
 import { getEditorExt } from "../manager/editorConfig";
 
+/* ───── PDF QuickLook 预览组件 ───── */
+function PDFQuickLookPreview({ fileInfo }: { fileInfo: FileInfo }) {
+  const [previewDone, setPreviewDone] = useState(false)
+
+  useEffect(() => {
+    let disposed = false
+
+    QuickLook.previewURLs([fileInfo.path], true)
+      .then(() => {
+        if (!disposed) {
+          setPreviewDone(true)
+        }
+      })
+      .catch((e: any) => {
+        console.log('PDF 预览失败:', e)
+        if (!disposed) {
+          setPreviewDone(true)
+        }
+      })
+
+    return () => {
+      disposed = true
+    }
+  }, [])
+
+  if (previewDone) {
+    return (
+      <VStack alignment="center" spacing={16} padding={32}>
+        <Image systemName="doc.richtext" foregroundStyle="systemRed" frame={{ width: 60, height: 60 }} />
+        <Text font="headline">{fileInfo.name}</Text>
+        <Text font="body" foregroundStyle="secondaryLabel">PDF 文档</Text>
+        <Button
+          title="重新预览"
+          systemImage="eye"
+          action={() => {
+            setPreviewDone(false)
+            setTimeout(() => {
+              QuickLook.previewURLs([fileInfo.path], true)
+                .then(() => { setPreviewDone(true) })
+                .catch(() => { setPreviewDone(true) })
+            }, 100)
+          }}
+        />
+      </VStack>
+    )
+  }
+
+  // QuickLook 预览由系统直接展示
+  return <VStack></VStack>
+}
+
 /* ───── 代码编辑器预览组件 ───── */
 function CodeEditorPreview({ fileInfo, content }: { fileInfo: FileInfo; content: string }) {
   const ext = fileInfo.extension.toLowerCase();
@@ -128,17 +179,9 @@ export function FilePreviewView({ fileInfo, content }: FilePreviewViewProps) {
     return <CodeEditorPreview fileInfo={fileInfo} content={content} />;
   }
 
-  // ─── PDF ───
+  // ─── PDF → QuickLook 系统预览 ───
   if (category === "pdf") {
-    return (
-      <VStack alignment="center" spacing={16} padding={32}>
-        <Image systemName="doc.richtext" foregroundStyle="systemRed" frame={{ width: 60, height: 60 }} />
-        <Text font="headline">{fileInfo.name}</Text>
-        <Text font="body" foregroundStyle="secondaryLabel">
-          PDF 文档
-        </Text>
-      </VStack>
-    );
+    return <PDFQuickLookPreview fileInfo={fileInfo} />
   }
 
   // ─── 音频 ───

@@ -1,7 +1,7 @@
 // 深度搜索模块 - SQLite索引（带缓存）
 
 import { Path } from 'scripting'
-import { getFileInfo, getFileCategory } from './utils'
+import { getFileInfo, getFileCategory, readTextFile } from './utils'
 import { getMaxIndexFileSizeKB } from './SearchState'
 
 /** 深度搜索结果 */
@@ -245,12 +245,11 @@ export async function buildIndex(
     return cat === 'text' || cat === 'code' || cat === 'data'
   }
 
-  /** 读取文本文件内容（限制大小） */
+  /** 读取文本文件内容（限制大小；走统一 readTextFile） */
   async function readTextContent(filePath: string): Promise<string> {
     try {
-      const isBin = await FileManager.isBinaryFile(filePath)
-      if (isBin) return ''
-      const text = await FileManager.readAsString(filePath, 'utf8')
+      const text = await readTextFile(filePath)
+      if (!text) return ''
       // 限制内容长度，避免数据库过大（最多 50KB）
       return text.length > 51200 ? text.substring(0, 51200) : text
     } catch {
