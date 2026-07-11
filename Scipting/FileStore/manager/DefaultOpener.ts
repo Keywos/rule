@@ -48,11 +48,11 @@ function loadDefaults(): ExtensionDefaults {
     let raw: string | null = null
     try {
       raw = st.get?.(DEFAULTS_KEY, SHARED_OPTIONS) ?? st.getString?.(DEFAULTS_KEY, SHARED_OPTIONS)
-    } catch {}
+    } catch { }
     if (raw == null) {
       try {
         raw = st.get?.(DEFAULTS_KEY) ?? st.getString?.(DEFAULTS_KEY)
-      } catch {}
+      } catch { }
     }
     if (raw && typeof raw === 'string') {
       try {
@@ -61,7 +61,7 @@ function loadDefaults(): ExtensionDefaults {
           _defaultsCache = parsed
           return parsed
         }
-      } catch {}
+      } catch { }
     }
   } catch (e) {
     console.log('读取默认打开方式失败:', e)
@@ -80,14 +80,14 @@ function saveDefaults(data: ExtensionDefaults): void {
     } else {
       st?.setString?.(DEFAULTS_KEY, json, SHARED_OPTIONS)
     }
-  } catch {}
+  } catch { }
   try {
     if (typeof st?.set === 'function') {
       st.set(DEFAULTS_KEY, json)
     } else {
       st?.setString?.(DEFAULTS_KEY, json)
     }
-  } catch {}
+  } catch { }
 }
 
 /** 获取某个扩展名的默认打开方式（存储的），null 表示未设置 */

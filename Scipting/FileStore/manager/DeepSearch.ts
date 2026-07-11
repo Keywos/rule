@@ -211,11 +211,11 @@ export async function getIndexStats(dirPath: string): Promise<IndexStats> {
 }
 
 /** 递归遍历目录并建立索引 */
-let _cancelIndexing = false
+let _activeIndexTask: { cancelled: boolean } | null = null
 
-/** 取消正在进行的索引构建 */
+/** 取消当前正在进行的索引构建。 */
 export function cancelBuildIndex(): void {
-  _cancelIndexing = true
+  if (_activeIndexTask) _activeIndexTask.cancelled = true
 }
 
 export async function buildIndex(
@@ -223,12 +223,15 @@ export async function buildIndex(
   onProgress?: (count: number, currentPath: string) => void,
   forceRebuild: boolean = false
 ): Promise<number> {
-  _cancelIndexing = false
+  // 每次构建持有独立取消令牌；后启动的构建不会重置前一任务的取消状态。
+  const task = { cancelled: false }
+  _activeIndexTask = task
   // 如果索引有效且不强制重建，直接返回现有数量
   if (!forceRebuild && await isIndexValid(dirPath)) {
     const stats = await getIndexStats(dirPath)
     if (stats.total > 0) {
       console.log(`使用缓存索引: ${stats.total} 个文件`)
+      if (_activeIndexTask === task) _activeIndexTask = null
       return stats.total
     }
   }
@@ -245,12 +248,12 @@ export async function buildIndex(
     return cat === 'text' || cat === 'code' || cat === 'data'
   }
 
-  /** 读取文本文件内容（限制大小；走统一 readTextFile） */
-  async function readTextContent(filePath: string): Promise<string> {
+  /** 读取文本文件内容（在完整读取前限制字节大小）。 */
+  async function readTextContent(filePath: string, maxBytes: number): Promise<string> {
     try {
-      const text = await readTextFile(filePath)
+      const text = await readTextFile(filePath, maxBytes)
       if (!text) return ''
-      // 限制内容长度，避免数据库过大（最多 50KB）
+      // 限制内容长度，避免数据库过大（最多 50KB）。
       return text.length > 51200 ? text.substring(0, 51200) : text
     } catch {
       return ''
@@ -266,7 +269,7 @@ export async function buildIndex(
         const relPath = relativePath ? `${relativePath}/${entry}` : entry
         
         try {
-          if (_cancelIndexing) break
+          if (task.cancelled) break
           const info = await getFileInfo(fullPath)
           // 跳过超过最大文件限制的文件
           if (!info.isDirectory && info.size > getMaxIndexFileSizeKB() * 1024) {
@@ -278,7 +281,7 @@ export async function buildIndex(
           // 对文本类文件读取内容
           let content = ''
           if (!info.isDirectory && isTextLikeFile(category)) {
-            content = await readTextContent(fullPath)
+            content = await readTextContent(fullPath, getMaxIndexFileSizeKB() * 1024)
           }
           
           // 插入索引
@@ -303,7 +306,7 @@ export async function buildIndex(
           count++
           onProgress?.(count, fullPath)
           
-          if (info.isDirectory && !_cancelIndexing) {
+          if (info.isDirectory && !task.cancelled) {
             await traverse(fullPath, relPath)
           }
         } catch (e) {
@@ -330,6 +333,7 @@ export async function buildIndex(
     dirPath
   })
   
+  if (_activeIndexTask === task) _activeIndexTask = null
   return count
 }
 

@@ -51,7 +51,8 @@ export async function handleDropToDirectory(
   console.log('handleDropToDirectory: providers count:', providers.length)
   if (providers.length === 0) return []
 
-  await ensureDir(dirPath)
+  // 不在此等待目录创建：handleItemProvidersToDirectory 会立即启动 Provider 读取，
+  // 并仅在写入前等待目录就绪。
   return handleItemProvidersToDirectory(providers, dirPath, onRefresh)
 }
 
@@ -63,12 +64,11 @@ export async function handleItemProvidersToDirectory(
   console.log('handleItemProvidersToDirectory called, dirPath:', dirPath, 'providers:', providers.length)
   if (providers.length === 0) return []
 
-  // Do not await directory creation before starting provider loads. onDropContent
-  // requires load operations to begin during the perform callback.
-  ensureDir(dirPath).catch(() => {})
-
+  // Provider 读取必须在 perform 回调内立即启动；目录创建承诺会在实际落盘前等待，
+  // 因此既不破坏系统拖放生命周期，也不会在首次创建目录时抢先写入。
+  const directoryReady = ensureDir(dirPath)
   const results = providers.map((provider, index) =>
-    readAndImportProvider(provider, dirPath, index)
+    readAndImportProvider(provider, dirPath, index, directoryReady)
   )
 
   const imported = await Promise.allSettled(results)
@@ -91,6 +91,7 @@ async function readAndImportProvider(
   provider: ItemProvider,
   dirPath: string,
   index: number,
+  directoryReady: Promise<void>,
 ): Promise<string | null> {
   const ts = makeTimestamp()
 
@@ -98,6 +99,7 @@ async function readAndImportProvider(
   const dragSource = getDragSourcePath()
   if (dragSource) {
     setDragSourcePath(null)
+    await directoryReady
     const name = Path.basename(dragSource)
     const dest = Path.join(dirPath, name)
     if (await FileManager.exists(dest)) {
@@ -123,6 +125,8 @@ async function readAndImportProvider(
     try {
       const filePath = await provider.loadFilePath(type)
       if (filePath) {
+        // Provider 已在回调中完成读取启动；现在才等待目录，避免写入与创建竞态。
+        await directoryReady
         const name = Path.basename(filePath)
         const dest = Path.join(dirPath, name)
         if (await FileManager.exists(dest)) {
@@ -153,6 +157,7 @@ async function readAndImportProvider(
     try {
       const image = await provider.loadUIImage()
       if (image) {
+        await directoryReady
         const jpegData = image.toJPEGData(0.92)
         if (jpegData) {
           const name = `IMG_${ts}.jpg`
@@ -176,6 +181,7 @@ async function readAndImportProvider(
     try {
       const url = await provider.loadURL()
       if (url) {
+        await directoryReady
         const weblocContent = `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -205,6 +211,7 @@ async function readAndImportProvider(
     try {
       const text = await provider.loadText()
       if (text && text.length > 0) {
+        await directoryReady
         const name = `Text_${ts}.txt`
         const destPath = Path.join(dirPath, name)
         await FileManager.writeAsString(destPath, text, 'utf8')
@@ -221,6 +228,7 @@ async function readAndImportProvider(
     try {
       const data = await provider.loadData(type)
       if (data) {
+        await directoryReady
         const ext = typeToExtension(type)
         const name = `data_${ts}.${ext}`
         const destPath = Path.join(dirPath, name)

@@ -7,7 +7,8 @@ import { HomePage } from "./HomePage";
 import { MountDirectoriesPage } from "./MountDirectoriesPage";
 import { DualBrowserPage } from "./DualBrowserPage";
 import { ToastOverlay } from "./ToastOverlay";
-import { hasActiveServers, stopHttpBackgroundIfIdle } from "../manager/LocalHttpServer";
+import { showToast } from "../manager/ToastManager";
+import { getServerCount, hasActiveServers, stopHttpBackgroundIfIdle } from "../manager/LocalHttpServer";
 
 /* ───── 主页视图 ───── */
 export function HomeView() {
@@ -23,11 +24,22 @@ export function HomeView() {
   const lastContentTabRef = useRef(initialTabIndex);
   const exitingRef = useRef(false);
 
+  // 初次进入时提示当前保活的 HTTP 服务数量；延后一个事件循环，确保 Toast 已完成订阅。
+  useEffect(() => {
+    const serverCount = getServerCount();
+    if (serverCount > 0) {
+      const timer = setTimeout(() => showToast(`正在运行 ${serverCount} 个 HTTP 服务`), 0);
+      return () => clearTimeout(timer);
+    }
+  }, []);
+
   // 恢复保活实例后回到退出前的内容页。先切到另一个内容 Tab，再在下一轮切回，
   // 促使原生控件离开残留的退出 Tab，但不销毁并重建所有页面。
   useEffect(() => Script.onResume((details) => {
     if (!details.resumeFromMinimized) return;
     exitingRef.current = false;
+    const serverCount = getServerCount();
+    if (serverCount > 0) showToast(`正在运行 ${serverCount} 个 HTTP 服务`);
     const contentTab = lastContentTabRef.current;
     setTabIndex(contentTab === 0 ? 1 : 0);
     setTimeout(() => setTabIndex(contentTab), 0);

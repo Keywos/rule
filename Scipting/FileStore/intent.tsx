@@ -5,9 +5,9 @@ import { EditorPage } from "./view/EditorPage";
 import { ArchiveBrowserPage, ImageViewer, VideoViewerPage, LivePhotoPreviewPage } from "./view/MediaViewer";
 
 async function run() {
+  try {
   const files = Intent.fileURLsParameter;
   if (!files || files.length === 0) {
-    Script.exit();
     return;
   }
   const path = files[0];
@@ -18,7 +18,6 @@ async function run() {
 
   const prefix = await resolveOpenerForFile(path, category);
   if (!prefix) {
-    Script.exit();
     return;
   }
 
@@ -76,6 +75,10 @@ async function run() {
     await FileManager.unzip(path, extractDir);
   }
 
-  Script.exit();
+  } catch (error) {
+    console.error("无法打开外部文件:", error);
+  } finally {
+    Script.exit();
+  }
 }
-run();
+void run();

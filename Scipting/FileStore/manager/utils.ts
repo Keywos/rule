@@ -40,8 +40,9 @@ export function buildSystemDirDefs(): Array<{ name: string; getPath: () => strin
  * - 先 ensureLocalFile（iCloud 按需下载）
  * - 用 isBinaryFile 跳过二进制
  * - 多编码回退
+ * - maxBytes：在任何完整读取前按文件元数据拒绝超限文件（适合搜索索引）
  */
-export async function readTextFile(filePath: string): Promise<string | null> {
+export async function readTextFile(filePath: string, maxBytes?: number): Promise<string | null> {
   try {
     await ensureLocalFile(filePath)
 
@@ -50,6 +51,10 @@ export async function readTextFile(filePath: string): Promise<string | null> {
       const stat = await FileManager.stat(filePath)
       fileSize = typeof stat.size === "number" ? stat.size : -1
     } catch { }
+
+    // FileManager 只提供整文件读取 API；必须在首次 readAsString/readAsData 之前拦截，
+    // 否则即使调用方最终只保留前一部分文本，整个大文件仍会进入内存。
+    if (maxBytes != null && maxBytes >= 0 && fileSize > maxBytes) return null
 
     const isUsableText = (text: string | null | undefined) => {
       // 只有明确知道文件大小为 0 时才接受空字符串；stat 失败/未知大小不能把空字符串当成功。
@@ -668,6 +673,21 @@ const _DIR_CACHE_TTL = 30000 // 30 秒内认为缓存有效
 
 /** ── 请求合并：同一目录的并发请求只走一次磁盘 ── */
 const _inflightRequests = new Map<string, Promise<FileInfo[]>>()
+const DIRECTORY_INFO_CONCURRENCY = 16
+
+/** 以固定并发度执行任务，避免超大目录同时发起过多 stat 请求。 */
+async function mapWithConcurrency<T, R>(items: T[], limit: number, worker: (item: T) => Promise<R>): Promise<R[]> {
+  const results = new Array<R>(items.length)
+  let nextIndex = 0
+  const workerCount = Math.min(limit, items.length)
+  await Promise.all(Array.from({ length: workerCount }, async () => {
+    while (nextIndex < items.length) {
+      const index = nextIndex++
+      results[index] = await worker(items[index])
+    }
+  }))
+  return results
+}
 
 /** 缓存目录列表 */
 export function cacheDirectoryListing(path: string, files: FileInfo[]) {
@@ -707,17 +727,15 @@ export async function listDirectory(dirPath: string): Promise<FileInfo[]> {
   const promise = (async () => {
     const entries = await FileManager.readDirectory(dirPath)
 
-    const results = await Promise.all(
-      entries.map(async (entry) => {
-        try {
-          const fullPath = Path.join(dirPath, entry)
-          const info = await getFileInfo(fullPath)
-          return info
-        } catch (e) {
-          return null // 跳过无法访问的文件
-        }
-      }),
-    )
+    // 限制 stat 并发度；目录包含大量文件时避免瞬时耗尽 I/O 与内存。
+    const results = await mapWithConcurrency(entries, DIRECTORY_INFO_CONCURRENCY, async (entry) => {
+      try {
+        const fullPath = Path.join(dirPath, entry)
+        return await getFileInfo(fullPath)
+      } catch {
+        return null // 跳过无法访问的文件
+      }
+    })
 
     const items: FileInfo[] = results.filter((item): item is FileInfo => item != null)
 
@@ -850,6 +868,11 @@ export function sanitizeExtractDirName(archiveName: string): string {
   return base
 }
 
+/** 将任意路径编码为一个 shell 参数，避免空格、引号和命令替换字符被 shell 解释。 */
+function shellQuote(value: string): string {
+  return `'${value.replace(/'/g, `'"'"'`)}'`
+}
+
 /** 解压到目标目录，避免覆盖已有文件。先解压到临时目录，再用 uniquePath 逐个移动 */
 export async function safeUnzip(archivePath: string, destDir: string): Promise<void> {
   const tmpDir = Path.join(FileManager.temporaryDirectory, `_unzip_${Date.now()}`)
@@ -868,26 +891,26 @@ export async function safeUnzip(archivePath: string, destDir: string): Promise<v
     if (ext === ".zip") {
       await FileManager.unzip(archivePath, tmpDir)
     } else if (isTar) {
-      const r = await Shell.run(`tar -xf "${archivePath}"`, { cwd: tmpDir })
+      const r = await Shell.run(`tar -xf ${shellQuote(archivePath)}`, { cwd: tmpDir })
       if (r.exitCode !== 0) {
         throw new Error(`tar 解压失败: ${r.output}`)
       }
     } else if (ext === ".gz" && !isTarGz) {
       // 单独 .gz 文件（非 tar.gz）
       const outName = name.slice(0, -3)
-      const r = await Shell.run(`gzip -d -c "${archivePath}" > "${tmpDir}/${outName}"`)
+      const r = await Shell.run(`gzip -d -c ${shellQuote(archivePath)} > ${shellQuote(Path.join(tmpDir, outName))}`)
       if (r.exitCode !== 0) {
         throw new Error(`gzip 解压失败: ${r.output}`)
       }
     } else if (ext === ".bz2" && !isTarBz2) {
       const outName = name.slice(0, -4)
-      const r = await Shell.run(`bzip2 -d -c "${archivePath}" > "${tmpDir}/${outName}"`)
+      const r = await Shell.run(`bzip2 -d -c ${shellQuote(archivePath)} > ${shellQuote(Path.join(tmpDir, outName))}`)
       if (r.exitCode !== 0) {
         throw new Error(`bzip2 解压失败: ${r.output}`)
       }
     } else if (ext === ".xz" && !isTarXz) {
       const outName = name.slice(0, -3)
-      const r = await Shell.run(`xz -d -c "${archivePath}" > "${tmpDir}/${outName}"`)
+      const r = await Shell.run(`xz -d -c ${shellQuote(archivePath)} > ${shellQuote(Path.join(tmpDir, outName))}`)
       if (r.exitCode !== 0) {
         throw new Error(`xz 解压失败: ${r.output}`)
       }

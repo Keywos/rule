@@ -106,6 +106,7 @@ function FileRowLink({
   file,
   onRefresh,
   onDeleteFile,
+  onRequestDelete,
   selectMode,
   isSelected,
   onToggleSelect,
@@ -123,6 +124,7 @@ function FileRowLink({
   file: FileInfo;
   onRefresh: () => void;
   onDeleteFile?: (path: string) => void;
+  onRequestDelete?: (file: FileInfo, afterSwipe?: boolean) => void;
   selectMode?: boolean;
   isSelected?: boolean;
   onToggleSelect?: () => void;
@@ -156,19 +158,12 @@ function FileRowLink({
     Navigation.present({ element: <FileInfoDialog file={file} />, modalPresentationStyle: "pageSheet" });
   };
 
-  const handleDelete = async () => {
-    try {
-      await FileManager.remove(file.path);
-      withAnimation(Animation.smooth({ duration: 0.35 }), () => {
-        if (onDeleteFile) {
-          onDeleteFile(file.path);
-        } else {
-          onRefresh();
-        }
-      });
-    } catch (e) {
-      console.log("删除失败:", e);
-    }
+  const handleDelete = () => {
+    onRequestDelete?.(file, false);
+  };
+
+  const handleSwipeDelete = () => {
+    onRequestDelete?.(file, true);
   };
 
   const handleShare = async () => {
@@ -259,7 +254,9 @@ function FileRowLink({
         listRowSeparator={hideTopSeparator ? { visibility: "hidden", edges: "top" } : undefined}
         listRowBackground={isHighlighted ? <Rectangle fill="systemGray" opacity={0.15} /> : undefined}
         trailingSwipeActions={{
-          actions: [<Button title="删除" role="destructive" action={handleDelete} />, <Button title="简介" action={handleShowInfo} />],
+          // 不设 destructive role：该角色会让 SwiftUI 将滑动动作按“立即删除”处理，
+            // 即使随后弹出确认框，取消后再次滑动也会触发原生状态崩溃。
+            actions: [<Button title="删除" action={handleSwipeDelete} />, <Button title="简介" action={handleShowInfo} />],
         }}
         leadingSwipeActions={{
           actions: [<Button title="重命名" action={handleRename} />],
@@ -533,7 +530,9 @@ function FileRowLink({
       listRowSeparator={hideTopSeparator ? { visibility: "hidden", edges: "top" } : undefined}
       listRowBackground={isHighlighted ? <Rectangle fill="systemGray" opacity={0.15} /> : undefined}
       trailingSwipeActions={{
-        actions: [<Button title="删除" role="destructive" action={handleDelete} />, <Button title="简介" action={handleShowInfo} />],
+        // 不设 destructive role：该角色会让 SwiftUI 将滑动动作按“立即删除”处理，
+            // 即使随后弹出确认框，取消后再次滑动也会触发原生状态崩溃。
+            actions: [<Button title="删除" action={handleSwipeDelete} />, <Button title="简介" action={handleShowInfo} />],
       }}
       leadingSwipeActions={{
         actions: [<Button title="重命名" action={handleRename} />],
@@ -1040,6 +1039,7 @@ function GeneralBrowser({
   }
 
   const [serverTick, setServerTick] = useState(0);
+  const deleteConfirmingRef = useRef(false);
   // 所有目录浏览器订阅同一服务状态；任一侧启停服务时双列都会刷新。
   useEffect(() => subscribe(() => setServerTick((t) => t + 1)), []);
 
@@ -1344,6 +1344,38 @@ function GeneralBrowser({
     (file) => !file.isDirectory && (file.name.toLowerCase() === "index.html" || file.name.toLowerCase() === "index.htm"),
   );
   const activeServers = getActiveServers();
+
+  const requestFileDelete = (file: FileInfo, afterSwipe = false) => {
+    // 右滑菜单关闭的原生动画比普通菜单长；结束前弹出 Dialog.confirm 会在下一次取消时触发系统崩溃。
+    // 长按菜单没有此问题，仍立即使用原来的确认弹窗。
+    if (deleteConfirmingRef.current) return;
+    deleteConfirmingRef.current = true;
+    const dialogDelay = afterSwipe ? 350 : 0;
+    setTimeout(async () => {
+      try {
+        const confirmed = await Dialog.confirm({
+          title: "删除文件",
+          message: `确定要删除“${file.name}”吗？此操作不可撤销。`,
+          cancelLabel: "取消",
+          confirmLabel: "删除",
+        });
+        if (!confirmed) return;
+
+        await FileManager.remove(file.path);
+        withAnimation(Animation.smooth({ duration: 0.35 }), () => {
+          setFiles((prev) => prev.filter((entry) => entry.path !== file.path));
+        });
+      } catch (e) {
+        console.log("删除失败:", e);
+        showToast("删除失败");
+      } finally {
+        // 右滑路径额外保留一个完整的原生动画周期，避免紧接着再左滑复用旧 presentation 状态。
+        setTimeout(() => {
+          deleteConfirmingRef.current = false;
+        }, afterSwipe ? 350 : 0);
+      }
+    }, dialogDelay);
+  };
 
   const displayFiles = useMemo(() => {
     let result = sourceFiles;
@@ -2967,6 +2999,7 @@ function GeneralBrowser({
                           file={file}
                           onRefresh={refreshDirectory}
                           onDeleteFile={(filePath) => setFiles((prev) => prev.filter((f) => f.path !== filePath))}
+                          onRequestDelete={requestFileDelete}
                           selectMode={selectMode}
                           isSelected={selectedPaths.has(file.path)}
                           onToggleSelect={() => toggleSelect(file.path)}
