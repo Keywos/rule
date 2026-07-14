@@ -1,4 +1,4 @@
-// fetch.js
+// fetch.js 1.0.0
 
 const DEFAULT_HEADERS = {
   "User-Agent":
