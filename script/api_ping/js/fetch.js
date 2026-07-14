@@ -1,4 +1,4 @@
-// fetch.js 1.0.0
+// fetch.js 1.0.1
 
 const DEFAULT_HEADERS = {
   "User-Agent":
@@ -564,7 +564,7 @@ function sendRequest(url, redirectCount, method) {
     options.body = requestBody;
   }
 
-  console.log("Request: " + method + url);
+  console.log("Request: " + method + " " + url);
 
   const callback = function (err, resp, body) {
     handleResponse(
