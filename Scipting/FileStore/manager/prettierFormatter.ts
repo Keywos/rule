@@ -21,7 +21,6 @@ const fileNameToParser: Record<string, string> = {
 
 /** 文件扩展名 → Prettier parser 映射 */
 const extToParser: Record<string, string> = {
-  // JS / JSX
   ".js": "babel",
   ".jsx": "babel",
   ".mjs": "babel",

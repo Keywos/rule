@@ -316,7 +316,7 @@ function MarkdownPreviewPage({ filePath }: { filePath: string }) {
 }
 
 /* ───── Archive 临时目录浏览器 ───── */
-function ArchiveBrowserDirectory({ dirPath, rootPath, rootName, navPath, onSaveAndExit }: { dirPath: string; rootPath: string; rootName: string; navPath: any; onSaveAndExit: () => void }) {
+function ArchiveBrowserDirectory({ dirPath, rootPath, rootName, navPath, onSaveAndExit, onDiscardAndExit }: { dirPath: string; rootPath: string; rootName: string; navPath: any; onSaveAndExit: () => void; onDiscardAndExit: () => void }) {
   return (
     <GeneralBrowser
       dirPath={dirPath}
@@ -324,12 +324,13 @@ function ArchiveBrowserDirectory({ dirPath, rootPath, rootName, navPath, onSaveA
       rootPath={rootPath}
       rootName={rootName}
       navPath={navPath}
-      toolbarTrailingItems={<ToolbarItem placement="topBarTrailing"><Button title="保存并退出" systemImage="checkmark" action={onSaveAndExit} /></ToolbarItem>}
+      toolbarLeadingItems={<ToolbarItem placement="topBarLeading"><Button title="关闭" systemImage="xmark" action={onDiscardAndExit} /></ToolbarItem>}
+       toolbarTrailingItems={<ToolbarItem placement="topBarTrailing"><Button title="保存并退出" systemImage="checkmark" action={onSaveAndExit} /></ToolbarItem>}
       navigationDestination={
         <NavigationDestination>
           {(page) => {
             if (page.startsWith("browser:")) {
-              return <ArchiveBrowserDirectory dirPath={page.slice(8)} rootPath={rootPath} rootName={rootName} navPath={navPath} onSaveAndExit={onSaveAndExit} />
+              return <ArchiveBrowserDirectory dirPath={page.slice(8)} rootPath={rootPath} rootName={rootName} navPath={navPath} onSaveAndExit={onSaveAndExit} onDiscardAndExit={onDiscardAndExit} />
             }
             return <FileNavigationDest page={page} navigationPath={navPath} />
           }}
@@ -385,6 +386,16 @@ export function ArchiveBrowserPage({ filePath, navigationPath }: { filePath: str
     }
   }
 
+  const handleDiscardAndExit = async () => {
+    const confirmed = await Dialog.confirm({
+      title: "不保存并返回",
+      message: "关闭后不会保存对压缩包所做的修改。",
+      cancelLabel: "取消",
+      confirmLabel: "不保存并返回",
+    })
+    if (confirmed) dismiss()
+  }
+
   const content = error ? (
     <VStack alignment="center" spacing={12} padding={32}>
       <Image systemName="exclamationmark.triangle" foregroundStyle="systemOrange" frame={{ width: 48, height: 48 }} />
@@ -395,7 +406,7 @@ export function ArchiveBrowserPage({ filePath, navigationPath }: { filePath: str
       <Text foregroundStyle="secondaryLabel">正在读取压缩文件…</Text>
     </VStack>
   ) : (
-    <ArchiveBrowserDirectory dirPath={extractDir} rootPath={extractDir} rootName={Path.basename(filePath)} navPath={navPath} onSaveAndExit={handleSaveAndExit} />
+    <ArchiveBrowserDirectory dirPath={extractDir} rootPath={extractDir} rootName={Path.basename(filePath)} navPath={navPath} onSaveAndExit={handleSaveAndExit} onDiscardAndExit={handleDiscardAndExit} />
   )
 
   // 独立模态页从首次渲染起就保持 NavigationStack，避免加载完成时切换根视图。

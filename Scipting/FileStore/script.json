@@ -1,42 +1,42 @@
 {
-  "permissions" : null,
+  "color" : "rgba(0, 0, 0, 1.00)",
+  "author" : null,
   "remoteResource" : {
     "url" : "https:\/\/github.com\/Keywos\/rule\/tree\/main\/Scipting\/FileStore",
     "hash" : "",
     "autoUpdateInterval" : null
   },
-  "runInApp" : false,
-  "description" : null,
-  "iconImage" : null,
-  "name" : "FileStore",
-  "color" : "rgba(0, 0, 0, 1.00)",
   "localizedNames" : {
+    "es" : "",
+    "fr" : "",
     "zh" : "",
     "en" : "",
-    "es" : "",
-    "pt" : "",
-    "it" : "",
-    "fr" : "",
-    "ja" : "",
     "ru" : "",
-    "de" : ""
+    "it" : "",
+    "pt" : "",
+    "de" : "",
+    "ja" : ""
   },
-  "localizedDescriptions" : {
-    "en" : "File Store, browse and preview various file types",
-    "zh" : "File Store, 文件挂载、预览各种文件类型"
-  },
-  "icon" : "folder.fill",
-  "entry" : "index.tsx",
+  "version" : "1.3.5",
   "contributors" : [
 
   ],
-  "author" : null,
-  "version" : "1.4.1",
+  "iconImage" : null,
+  "runInApp" : false,
+  "name" : "FileStore",
   "intentInputTypes" : [
     "URLs",
     "FileURLs",
     "Text",
     "Images",
     "Files"
-  ]
+  ],
+  "permissions" : null,
+  "localizedDescriptions" : {
+    "zh" : "File Store, 文件挂载、预览各种文件类型",
+    "en" : "File Store, browse and preview various file types"
+  },
+  "description" : null,
+  "icon" : "folder.fill",
+  "entry" : "index.tsx"
 }

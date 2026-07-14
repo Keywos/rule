@@ -812,6 +812,7 @@ function GeneralBrowser({
   items,
   onItemsChange,
   toolbarOtherItems,
+  toolbarLeadingItems,
   toolbarTrailingItems,
   showFolderItemCounts,
   onOpenSettings,
@@ -846,6 +847,7 @@ function GeneralBrowser({
   items?: FileInfo[];
   onItemsChange?: (items: FileInfo[]) => void;
   toolbarOtherItems?: any;
+  toolbarLeadingItems?: any;
   toolbarTrailingItems?: any;
   showFolderItemCounts?: boolean;
   onOpenSettings?: () => void;
@@ -2595,6 +2597,7 @@ function GeneralBrowser({
                         )}
                       </Menu>
                     </ToolbarItem>
+                    {toolbarLeadingItems ?? <EmptyView />}
                     {toolbarTrailingItems ?? <EmptyView />}
                     <ToolbarItem placement="topBarTrailing">
                       <ToolbarMenu
