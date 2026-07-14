@@ -97,7 +97,7 @@ function cleanResponseHeaders(headers, origin) {
         result[key] = headers[key];
       }
     } catch (e) {
-      console.log("cleanResponseHeaders:", e);
+      console.log("cleanResponseHeaders: " + e);
     }
   }
 
@@ -152,7 +152,7 @@ function getQueryParam(name) {
           );
         } catch (decodeError) {
           console.log(
-            "decodeURIComponent:",
+            "decodeURIComponent: " +
             decodeError
           );
 
@@ -167,7 +167,7 @@ function getQueryParam(name) {
 
     return null;
   } catch (e) {
-    console.log("getQueryParam:", e);
+    console.log("getQueryParam: " + e);
     return null;
   }
 }
@@ -183,7 +183,7 @@ function parseJSON(value) {
   try {
     return JSON.parse(value);
   } catch (e) {
-    console.log("JSON Parse Error:", e);
+    console.log("JSON Parse Error: " + e);
     return null;
   }
 }
@@ -216,12 +216,12 @@ function finish(status, headers, body) {
       },
     });
   } catch (e) {
-    console.log("finish:", e);
+    console.log("finish: " + e);
 
     try {
       $done();
     } catch (doneError) {
-      console.log("$done Error:", doneError);
+      console.log("$done Error: " + doneError);
     }
   }
 }
@@ -279,7 +279,7 @@ function resolveRedirect(location, base) {
     try {
       return new URL(location, base).href;
     } catch (e) {
-      console.log("URL resolve:", e);
+      console.log("URL resolve: " + e);
     }
   }
 
@@ -424,7 +424,7 @@ function handleResponse(
 ) {
   try {
     if (err) {
-      console.log("HTTP Error:", err);
+      console.log("HTTP Error: " + err);
 
       finish(
         502,
@@ -460,7 +460,7 @@ function handleResponse(
         ? resp.headers
         : {};
 
-    console.log("Status:", status);
+    console.log("Status: " + status);
 
     if (isRedirectStatus(status)) {
       const location = getHeader(
@@ -474,7 +474,7 @@ function handleResponse(
           url
         );
 
-        console.log("Redirect:", nextURL);
+        console.log("Redirect: " + nextURL);
 
         /*
          * HTTP 303 必须切换为 GET。
@@ -510,7 +510,7 @@ function handleResponse(
       body
     );
   } catch (e) {
-    console.log("Callback Exception:", e);
+    console.log("Callback Exception: " + e);
 
     if (e && e.stack) {
       console.log(e.stack);
@@ -564,7 +564,7 @@ function sendRequest(url, redirectCount, method) {
     options.body = requestBody;
   }
 
-  console.log("Request:", method, url);
+  console.log("Request: " + method + url);
 
   const callback = function (err, resp, body) {
     handleResponse(
@@ -605,7 +605,7 @@ function sendRequest(url, redirectCount, method) {
 
     $httpClient.get(options, callback);
   } catch (e) {
-    console.log("HTTP Client Exception:", e);
+    console.log("HTTP Client Exception: " + e);
 
     if (e && e.stack) {
       console.log(e.stack);
@@ -670,7 +670,7 @@ try {
     }
   }
 } catch (e) {
-  console.log("Fatal:", e);
+  console.log("Fatal: " + e);
 
   if (e && e.stack) {
     console.log(e.stack);
