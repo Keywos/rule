@@ -29,6 +29,8 @@
             ? "Surge"
             : typeof $environment < "u" && $environment["stash-version"]
             ? "Stash"
+            : typeof Scripting < "u"
+            ? "Scripting"
             : typeof module < "u" && module.exports
             ? "Node.js"
             : typeof $task < "u"
@@ -46,6 +48,8 @@
             ? ((i = Egern), (i.app = "Egern"))
             : "Surge" == i
             ? ((i = $environment), (i.app = "Surge"))
+            : "Scripting" == i
+            ? ((i = { device: "", ios: "", version: Scripting.version, app: "Scripting" }), (i.app = "Scripting"))
             : "Stash" == i && ((i = $environment), (i.app = "Stash"));
         if (t) {
         let t = $environment.version.split(" ");

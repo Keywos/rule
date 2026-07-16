@@ -10,7 +10,7 @@
         ? "Egern"
         : "undefined" != typeof $environment && $environment["surge-version"]
         ? "Surge"
-        : "undefined" != typeof __scriptingFetch__ 
+        : "undefined" != typeof Scripting 
         ? "Scripting"
         : "undefined" != typeof $environment && $environment["stash-version"]
         ? "Stash"

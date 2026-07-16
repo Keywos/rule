@@ -7,8 +7,10 @@ var T=Date.now();
     const getEnv = () => {
       return "undefined" != typeof Egern 
         ? "Egern" 
-        : "undefined" != typeof $environment && $environment["surge-version"]
+        : "undefined" != typeof $environment && $environment["surge-version"] 
         ? "Surge"
+        : "undefined" != typeof Scripting
+        ? "Scripting"
         : "undefined" != typeof $environment && $environment["stash-version"]
         ? "Stash"
         : "undefined" != typeof module && module.exports
@@ -40,6 +42,14 @@ var T=Date.now();
     } else if (ios == "Stash") {
       ios = $environment
       ios['app'] = "Stash";
+    } else if (ios == "Scripting") {
+      ios = {
+        device: "",
+        ios: "",
+        version: Scripting.version,
+        app: "Scripting",
+      };
+      ios['app'] = "Scripting";
     }
 
     const headers = {
