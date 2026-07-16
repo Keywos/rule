@@ -96,7 +96,7 @@
           body: JSON.stringify({
             sp: 1,
             ms: ms,
-            app: getEnv(),
+            app:  getEnv() ? getEnv() : "未知",
             timeouts: timeouts,
           }),
         },
