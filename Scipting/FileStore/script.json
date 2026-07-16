@@ -1,6 +1,6 @@
 {
   "color" : "rgba(0, 0, 0, 1.00)",
-  "author" : null,
+  "author" : Keywos,
   "remoteResource" : {
     "url" : "https:\/\/github.com\/Keywos\/rule\/tree\/main\/Scipting\/FileStore",
     "hash" : "",
@@ -17,7 +17,7 @@
     "de" : "",
     "ja" : ""
   },
-  "version" : "1.3.5",
+  "version" : "1.3.6",
   "contributors" : [
 
   ],
