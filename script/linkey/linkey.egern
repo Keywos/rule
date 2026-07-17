@@ -12,7 +12,6 @@ scriptings:
     name: binary_test
     match: ^https?:\/\/surgetool\.com\/api\/ping\/binary
     script_url: https://raw.githubusercontent.com/Keywos/rule/main/script/net_test/js/ntbm.js
-    max_size: 999999999999999
     timeout: 50
     body_required: true
     binary_body: true
@@ -20,7 +19,6 @@ scriptings:
     name: crypto_test
     match: ^https?:\/\/surgetool\.com\/api\/test
     script_url: https://raw.githubusercontent.com/Keywos/rule/main/script/net_test/js/nt.js
-    max_size: 999999999999999
     timeout: 300
     body_required: true
 - http_request:
@@ -33,7 +31,6 @@ scriptings:
     name: Sfetch
     match: ^https?:\/\/surgetool\.com\/api\/fetch\?url=
     script_url: https://raw.githubusercontent.com/Keywos/rule/main/script/api_ping/js/Sfetch.js
-    max_size: 999999999999999
     timeout: 300
     body_required: true
 mitm:
