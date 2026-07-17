@@ -25,7 +25,7 @@ http:
       name: "binary_test"
       type: request
       require-body: true
-      max-size: 999999999999999
+      max-size: 2000000000
       binary-mode: true
       timeout: 50
 
@@ -33,7 +33,7 @@ http:
       name: "crypto_test"
       type: request
       require-body: true
-      max-size: 999999999999999
+      max-size: 2000000000
       timeout: 300
 
     - match: ^https?:\/\/surgetool\.com\/api\/ping
