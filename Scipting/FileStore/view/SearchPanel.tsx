@@ -374,22 +374,25 @@ export function SearchPanel({ searchQuery, dirPath, enableDeepSearch = true, onR
       showToast("已复制路径");
     };
 
-    /* 包装左滑删除操作，仅文件真被删除后才更新搜索列表 */
+    /* 包装左滑操作，仅文件真被删除后才更新搜索列表 */
     const wrapTrailingAction = (origAction: () => void | Promise<void>, path: string) => {
       return async () => {
         await origAction();
         // 检查文件是否已被删除（仅对删除操作生效，简介等操作跳过）
+        let stillExists = true;
         try {
-          const stillExists = await FileManager.exists(path);
-          if (stillExists) return;
+          stillExists = await FileManager.exists(path);
         } catch {
-          // 文件已删除 → 从搜索列表移除
-          deletedPathsRef.current.add(path);
-          const updated = deepSearchResultsRef.current.filter((r) => r.path !== path);
-          deepSearchResultsRef.current = updated;
-          setDeepSearchResults(updated);
-          onResultsChange?.(updated);
+          // exists() 抛异常也视为已删除
+          stillExists = false;
         }
+        if (stillExists) return;
+        // 文件已删除 → 从搜索列表移除
+        deletedPathsRef.current.add(path);
+        const updated = deepSearchResultsRef.current.filter((r) => r.path !== path);
+        deepSearchResultsRef.current = updated;
+        setDeepSearchResults(updated);
+        onResultsChange?.(updated);
       };
     };
 

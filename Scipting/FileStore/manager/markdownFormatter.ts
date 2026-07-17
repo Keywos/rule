@@ -27,7 +27,11 @@ export function formatMarkdown(markdown: string): string {
       .replace(/^(\s*)-(?!\s|$)/, "$1- ")
       .replace(/^(\s*\d+\.)\s*/, "$1 ")
       .replace(/^(\s*>+)\s*/, "$1 ")
-      .replace(/\s+#+\s*$/, "")
+    // 仅对 ATX 标题行去除结尾的 # 闭合串（如 "# 标题 #" -> "# 标题"）。
+    // 之前对所有行执行会误删普通段落结尾的 #（如 "请看 issue #"）。
+    if (/^\s{0,3}#{1,6}(\s|$)/.test(line)) {
+      line = line.replace(/\s+#+\s*$/, "")
+    }
 
     if (!line.trim()) {
       blankCount += 1

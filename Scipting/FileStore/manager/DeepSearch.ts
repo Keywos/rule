@@ -348,21 +348,25 @@ export async function searchFromIndex(
   
   if (!query.trim()) return []
   
-  const q = `%${query.toLowerCase()}%`
+  // 转义 SQLite LIKE 元字符（% _ \），避免搜索词中的这些字符被当作通配符
+  // （例如搜 "_" 会匹配所有非空文件名，搜 "100%" 会误匹配）。
+  const esc = query.toLowerCase().replace(/[%_\\]/g, '\\$&')
+  const q = `%${esc}%`
+  const prefix = `${esc}%`
   
   const results = await database.fetchAll<any>(
     `SELECT path, name, relative_path as relativePath, size, modification_date as modificationDate, 
             is_directory as isDirectory, category, icon, icon_color as iconColor, content
      FROM files 
-     WHERE LOWER(name) LIKE ? OR LOWER(content) LIKE ?
+     WHERE LOWER(name) LIKE ? ESCAPE '\\' OR LOWER(content) LIKE ? ESCAPE '\\'
      ORDER BY 
        CASE WHEN LOWER(name) = ? THEN 0
-            WHEN LOWER(name) LIKE ? THEN 1
-            WHEN LOWER(content) LIKE ? THEN 2
+            WHEN LOWER(name) LIKE ? ESCAPE '\\' THEN 1
+            WHEN LOWER(content) LIKE ? ESCAPE '\\' THEN 2
             ELSE 3 END,
        name ASC
      LIMIT ? OFFSET ?`,
-    [q, q, query.toLowerCase(), `${query.toLowerCase()}%`, q, limit, offset]
+    [q, q, query.toLowerCase(), prefix, q, limit, offset]
   )
   
   return results.map((r: any) => {

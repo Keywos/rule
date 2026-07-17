@@ -324,7 +324,8 @@ function ArchiveBrowserDirectory({ dirPath, rootPath, rootName, navPath, onSaveA
       rootPath={rootPath}
       rootName={rootName}
       navPath={navPath}
-      toolbarLeadingItems={<ToolbarItem placement="topBarLeading"><Button title="关闭" systemImage="xmark" action={onDiscardAndExit} /></ToolbarItem>}
+      // ❌ 关闭按钮仅在压缩包根目录显示；进入子目录后由系统返回箭头负责返回，不显示该按钮。
+      toolbarLeadingItems={dirPath === rootPath ? <ToolbarItem placement="topBarLeading"><Button title="关闭" systemImage="xmark" action={onDiscardAndExit} /></ToolbarItem> : undefined}
        toolbarTrailingItems={<ToolbarItem placement="topBarTrailing"><Button title="保存并退出" systemImage="checkmark" action={onSaveAndExit} /></ToolbarItem>}
       navigationDestination={
         <NavigationDestination>
@@ -374,10 +375,41 @@ export function ArchiveBrowserPage({ filePath, navigationPath }: { filePath: str
     if (!extractDir || isSaving) return
     setIsSaving(true)
     try {
-      const savePath = `${filePath}.saving-${Date.now()}.zip`
+      const ts = Date.now()
+      const savePath = `${filePath}.saving-${ts}.zip`
+      // 1. 先把新压缩包写出到临时路径；失败时原文件保持不变。
       await FileManager.zip(extractDir, savePath, false)
-      await FileManager.remove(filePath)
-      await FileManager.rename(savePath, filePath)
+
+      // 2. 把原文件改名为备份（而不是直接删除），为新包腾出原名位置。
+      //    若后续 rename 失败，可把备份改回原名，避免原文件丢失。
+      const bakPath = `${filePath}.bak-${ts}`
+      let movedAside = false
+      try {
+        if (await FileManager.exists(filePath)) {
+          await FileManager.rename(filePath, bakPath)
+          movedAside = true
+        }
+      } catch (e) {
+        // 原文件无法移到一旁：清理刚生成的新包后报错，原文件未受影响。
+        try { await FileManager.remove(savePath) } catch {}
+        throw e
+      }
+
+      try {
+        // 3. 新包就位（原名槽位已空）。
+        await FileManager.rename(savePath, filePath)
+      } catch (e) {
+        // 新包就位失败：尝试把备份恢复回原名，保证原文件不丢失。
+        if (movedAside) {
+          try { await FileManager.rename(bakPath, filePath) } catch {}
+        }
+        throw e
+      }
+
+      // 4. 成功：删除备份并退出。
+      if (movedAside) {
+        try { await FileManager.remove(bakPath) } catch {}
+      }
       dismiss()
     } catch (e) {
       console.log("保存压缩文件失败:", e)

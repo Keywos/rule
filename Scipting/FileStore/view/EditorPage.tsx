@@ -1,9 +1,9 @@
 // 统一 EditorController+Editor 通用组件
 
 // 三种模式：
-//   fullscreen -- 全屏 inline 编辑器（NavigationStack + 系统导航栏 + 工具栏更多按钮 + 原生搜索 + 自动保存）
-//   present    -- 导航栈弹出编辑器（NavigationStack + 关闭按钮 + 工具栏更多按钮 + 原生搜索 + 自动保存）
-//   preview    -- 分享预览编辑器（NavigationStack + 文件头部 + 原生搜索 + 无自动保存）
+//   fullscreen — 全屏 inline 编辑器（NavigationStack + 系统导航栏 + 工具栏更多按钮 + 原生搜索 + 自动保存）
+//   present    — 导航栈弹出编辑器（NavigationStack + 关闭按钮 + 工具栏更多按钮 + 原生搜索 + 自动保存）
+//   preview    — 分享预览编辑器（NavigationStack + 文件头部 + 原生搜索 + 无自动保存）
 
 import { useColorScheme, Navigation, NavigationStack, VStack, HStack, Text, Button, Divider, Image, useState, useEffect, useMemo, useRef, Editor, Path, EmptyView, Menu, ScrollView, Markdown } from "scripting"
 import { getEditorExt } from "../manager/editorConfig"
@@ -338,7 +338,7 @@ export function EditorPage(props: EditorPageProps) {
     if (!controller || mode === "preview") return
 
     controller.onContentChanged = (newContent: string) => {
-      // 如果当前内容来自"解码失败后的空白兜底"，不要把空白自动写回原文件。
+      // 如果当前内容来自“解码失败后的空白兜底”，不要把空白自动写回原文件。
       // 用户真正输入了内容后再重新允许保存。
       if (!saveEnabled && newContent.length === 0) return
       if (!saveEnabled && newContent.length > 0) setSaveEnabled(true)

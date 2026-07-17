@@ -170,11 +170,18 @@ export function removeBookmark(name: string): boolean {
   }
 }
 
-/** 通过 bookmarkId 删除书签（更可靠） */
-export function removeBookmarkById(bookmarkId: string): boolean {
+/** 通过 bookmarkId 删除书签（更可靠）。
+ *  手动书签的 bookmarkId 为空字符串，直接用它过滤会匹配并删除所有手动书签。
+ *  因此当 bookmarkId 为空时，改用唯一路径定位要删除的书签。 */
+export function removeBookmarkById(bookmarkId: string, path?: string): boolean {
   try {
     const bookmarks = readBookmarks();
-    const filtered = bookmarks.filter((b) => b.bookmarkId !== bookmarkId);
+    // bookmarkId 非空：按 id 删除（目录书签）；为空：按 path 删除（手动书签）。
+    const filtered = bookmarkId
+      ? bookmarks.filter((b) => b.bookmarkId !== bookmarkId)
+      : path
+        ? bookmarks.filter((b) => b.path !== path)
+        : bookmarks;
     if (filtered.length < bookmarks.length) {
       saveBookmarks(filtered);
       return true;

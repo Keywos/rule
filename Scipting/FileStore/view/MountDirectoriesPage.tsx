@@ -196,7 +196,7 @@ export function MountDirectoriesPage({ bookmarks, showFolderItemCounts, onRefres
 
   const handleRemoveBookmark = (bookmark: Bookmark) => {
     withAnimation(Animation.smooth({ duration: 0.35 }), () => {
-      removeBookmarkById(bookmark.bookmarkId);
+      removeBookmarkById(bookmark.bookmarkId, bookmark.path);
       onRefresh();
     });
   };
@@ -247,7 +247,7 @@ export function MountDirectoriesPage({ bookmarks, showFolderItemCounts, onRefres
       for (const name of selectedNames) {
         const bm = bookmarks.find((b) => b.name === name);
         if (bm) {
-          removeBookmarkById(bm.bookmarkId);
+          removeBookmarkById(bm.bookmarkId, bm.path);
         }
       }
       setSelectedNames(new Set());

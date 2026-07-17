@@ -112,8 +112,8 @@ export async function importSinglePhotoResult(result: any, destDir: string): Pro
         console.log('已导入为 .live 文件')
         return _livePath
       }
-      try { await FileManager.remove(imgPath) } catch {}
-      try { await FileManager.remove(vidPath) } catch {}
+      // 注意：此处不要提前删除 imgPath/vidPath。下面的单资源回退分支会重新
+      // 读取它们并各自清理；若在此删除，回退读取会失败，导致可读的图片/视频丢失。
     }
 
     if (imgPath) {
