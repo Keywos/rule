@@ -1,0 +1,46 @@
+{
+  "contributors" : [
+
+  ],
+  "name" : "局域网文件传输",
+  "color" : "rgba(0, 198, 165,1)",
+  "intentInputTypes" : [
+    "FileURLs",
+    "Images"
+  ],
+  "version" : "1.0.1",
+  "iconImage" : null,
+  "runInApp" : true,
+  "author" : null,
+  "description" : null,
+  "permissions" : null,
+  "icon" : "document.badge.arrow.up",
+  "localizedDescriptions" : {
+    "es" : "",
+    "it" : "",
+    "ja" : "",
+    "pt" : "",
+    "en" : "",
+    "fr" : "",
+    "ru" : "",
+    "zh" : "",
+    "de" : ""
+  },
+  "remoteResource" : {
+    "url" : "https:\/\/github.com\/Keywos\/rule\/tree\/main\/Scipting\/局域网文件传输",
+    "autoUpdateInterval" : null,
+    "hash" : ""
+  },
+  "entry" : "index.tsx",
+  "localizedNames" : {
+    "pt" : "",
+    "en" : "",
+    "zh" : "",
+    "fr" : "",
+    "de" : "",
+    "es" : "",
+    "it" : "",
+    "ru" : "",
+    "ja" : ""
+  }
+}
