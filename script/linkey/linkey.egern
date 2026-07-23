@@ -25,7 +25,7 @@ scriptings:
     body_required: true
 - http_request:
     name: SPing
-    match: ^https?:\/\/surgetool\.com\/api\/ping
+    match: ^https?:\/\/surgetool\.com\/api\/ping\?
     script_url: https://raw.githubusercontent.com/Keywos/rule/main/script/api_ping/js/api_ping.js
     timeout: 200
     body_required: true

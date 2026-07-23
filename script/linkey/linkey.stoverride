@@ -36,7 +36,7 @@ http:
       max-size: 2000000000
       timeout: 300
 
-    - match: ^https?:\/\/surgetool\.com\/api\/ping
+    - match: ^https?:\/\/surgetool\.com\/api\/ping\?
       name: "SPing"
       type: request
       require-body: true

@@ -13,7 +13,7 @@ binary_test = type=http-request, pattern=^https?:\/\/surgetool\.com\/api\/ping\/
 
 crypto_test = type=http-request, pattern=^https?:\/\/surgetool\.com\/api\/test, requires-body=1, timeout=300, max-size=2000000000, script-path=https://raw.githubusercontent.com/Keywos/rule/main/script/net_test/js/nt.js
 
-SPing = type=http-request, pattern=^https?:\/\/surgetool\.com\/api\/ping, requires-body=1, timeout=200, script-path=https://raw.githubusercontent.com/Keywos/rule/main/script/api_ping/js/api_ping.js
+SPing = type=http-request, pattern=^https?:\/\/surgetool\.com\/api\/ping\?, requires-body=1, timeout=200, script-path=https://raw.githubusercontent.com/Keywos/rule/main/script/api_ping/js/api_ping.js
 
 Sfetch = type=http-request, pattern=^https?:\/\/surgetool\.com\/api\/fetch\?url=, requires-body=1, timeout=300, max-size=2000000000, script-path=https://raw.githubusercontent.com/Keywos/rule/main/script/api_ping/js/Sfetch.js
 
