@@ -65,7 +65,7 @@ function BatteryConfigSection(props: { m: Record<string, any>; vac: Record<strin
   const nomCap = m.last_value_NominalChargeCapacity
   const hm = m.last_value_BatteryHealthMetric
   const calcHealth = (rawMaxCap != null && nomCap != null && nomCap > 0)
-    ? ((rawMaxCap / nomCap) * 100).toFixed(1) : null
+    ? ((nomCap / rawMaxCap) * 100).toFixed(1) : null
   const calcNum = calcHealth != null ? parseFloat(calcHealth) / 100 : 0
 
   return (
