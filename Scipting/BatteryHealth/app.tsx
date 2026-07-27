@@ -53,7 +53,7 @@ function HistoryListPage() {
                 }}
               >
                 <Button
-                  title={dlabel + " | " + dateStr + (cycles != null ? " | " + cycles + "次" : "") + (entry.health ? " | " + entry.health : "")}
+                  title={dlabel + " | " + dateStr + (cycles != null ? " | " + cycles + "次" : "")}
                   action={() => handleSelect(entry)}
                 />
               </HStack>

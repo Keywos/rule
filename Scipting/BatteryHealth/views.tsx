@@ -1,6 +1,6 @@
 // views.tsx -- 公用电池 & 硬件健康 UI 视图组件
 
-import { Navigation, NavigationStack, List, Section, Text, VStack, ProgressView, Button, DisclosureGroup, useState } from "scripting"
+import { Navigation, NavigationStack, List, Section, Text, VStack, HStack, ProgressView, Button, DisclosureGroup, TextField, useState, modifiers } from "scripting"
 import { type ParsedData, fmtBytes, fmtKB } from "./parser"
 import { type HistoryEntry, loadHistory, deleteHistoryEntry } from "./history"
 
@@ -64,22 +64,62 @@ function BatteryConfigSection(props: { m: Record<string, any>; vac: Record<strin
   const rawMaxCap = m.last_value_AppleRawMaxCapacity
   const nomCap = m.last_value_NominalChargeCapacity
   const hm = m.last_value_BatteryHealthMetric
+  const qmaxCell0 = m.last_value_QmaxCell0
+  const maxCapPct = m.last_value_MaximumCapacityPercent
+
   const calcHealth = (rawMaxCap != null && nomCap != null && nomCap > 0)
     ? ((nomCap / rawMaxCap) * 100).toFixed(1) : null
   const calcNum = calcHealth != null ? parseFloat(calcHealth) / 100 : 0
+
+  const [customDesignCap, setCustomDesignCap] = useState("")
+  const customDesignNum = parseFloat(customDesignCap)
+  const customHealth = (!isNaN(customDesignNum) && customDesignNum > 0 && qmaxCell0 != null && qmaxCell0 > 0)
+    ? ((qmaxCell0 / customDesignNum) * 100).toFixed(1) : null
+
+  const nccMax = m.last_value_NCCMax
+
+  // 用 Apple 内部最大容量百分比反推原始设计容量，没有时用 NCCMax 当出厂值
+  const deducedDesignCap = (maxCapPct != null && maxCapPct > 0 && rawMaxCap != null)
+    ? (rawMaxCap / (maxCapPct / 100))
+    : (nccMax != null && nccMax > 0 ? nccMax : null)
+  const qmaxHealth = (qmaxCell0 != null && deducedDesignCap != null && deducedDesignCap > 0)
+    ? ((qmaxCell0 / deducedDesignCap) * 100).toFixed(1) : null
+  const usedNccMax = deducedDesignCap != null && (maxCapPct == null || maxCapPct <= 0 || rawMaxCap == null)
+
+  // 有自定义设计容量时替换估算健康度
+  const displayHealth = customHealth ?? qmaxHealth
+  const displayNum = displayHealth != null ? parseFloat(displayHealth) / 100 : 0
+  const captionText = "估算健康度"
 
   return (
     <>
       <Section header={<Text>🔋 电池核心指标</Text>}>
         <VStack spacing={4} alignment={A}>
-          <VStack spacing={0} alignment={A}>
-            <Text font="largeTitle" foregroundStyle={calcNum >= 0.8 ? "#34C759" : calcNum >= 0.6 ? "#FF9500" : "#FF3B30"}>
-              {calcHealth != null ? "≈ " + calcHealth + "%" : "N/A"}
-            </Text>
-            <Text font="caption2" foregroundStyle="#8E8E93">估算健康度 ≈ FCC/设计容量×100</Text>
-          </VStack>
-          {calcNum > 0 && <ProgressView value={Math.min(calcNum, 1.0)} total={1.0} />}
+          <HStack alignment="center" spacing={16}>
+            <VStack spacing={0} alignment={A}
+              frame={{ maxWidth: "infinity", alignment: "leading" }}
+            >
+              <Text font="largeTitle" foregroundStyle={displayNum >= 0.8 ? "#34C759" : displayNum >= 0.6 ? "#FF9500" : "#FF3B30"}>
+                {displayHealth != null ? "≈ " + displayHealth + "%" : "N/A"}
+              </Text>
+              <Text font="caption2" foregroundStyle="#8E8E93">{captionText}</Text>
+            </VStack>
+            <VStack
+              modifiers={modifiers().padding(4)}
+            >
+              <TextField
+                title="设计容量"
+                prompt="修正原始容量"
+                value={customDesignCap}
+                onChanged={setCustomDesignCap}
+              />
+            </VStack>
+          </HStack>
+          {displayNum > 0 && <ProgressView value={Math.min(displayNum, 1.0)} total={1.0} />}
           <Card cn="苹果内部电池健康评分" value={hm != null ? (hm > 100 ? (hm / 10).toFixed(1) : hm) : null} />
+          <Card cn="苹果内部最大容量百分比" value={m.last_value_MaximumCapacityPercent != null ? m.last_value_MaximumCapacityPercent + "%" : null} />
+          {deducedDesignCap != null && <Card cn={usedNccMax ? "NCCMax 出厂值" : "推算原始设计容量"} value={deducedDesignCap.toFixed(0) + " mAh"} />}
+          {qmaxHealth != null && <Card cn="Qmax 推算健康度" value={qmaxHealth + "%"} />}
           <Card cn="循环次数" value={m.last_value_CycleCount != null ? m.last_value_CycleCount + " 次" : null} />
           <Card cn="序列变更" value={m.last_value_BatterySerialChanged != null ? (m.last_value_BatterySerialChanged ? "是 ⚠️" : "否 ✅") : null} />
           {m.last_value_DOFU != null && <Card cn="首次使用日期" value={(() => { const d = new Date(m.last_value_DOFU * 1000); return d.getFullYear() + "年" + (d.getMonth() + 1) + "月" + d.getDate() + "日" })()} />}

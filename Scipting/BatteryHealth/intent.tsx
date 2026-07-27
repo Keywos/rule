@@ -99,10 +99,24 @@ async function run() {
     const configRec = data.battery.find((r: Record<string, any>) => r.name === "BatteryConfigValueHistogram_WithAllSafetyKeys_V2" || r.name === "BatteryConfigValueHistogramFinal_V2")
     const obcRec = data.battery.find((r: Record<string, any>) => r.name === "OBC_Battery_Health_v3")
     const cycles = configRec?.message?.last_value_CycleCount ?? obcRec?.message?.sum_of_CycleCount ?? null
-    // 计算健康度
+    // 计算健康度 — QmaxCell0 / 推算原始设计容量 × 100
     const rawMax = configRec?.message?.last_value_AppleRawMaxCapacity
     const nomCap = configRec?.message?.last_value_NominalChargeCapacity
-    const health = (rawMax != null && nomCap != null && nomCap > 0) ? ((nomCap / rawMax) * 100).toFixed(1) + "%" : null
+    const maxCapPct = configRec?.message?.last_value_MaximumCapacityPercent
+    const qmaxCell0 = configRec?.message?.last_value_QmaxCell0
+    const nccMax = configRec?.message?.last_value_NCCMax
+    let health: string | null = null
+    if (qmaxCell0 != null && qmaxCell0 > 0) {
+      let designCap: number | null = null
+      if (maxCapPct != null && maxCapPct > 0 && rawMax != null) {
+        designCap = rawMax / (maxCapPct / 100)
+      } else if (nccMax != null && nccMax > 0) {
+        designCap = nccMax
+      }
+      if (designCap != null && designCap > 0) {
+        health = ((qmaxCell0 / designCap) * 100).toFixed(1) + "%"
+      }
+    }
     const history = loadHistory()
     addHistoryEntry(history, fileName, dtype, data, cycles, health)
 
