@@ -1,7 +1,7 @@
 {
   "iconImage": null,
   "runInApp": false,
-  "name": "分析电池",
+  "name": "BatteryHealth",
   "entry": "index.tsx",
   "color": "rgba(184, 158, 128,1)",
   "localizedDescriptions": {
@@ -23,7 +23,7 @@
     "FileURLs"
   ],
   "author": null,
-  "version": "1.0.6",
+  "version": "1.1.0",
   "contributors": [],
   "remoteResource": {
     "autoUpdateInterval": null,
