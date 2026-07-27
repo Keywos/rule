@@ -102,7 +102,7 @@ async function run() {
     // 计算健康度
     const rawMax = configRec?.message?.last_value_AppleRawMaxCapacity
     const nomCap = configRec?.message?.last_value_NominalChargeCapacity
-    const health = (rawMax != null && nomCap != null && nomCap > 0) ? ((rawMax / nomCap) * 100).toFixed(1) + "%" : null
+    const health = (rawMax != null && nomCap != null && nomCap > 0) ? ((nomCap / rawMax) * 100).toFixed(1) + "%" : null
     const history = loadHistory()
     addHistoryEntry(history, fileName, dtype, data, cycles, health)
 
