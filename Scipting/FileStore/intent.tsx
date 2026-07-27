@@ -1,17 +1,56 @@
 import { Intent, Navigation, Script, Path } from "scripting";
 import { resolveOpenerForFile } from "./view/DefaultOpenerPicker";
-import { getFileCategory, sanitizeExtractDirName, safeUnzip, readTextFile, ensureLocalFile } from "./manager/utils";
+import { getFileCategory, sanitizeExtractDirName, safeUnzip, ensureLocalFile } from "./manager/utils";
 import { EditorPage } from "./view/EditorPage";
 import { ArchiveBrowserPage, ImageViewer, VideoViewerPage, LivePhotoPreviewPage } from "./view/MediaViewer";
 
+/** Intent 扩展内存有限，超过此大小的文件跳转主 App 处理 */
+const INTENT_MAX_SIZE = 10 * 1024 * 1024; // 10 MB
+
 async function run() {
   try {
-  const files = Intent.fileURLsParameter;
-  if (!files || files.length === 0) {
+  // ── 1. 获取文件路径：支持 Intent 入口 和 URL Scheme 回调两种来源 ──
+  const intentFiles = Intent.fileURLsParameter;
+  const queryFileURL = Script.queryParameters?.fileURL as string | undefined;
+  const path = intentFiles?.[0] ?? queryFileURL;
+  if (!path) {
     return;
   }
-  const path = files[0];
-  await ensureLocalFile(path);
+
+  // ── 2. 获取文件大小 ──
+  let fileSize = 0;
+  try {
+    fileSize = (await FileManager.stat(path)).size;
+  } catch {}
+
+  // ── 3. 大文件：拷贝到 App Group 共享目录，通过 URL Scheme 跳转主 App ──
+  if (fileSize > INTENT_MAX_SIZE) {
+    const fileName = Path.basename(path);
+    const transferDir = Path.join(FileManager.appGroupDocumentsDirectory, "_intent_transfer");
+    await FileManager.createDirectory(transferDir, true);
+
+    // 避免重名覆盖
+    let destPath = Path.join(transferDir, fileName);
+    if (await FileManager.exists(destPath)) {
+      const ts = Date.now();
+      destPath = Path.join(transferDir, `${Path.basename(fileName, Path.extname(fileName))}_${ts}${Path.extname(fileName)}`);
+    }
+
+    // copyFile 是文件系统级操作，不会把整个文件读进内存
+    await FileManager.copyFile(path, destPath);
+
+    const runURL = Script.createRunURLScheme(Script.name, { fileURL: destPath });
+    await Safari.openURL(runURL);
+    return;
+  }
+
+  // ── 4. 小文件：在扩展内直接处理 ──
+  try {
+    await ensureLocalFile(path);
+  } catch (e) {
+    console.error("ensureLocalFile 失败:", e);
+    return;
+  }
 
   const ext = Path.extname(path);
   const category = getFileCategory(ext);
@@ -22,16 +61,10 @@ async function run() {
   }
 
   if (prefix === "editor:" || prefix === "preview:") {
-    let fileSize = 0;
-    try {
-      fileSize = (await FileManager.stat(path)).size;
-    } catch {}
-    const content = (await readTextFile(path)) ?? undefined;
     await Navigation.present({
       element: (
         <EditorPage
           path={path}
-          content={content}
           fileName={Path.basename(path)}
           fileSize={fileSize}
           mode="present"
@@ -56,11 +89,9 @@ async function run() {
       element: <LivePhotoPreviewPage livePath={path} />,
     });
   } else if (prefix === "extract:") {
-    // 解压到当前目录
     const parentDir = Path.dirname(path);
     await safeUnzip(path, parentDir);
   } else if (prefix === "extractfolder:") {
-    // 解压到以文件名命名的子文件夹
     const archiveName = sanitizeExtractDirName(Path.basename(path));
     const parentDir = Path.dirname(path);
     let extractDir = Path.join(parentDir, archiveName);
