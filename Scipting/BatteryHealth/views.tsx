@@ -1,4 +1,4 @@
-// views.tsx — 公用电池 & 硬件健康 UI 视图组件
+// views.tsx -- 公用电池 & 硬件健康 UI 视图组件
 
 import { Navigation, NavigationStack, List, Section, Text, VStack, ProgressView, Button, DisclosureGroup, useState } from "scripting"
 import { type ParsedData, fmtBytes, fmtKB } from "./parser"
@@ -90,8 +90,8 @@ function BatteryConfigSection(props: { m: Record<string, any>; vac: Record<strin
 
       <Section header={<Text>⚡ 容量</Text>}>
         <VStack spacing={4} alignment={A}>
-          <Card cn="当前最大可用容量" value={rawMaxCap != null ? rawMaxCap + " mAh" : null} />
-          <Card cn="当前标称容量" value={nomCap != null ? nomCap + " mAh" : null} />
+          <Card cn="当前最大可用容量" value={nomCap != null ? nomCap + " mAh" : null} />
+          <Card cn="当前标称容量" value={rawMaxCap != null ? rawMaxCap + " mAh" : null} />
           <Card cn="最大满充容量" value={m.last_value_MaximumFCC != null ? m.last_value_MaximumFCC + " mAh" : null} />
           <Card cn="最小满充容量" value={m.last_value_MinimumFCC != null ? m.last_value_MinimumFCC + " mAh" : null} />
           <Card cn="电芯最大容量估计" value={m.last_value_QmaxCell0 != null ? m.last_value_QmaxCell0 + " mAh" : null} />
