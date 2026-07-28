@@ -1513,19 +1513,25 @@ function GeneralBrowser({
       confirmLabel: "删除",
     });
     if (!confirmed) return;
+    const deletedPaths = new Set<string>();
+    const failedPaths = new Set<string>();
     for (const p of selectedPaths) {
       try {
         await FileManager.remove(p);
+        deletedPaths.add(p);
       } catch (e) {
+        failedPaths.add(p);
         console.log("删除失败:", e);
       }
     }
-    const deletedPaths = new Set(selectedPaths);
+    if (deletedPaths.size > 0 && activeDirPath) invalidateDirectoryCache(activeDirPath);
     withAnimation(Animation.smooth({ duration: 0.35 }), () => {
-      setSelectedPaths(new Set());
-      setSelectMode(false);
+      setSelectedPaths(failedPaths);
+      setSelectMode(failedPaths.size > 0);
       setFiles((prev) => prev.filter((f) => !deletedPaths.has(f.path)));
     });
+    refreshDirectory();
+    if (failedPaths.size > 0) showToast(`${failedPaths.size} 个项目删除失败`);
   };
 
   const compressSelected = async () => {
@@ -1878,6 +1884,9 @@ function GeneralBrowser({
     if (isHomePage && settings && onSettingsChange) {
       onSettingsChange({ ...settings, defaultFilterType: type });
     }
+    const stored = readSettings();
+    stored.defaultFilterType = type;
+    saveSettings(stored);
     onSortFilterChange?.(sortOrder, type);
   };
 
@@ -1895,8 +1904,7 @@ function GeneralBrowser({
         const _newPaths: string[] = [];
         for (const filePath of files) {
           const name = Path.basename(filePath);
-          const dest = Path.join(activeDirPath, name);
-          if (await FileManager.exists(dest)) await FileManager.remove(dest);
+          const dest = await uniquePath(Path.join(activeDirPath, name));
           await FileManager.copyFile(filePath, dest);
           _newPaths.push(dest);
         }
@@ -2071,8 +2079,7 @@ function GeneralBrowser({
       if (result?.imagePath) {
         const ts = makeTimestamp();
         const ext = Path.extname(result.imagePath).toLowerCase() || ".jpg";
-        const dest = Path.join(activeDirPath, `IMG_${ts}${ext}`);
-        if (await FileManager.exists(dest)) await FileManager.remove(dest);
+        const dest = await uniquePath(Path.join(activeDirPath, `IMG_${ts}${ext}`));
         await FileManager.copyFile(result.imagePath, dest);
         try {
           await FileManager.remove(result.imagePath);
@@ -2115,8 +2122,7 @@ function GeneralBrowser({
       if (result?.mediaPath) {
         const ts = makeTimestamp();
         const ext = Path.extname(result.mediaPath).toLowerCase() || ".mov";
-        const dest = Path.join(activeDirPath, `VID_${ts}${ext}`);
-        if (await FileManager.exists(dest)) await FileManager.remove(dest);
+        const dest = await uniquePath(Path.join(activeDirPath, `VID_${ts}${ext}`));
         await FileManager.copyFile(result.mediaPath, dest);
         try {
           await FileManager.remove(result.mediaPath);
@@ -2927,13 +2933,8 @@ function GeneralBrowser({
                         title: "复制",
                         systemImage: "doc.on.doc",
                         action: async () => {
-                          try {
-                            const newPath = Path.join(Path.dirname(result.path), result.name);
-                            await FileManager.copyFile(result.path, newPath);
-                            refreshDirectory();
-                          } catch (e) {
-                            console.log("复制失败:", e);
-                          }
+                          await updateCopiedPath(result.path);
+                          showToast("已复制文件，前往目标目录后可粘贴");
                         },
                       },
                       {

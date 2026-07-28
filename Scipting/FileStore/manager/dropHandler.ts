@@ -3,6 +3,7 @@
 
 import { Path } from 'scripting'
 import { ensureDir, makeTimestamp } from './importHelpers'
+import { writeToUniquePath } from './utils'
 
 // 接受的 UTType — 覆盖文件、URL、文本、图片
 
@@ -101,20 +102,9 @@ async function readAndImportProvider(
     setDragSourcePath(null)
     await directoryReady
     const name = Path.basename(dragSource)
-    const dest = Path.join(dirPath, name)
-    if (await FileManager.exists(dest)) {
-      const ext = Path.extname(name)
-      const body = Path.basename(name, ext)
-      const renamed = `${body}_${ts}${ext}`
-      const destPath = Path.join(dirPath, renamed)
-      await FileManager.copyFile(dragSource, destPath)
-      console.log(`应用内拖拽文件: ${name} -> ${dirPath}`)
-      return destPath
-    } else {
-      await FileManager.copyFile(dragSource, dest)
-      console.log(`应用内拖拽文件: ${name} -> ${dirPath}`)
-      return dest
-    }
+    const { path: dest } = await writeToUniquePath(Path.join(dirPath, name), (targetPath) => FileManager.copyFile(dragSource, targetPath))
+    console.log(`应用内拖拽文件: ${name} -> ${dirPath}`)
+    return dest
   }
 
   const types = provider.registeredTypes || []
@@ -128,23 +118,10 @@ async function readAndImportProvider(
         // Provider 已在回调中完成读取启动；现在才等待目录，避免写入与创建竞态。
         await directoryReady
         const name = Path.basename(filePath)
-        const dest = Path.join(dirPath, name)
-        if (await FileManager.exists(dest)) {
-          // 同名文件，加时间戳后缀
-          const ext = Path.extname(name)
-          const body = Path.basename(name, ext)
-          const renamed = `${body}_${ts}${ext}`
-          const destPath = Path.join(dirPath, renamed)
-          await FileManager.copyFile(filePath, destPath)
-          try { await FileManager.remove(filePath) } catch {}
-          console.log(`拖拽导入文件: ${name} -> ${dirPath}`)
-          return destPath
-        } else {
-          await FileManager.copyFile(filePath, dest)
-          try { await FileManager.remove(filePath) } catch {}
-          console.log(`拖拽导入文件: ${name} -> ${dirPath}`)
-          return dest
-        }
+        const { path: dest } = await writeToUniquePath(Path.join(dirPath, name), (targetPath) => FileManager.copyFile(filePath, targetPath))
+        try { await FileManager.remove(filePath) } catch {}
+        console.log(`拖拽导入文件: ${name} -> ${dirPath}`)
+        return dest
       }
     } catch (e) {
       console.log(`loadFilePath(${type}) 失败:`, e)
@@ -161,8 +138,7 @@ async function readAndImportProvider(
         const jpegData = image.toJPEGData(0.92)
         if (jpegData) {
           const name = `IMG_${ts}.jpg`
-          const destPath = Path.join(dirPath, name)
-          await FileManager.writeAsData(destPath, jpegData)
+          const { path: destPath } = await writeToUniquePath(Path.join(dirPath, name), (targetPath) => FileManager.writeAsData(targetPath, jpegData))
           console.log(`拖拽导入图片: ${name} -> ${dirPath}`)
           return destPath
         }
@@ -191,8 +167,7 @@ async function readAndImportProvider(
 </dict>
 </plist>`
         const name = `URL_${ts}.webloc`
-        const destPath = Path.join(dirPath, name)
-        await FileManager.writeAsString(destPath, weblocContent, 'utf8')
+        const { path: destPath } = await writeToUniquePath(Path.join(dirPath, name), (targetPath) => FileManager.writeAsString(targetPath, weblocContent, 'utf8'))
         console.log(`拖拽导入 URL: ${url} -> ${dirPath}`)
         return destPath
       }
@@ -213,8 +188,7 @@ async function readAndImportProvider(
       if (text && text.length > 0) {
         await directoryReady
         const name = `Text_${ts}.txt`
-        const destPath = Path.join(dirPath, name)
-        await FileManager.writeAsString(destPath, text, 'utf8')
+        const { path: destPath } = await writeToUniquePath(Path.join(dirPath, name), (targetPath) => FileManager.writeAsString(targetPath, text, 'utf8'))
         console.log(`拖拽导入文本: ${name} -> ${dirPath}`)
         return destPath
       }
@@ -231,8 +205,7 @@ async function readAndImportProvider(
         await directoryReady
         const ext = typeToExtension(type)
         const name = `data_${ts}.${ext}`
-        const destPath = Path.join(dirPath, name)
-        await FileManager.writeAsData(destPath, data)
+        const { path: destPath } = await writeToUniquePath(Path.join(dirPath, name), (targetPath) => FileManager.writeAsData(targetPath, data))
         console.log(`拖拽导入数据: ${name} -> ${dirPath}`)
         return destPath
       }

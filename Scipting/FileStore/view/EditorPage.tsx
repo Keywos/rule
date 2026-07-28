@@ -99,6 +99,13 @@ export function EditorPage(props: EditorPageProps) {
   const handleEncodingChange = async (newEncoding: string) => {
     if (newEncoding === encoding) return
     if (mode === "preview") return
+    try {
+      await flushFinalSave()
+    } catch (e) {
+      console.log("切换编码前保存失败:", e)
+      showToast("保存失败，未切换编码")
+      return
+    }
     setLoadError(false)
     setSaveEnabled(false)
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
@@ -117,7 +124,7 @@ export function EditorPage(props: EditorPageProps) {
         const formatted = `${JSON.stringify(parsed, null, 2)}\n`
         controllerRef.current.selectAll()
         controllerRef.current.replaceSelection(formatted)
-        await FileManager.writeAsString(path, formatted, actualEncoding as any)
+        await enqueueSave(formatted, actualEncodingRef.current)
         return
       }
       controllerRef.current.content = await formatWithPrettier(current, fileName)
@@ -162,7 +169,7 @@ export function EditorPage(props: EditorPageProps) {
       const minified = JSON.stringify(parsed)
       controllerRef.current.selectAll()
       controllerRef.current.replaceSelection(minified)
-      await FileManager.writeAsString(path, minified, actualEncoding as any)
+      await enqueueSave(minified, actualEncodingRef.current)
     } catch (e) {
       console.log("JSON压缩失败:", e)
       showToast("JSON压缩失败：文件中存在无效语法")
@@ -331,34 +338,65 @@ export function EditorPage(props: EditorPageProps) {
   // ─── 自动保存（preview 模式无自动保存） ───
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const controllerRef = useRef<EditorController | null>(null)
-  controllerRef.current = controller
   const disposedRef = useRef(false)
+  const saveQueueRef = useRef<Promise<void>>(Promise.resolve())
+  const latestContentRef = useRef(initialContent ?? "")
+  const saveEnabledRef = useRef(saveEnabled)
+  const actualEncodingRef = useRef(actualEncoding)
+  const closingRef = useRef(false)
+  controllerRef.current = controller
+  saveEnabledRef.current = saveEnabled
+  actualEncodingRef.current = actualEncoding
+
+  const enqueueSave = async (contentToSave: string, encodingToSave: string): Promise<void> => {
+    const write = async () => {
+      await FileManager.writeAsString(path, contentToSave, encodingToSave as any)
+    }
+    const pending = saveQueueRef.current.then(write, write)
+    saveQueueRef.current = pending.catch((error) => {
+      console.log("保存失败:", error)
+    })
+    return pending
+  }
+
+  const flushFinalSave = async (): Promise<void> => {
+    if (mode === "preview") return
+    if (saveTimerRef.current) {
+      clearTimeout(saveTimerRef.current)
+      saveTimerRef.current = null
+    }
+    const finalContent = controllerRef.current?.content ?? latestContentRef.current
+    if (saveEnabledRef.current || finalContent.length > 0) {
+      latestContentRef.current = finalContent
+      await enqueueSave(finalContent, actualEncodingRef.current)
+    } else {
+      await saveQueueRef.current
+    }
+  }
 
   useEffect(() => {
     if (!controller || mode === "preview") return
 
+    latestContentRef.current = controller.content
     controller.onContentChanged = (newContent: string) => {
+      latestContentRef.current = newContent
       // 如果当前内容来自“解码失败后的空白兜底”，不要把空白自动写回原文件。
       // 用户真正输入了内容后再重新允许保存。
-      if (!saveEnabled && newContent.length === 0) return
-      if (!saveEnabled && newContent.length > 0) setSaveEnabled(true)
+      if (!saveEnabledRef.current && newContent.length === 0) return
+      if (!saveEnabledRef.current && newContent.length > 0) setSaveEnabled(true)
 
       if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
-      saveTimerRef.current = setTimeout(async () => {
-        try {
-          await FileManager.writeAsString(path, newContent, actualEncoding as any)
-        } catch (e) {
-          console.log("自动保存失败:", e)
-        }
+      const encodingToSave = actualEncodingRef.current
+      saveTimerRef.current = setTimeout(() => {
+        void enqueueSave(newContent, encodingToSave).catch(() => {})
       }, 1000)
     }
 
     return () => {
       if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
-      // 消除 onContentChanged 回调残留
       if (controller) controller.onContentChanged = undefined
     }
-  }, [controller, path, mode, encoding, saveEnabled])
+  }, [controller, path, mode])
 
   // ─── 释放 controller ───
   useEffect(() => {
@@ -407,24 +445,23 @@ export function EditorPage(props: EditorPageProps) {
 
   // ─── present 模式的关闭（不能在条件分支内调用 Navigation.useDismiss） ───
   const dismiss = Navigation.useDismiss()
-  const presentDismiss = mode === "present" ? dismiss : undefined
 
   // ============ 以下可以是条件逻辑和渲染 ============
 
-  const handleClose = () => {
-    // 保存最终内容
-    if (controllerRef.current && mode !== "preview") {
-      const timer = saveTimerRef.current
-      if (timer) clearTimeout(timer)
-      const finalContent = controllerRef.current.content
-      // 解码失败只得到空内容时，关闭也不能把原文件覆盖为空。
-      if (saveEnabled || finalContent.length > 0) {
-        FileManager.writeAsString(path, finalContent, actualEncoding as any).catch(() => { })
-      }
+  const handleClose = async () => {
+    if (closingRef.current) return
+    closingRef.current = true
+    try {
+      await flushFinalSave()
+    } catch (e) {
+      console.log("关闭前保存失败:", e)
+      showToast("保存失败，编辑器保持打开")
+      closingRef.current = false
+      return
     }
     controllerRef.current?.dispose()
     disposedRef.current = true
-    presentDismiss?.()
+    dismiss()
     onClose?.()
   }
 
@@ -547,6 +584,9 @@ export function EditorPage(props: EditorPageProps) {
   if (mode === "fullscreen") {
     return (
       <VStack spacing={1} frame={{ maxWidth: "infinity", maxHeight: "infinity" }} tabBarVisibility="hidden"
+        onDisappear={() => {
+          if (!closingRef.current) void flushFinalSave()
+        }}
         ignoresSafeArea={{ regions: "container", edges: ["bottom"] }}
         navigationTitle={fileName}
         navigationBarTitleDisplayMode="inline"

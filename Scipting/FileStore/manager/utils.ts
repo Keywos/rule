@@ -833,6 +833,36 @@ export async function writeClipboardPath(path: string | null) {
   } catch { }
 }
 
+const uniqueWriteQueues = new Map<string, Promise<void>>()
+
+/**
+ * Serializes destination allocation and writing for one directory.
+ * Provider reads may remain concurrent, while conflicting writes cannot overwrite each other.
+ */
+export async function writeToUniquePath<T>(
+  targetPath: string,
+  write: (path: string) => Promise<T>,
+): Promise<{ path: string; value: T }> {
+  const dirPath = Path.dirname(targetPath)
+  const previous = uniqueWriteQueues.get(dirPath) ?? Promise.resolve()
+  let release: () => void = () => {}
+  const current = new Promise<void>((resolve) => {
+    release = resolve
+  })
+  const tail = previous.then(() => current)
+  uniqueWriteQueues.set(dirPath, tail)
+
+  await previous
+  try {
+    const path = await uniquePath(targetPath)
+    const value = await write(path)
+    return { path, value }
+  } finally {
+    release()
+    if (uniqueWriteQueues.get(dirPath) === tail) uniqueWriteQueues.delete(dirPath)
+  }
+}
+
 /** 生成不重名的路径，自动加 _01 _02 后缀 */
 export async function uniquePath(targetPath: string): Promise<string> {
   if (!(await FileManager.exists(targetPath))) return targetPath
@@ -875,7 +905,7 @@ function shellQuote(value: string): string {
 
 /** 解压到目标目录，避免覆盖已有文件。先解压到临时目录，再用 uniquePath 逐个移动 */
 export async function safeUnzip(archivePath: string, destDir: string): Promise<void> {
-  const tmpDir = Path.join(FileManager.temporaryDirectory, `_unzip_${Date.now()}`)
+  const tmpDir = await uniquePath(Path.join(FileManager.temporaryDirectory, `_unzip_${Date.now()}`))
   await FileManager.createDirectory(tmpDir)
   try {
     const name = Path.basename(archivePath).toLowerCase()
@@ -922,14 +952,24 @@ export async function safeUnzip(archivePath: string, destDir: string): Promise<v
       }
     }
 
+    const copiedPaths: string[] = []
     const entries = await FileManager.readDirectory(tmpDir)
-    for (const entry of entries) {
-      const src = Path.join(tmpDir, entry)
-      const dest = await uniquePath(Path.join(destDir, entry))
-      await FileManager.copyFile(src, dest)
-      try {
-        await FileManager.remove(src)
-      } catch { }
+    try {
+      for (const entry of entries) {
+        const src = Path.join(tmpDir, entry)
+        const { path: dest } = await writeToUniquePath(Path.join(destDir, entry), (targetPath) => FileManager.copyFile(src, targetPath))
+        copiedPaths.push(dest)
+        try {
+          await FileManager.remove(src)
+        } catch { }
+      }
+    } catch (error) {
+      await Promise.all(copiedPaths.map(async (path) => {
+        try {
+          await FileManager.remove(path)
+        } catch { }
+      }))
+      throw error
     }
   } finally {
     try {

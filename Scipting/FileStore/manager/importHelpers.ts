@@ -1,7 +1,7 @@
 // 导入工具函数 — 文件/照片/视频导入通用 helper
 
 import { Path } from 'scripting'
-import { getFileInfo, FileInfo } from './utils'
+import { getFileInfo, FileInfo, uniquePath } from './utils'
 import { packLivePhoto } from './LivePhotoPacker'
 
 /** 导入文件存放目录（默认） */
@@ -105,12 +105,12 @@ export async function importSinglePhotoResult(result: any, destDir: string): Pro
       if (imgData && vidData) {
         const ext = Path.extname(imgPath).toLowerCase() || '.heic'
         const packed = packLivePhoto(imgData, ext.replace(/^\./, ''), vidData)
-        const _livePath = Path.join(destDir, `${ts}.live`)
-        await FileManager.writeAsData(_livePath, packed)
+        const livePath = await uniquePath(Path.join(destDir, `${ts}.live`))
+        await FileManager.writeAsData(livePath, packed)
         try { await FileManager.remove(imgPath) } catch {}
         try { await FileManager.remove(vidPath) } catch {}
         console.log('已导入为 .live 文件')
-        return _livePath
+        return livePath
       }
       // 注意：此处不要提前删除 imgPath/vidPath。下面的单资源回退分支会重新
       // 读取它们并各自清理；若在此删除，回退读取会失败，导致可读的图片/视频丢失。
@@ -120,11 +120,11 @@ export async function importSinglePhotoResult(result: any, destDir: string): Pro
       const imgData = await FileManager.readAsData(imgPath)
       if (imgData) {
         const ext = isDngResult(result) ? '.dng' : (Path.extname(imgPath).toLowerCase() || '.heic')
-        const _imgPath2 = Path.join(destDir, `${ts}${ext}`)
-        await FileManager.writeAsData(_imgPath2, imgData)
+        const imagePath = await uniquePath(Path.join(destDir, `${ts}${ext}`))
+        await FileManager.writeAsData(imagePath, imgData)
         try { await FileManager.remove(imgPath) } catch {}
         console.log('已导入为图片:', ext)
-        return _imgPath2
+        return imagePath
       }
       try { await FileManager.remove(imgPath) } catch {}
     }
@@ -133,11 +133,11 @@ export async function importSinglePhotoResult(result: any, destDir: string): Pro
       const vidData = await FileManager.readAsData(vidPath)
       if (vidData) {
         const ext = getVideoExtension(result)
-        const _vidPath = Path.join(destDir, `${ts}${ext}`)
-        await FileManager.writeAsData(_vidPath, vidData)
+        const videoPath = await uniquePath(Path.join(destDir, `${ts}${ext}`))
+        await FileManager.writeAsData(videoPath, vidData)
         try { await FileManager.remove(vidPath) } catch {}
         console.log('已导入为视频:', ext)
-        return _vidPath
+        return videoPath
       }
       try { await FileManager.remove(vidPath) } catch {}
     }
@@ -166,16 +166,16 @@ export async function importSinglePhotoResult(result: any, destDir: string): Pro
         }
       }
       if (imgData && vidData) {
-        const _lpPath = Path.join(destDir, `${ts}.live`)
+        const livePath = await uniquePath(Path.join(destDir, `${ts}.live`))
         const packed = packLivePhoto(imgData, imgExt, vidData)
-        await FileManager.writeAsData(_lpPath, packed)
+        await FileManager.writeAsData(livePath, packed)
         console.log('已从livePhoto导入为 .live')
-        return _lpPath
+        return livePath
       } else if (imgData) {
-        const _imgPath3 = Path.join(destDir, `${ts}.${imgExt}`)
-        await FileManager.writeAsData(_imgPath3, imgData)
+        const imagePath = await uniquePath(Path.join(destDir, `${ts}.${imgExt}`))
+        await FileManager.writeAsData(imagePath, imgData)
         console.log('已从livePhoto导入为图片:', imgExt)
-        return _imgPath3
+        return imagePath
       }
     }
   } catch (e) { console.log('livePhoto失败:', e) }
@@ -188,11 +188,11 @@ export async function importSinglePhotoResult(result: any, destDir: string): Pro
       if (p) {
         const d = await FileManager.readAsData(p)
         if (d) {
-          const _dngPath = Path.join(destDir, `${ts}.dng`)
-          await FileManager.writeAsData(_dngPath, d)
+          const dngPath = await uniquePath(Path.join(destDir, `${ts}.dng`))
+          await FileManager.writeAsData(dngPath, d)
           console.log('DNG 原始数据已保存')
           try { await FileManager.remove(p) } catch {}
-          return _dngPath
+          return dngPath
         }
         try { await FileManager.remove(p) } catch {}
       }
@@ -202,10 +202,10 @@ export async function importSinglePhotoResult(result: any, destDir: string): Pro
       if (img) {
         const jpegData = img.toJPEGData(1.0)
         if (jpegData) {
-          const _jpegPath = Path.join(destDir, `photo_${ts}.jpg`)
-          await FileManager.writeAsData(_jpegPath, jpegData)
+          const jpegPath = await uniquePath(Path.join(destDir, `photo_${ts}.jpg`))
+          await FileManager.writeAsData(jpegPath, jpegData)
           console.log('已导入为 JPEG 后备')
-          return _jpegPath
+          return jpegPath
         }
       }
     }
