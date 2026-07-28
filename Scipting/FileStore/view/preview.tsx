@@ -3,7 +3,7 @@
 import { Script, Navigation, TabView, Tab, Group, EmptyView, ZStack, useState, useEffect, useRef } from "scripting";
 import { getAllBookmarks, Bookmark } from "../manager/BookmarkManager";
 import { readSettings, saveSettings } from "../manager/Settings";
-import { HomePage } from "./HomePage";
+// import { HomePage } from "./HomePage";
 import { MountDirectoriesPage } from "./MountDirectoriesPage";
 import { DualBrowserPage } from "./DualBrowserPage";
 import { ToastOverlay } from "./ToastOverlay";
@@ -67,7 +67,7 @@ export function HomeView() {
   };
 
   const handleTabChange = (index: number) => {
-    if (index === 3) {
+    if (index === 2) {
       // 退出时直接最小化/结束，避免同步重建整棵 TabView 造成卡顿；
       // 恢复时会由 onResume 重建并清除原生退出 Tab 的残留选中状态。
       void exitCurrentInstance();
@@ -76,10 +76,10 @@ export function HomeView() {
     lastContentTabRef.current = index;
     setTabIndex(index);
     // 记住默认标签页
-    if (index <= 2) {
+    if (index <= 1) {
       setTimeout(() => {
         saveSettings({ ...settings, defaultTab: index });
-      }, 345);
+      }, 233);
     }
     // 切换到首页时刷新剪贴板路径（跨 tab 拷贝文件后粘贴）
     if (index === 0) {
@@ -96,27 +96,30 @@ export function HomeView() {
         labelStyle="iconOnly"
         tabBarVisibility="hidden"
       >
-        <Tab title="主页" systemImage="book.pages.fill" value={0}>
+   {/*      <Tab title="主页" systemImage="book.pages.fill" value={0}>
           <ZStack frame={{ maxWidth: "infinity", maxHeight: "infinity" }}>
             <Group labelStyle="titleAndIcon">
               <HomePage settings={settings} bookmarks={bookmarks} refreshKey={refreshKey} setRefreshKey={setRefreshKey} onSettingsChange={setSettings} clipboardSyncTrigger={clipboardSyncTrigger} />
             </Group>
           </ZStack>
-        </Tab>
+        </Tab> */}
 
-        <Tab title="挂载目录" systemImage="tray.2.fill" value={1}>
-          <Group labelStyle="titleAndIcon">
-            <MountDirectoriesPage bookmarks={bookmarks} showFolderItemCounts={settings.showFolderItemCounts} onRefresh={onRefresh} onSettingsChange={(newSettings) => setSettings(newSettings)} />
-          </Group>
-        </Tab>
-
-        <Tab title="双栏浏览" systemImage="r.square.on.square.fill" value={2}>
+             <Tab title="双栏浏览" systemImage="book.pages.fill" value={0}>
           <Group labelStyle="titleAndIcon">
             <DualBrowserPage settings={settings} refreshKey={refreshKey} setRefreshKey={setRefreshKey} onSettingsChange={setSettings} bookmarks={bookmarks} />
           </Group>
         </Tab>
 
-        <Tab title="退出" systemImage="pencil.slash" value={3} role={settings.showExitButton ? "search" : undefined}>
+        
+         <Tab title="挂载目录" systemImage="tray.2.fill" value={1}>
+          <Group labelStyle="titleAndIcon">
+            <MountDirectoriesPage bookmarks={bookmarks} showFolderItemCounts={settings.showFolderItemCounts} onRefresh={onRefresh} onSettingsChange={(newSettings) => setSettings(newSettings)} />
+          </Group>
+        </Tab>
+ 
+   
+
+        <Tab title="退出" systemImage="pencil.slash" value={2} role={settings.showExitButton ? "search" : undefined}>
           <EmptyView />
         </Tab>
       </TabView>

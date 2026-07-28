@@ -602,7 +602,9 @@ export function MountDirectoriesPage({ bookmarks, showFolderItemCounts, onRefres
                           },
                         },
                       ]}
-                      leadingActions={[{ title: "重命名", systemImage: "pencil", action: () => handleRename(bookmark, onRefresh) }]}
+                      leadingActions={[
+                                                  { title: "重命名", systemImage: "pencil", action: () => handleRename(bookmark, onRefresh) },
+                       ]}
                     />
                   );
                 }}

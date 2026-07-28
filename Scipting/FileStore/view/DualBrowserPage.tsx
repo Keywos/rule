@@ -1,6 +1,6 @@
 // 双浏览器页面 - 左右两个文件浏览器并排显示，中间可拖拽调整比例
 
-import { HStack, VStack, ZStack, Image, Text, GeometryReader, useState, useEffect, useRef, useCallback, Path } from "scripting";
+import { HStack, VStack, ZStack, Image, Text, GeometryReader, useState, useEffect, useRef, useCallback, Path, Button, ToolbarItem } from "scripting";
 import { GeneralBrowser } from "./GeneralBrowser";
 import { AppSettings, saveSettings } from "../manager/Settings";
 import { Bookmark, getAllBookmarks } from "../manager/BookmarkManager";
@@ -14,7 +14,7 @@ interface DualBrowserPageProps {
   bookmarks?: Bookmark[];
 }
 
-export function DualBrowserPage({ settings, refreshKey, bookmarks }: DualBrowserPageProps) {
+export function DualBrowserPage({ settings, refreshKey, bookmarks, onSettingsChange }: DualBrowserPageProps) {
   // 跨栏复制文件乐观更新注入
   const leftAddFilesRef = useRef<(files: FileInfo[]) => void>(() => {});
   const rightAddFilesRef = useRef<(files: FileInfo[]) => void>(() => {});
@@ -210,6 +210,8 @@ export function DualBrowserPage({ settings, refreshKey, bookmarks }: DualBrowser
 
   // ── 布局方向：horizontal（左右分栏）或 vertical（上下分栏） ──
   const [layoutDir, setLayoutDir] = useState(settings.dualLayoutDir as "horizontal" | "vertical");
+  // ── 双栏显示开关：关闭时保留两侧路径、布局方向和比例 ──
+  const [isDualMode, setIsDualMode] = useState(settings.dualModeEnabled);
 
   // ── 复制到对方目录的顶部提示 ──
   const [showCopyToast, setShowCopyToast] = useState(false);
@@ -233,6 +235,24 @@ export function DualBrowserPage({ settings, refreshKey, bookmarks }: DualBrowser
   const handleToggleLayout = () => {
     setLayoutDir((prev) => (prev === "horizontal" ? "vertical" : "horizontal"));
   };
+
+  const dualModeToolbarItem = (
+    <ToolbarItem placement="topBarLeading">
+      <Button
+        title={isDualMode ? "关闭双栏模式" : "开启双栏模式"}
+        systemImage={isDualMode ? "r.square.on.square.fill" : "r.square.fill"}
+        action={() => {
+          setIsDualMode((prev) => {
+            const dualModeEnabled = !prev;
+            const newSettings = { ...settings, dualModeEnabled };
+            saveSettings(newSettings);
+            onSettingsChange?.(newSettings);
+            return dualModeEnabled;
+          });
+        }}
+      />
+    </ToolbarItem>
+  );
 
   // ── layoutDir 变化时持久化保存 ──
   useEffect(() => {
@@ -264,7 +284,31 @@ export function DualBrowserPage({ settings, refreshKey, bookmarks }: DualBrowser
           return (
             <ZStack>
               {/* ── 内容分栏（根据 layoutDir 选择左右或上下） ── */}
-              {layoutDir === "horizontal" ? (
+              {!isDualMode ? (
+                <VStack frame={{ maxWidth: "infinity", maxHeight: "infinity" }} spacing={0}>
+                  <GeneralBrowser
+                    isHomePage={true}
+                    settings={leftSettings}
+                    onSettingsChange={handleLeftSettingsChange}
+                    refreshKey={leftKey}
+                    showFolderItemCounts={settings.showFolderItemCounts ?? true}
+                    highlightFile={leftHighlightFile}
+                    externalCopiedPath={sharedCopiedPath}
+                    onExternalCopy={handleExternalCopy}
+                    onDirChange={handleLeftDirChange}
+                   toolbarLeadingItems={dualModeToolbarItem}
+                    addFilesRef={leftAddFilesRef}
+                    folderCountUpdateRef={leftFolderCountUpdateRef}
+                    bookmarks={bookmarks}
+                    onFilesAdded={(files) => {
+                      if (leftDir === rightDir && rightDir) {
+                        rightAddFilesRef.current(files);
+                      }
+                    }}
+                    onDropCompleted={() => setRightKey((k) => k + 1)}
+                  />
+                </VStack>
+              ) : layoutDir === "horizontal" ? (
                 <HStack spacing={0}>
                   <VStack frame={{ width: Math.max(40, totalW * ratio) }} spacing={0}>
                     <GeneralBrowser
@@ -278,6 +322,7 @@ export function DualBrowserPage({ settings, refreshKey, bookmarks }: DualBrowser
                       externalCopiedPath={sharedCopiedPath}
                       onExternalCopy={handleExternalCopy}
                       onDirChange={handleLeftDirChange}
+                      toolbarLeadingItems={dualModeToolbarItem}
                       oppositeDirName={rightDir ? (layoutDir === "horizontal" ? "复制到右侧目录" : "复制到下方目录") : undefined}
                       onCopyToOppositeDir={rightDir ? handleCopyLeftToRight : undefined}
                       addFilesRef={leftAddFilesRef}
@@ -337,6 +382,7 @@ export function DualBrowserPage({ settings, refreshKey, bookmarks }: DualBrowser
                       externalCopiedPath={sharedCopiedPath}
                       onExternalCopy={handleExternalCopy}
                       onDirChange={handleLeftDirChange}
+                      toolbarLeadingItems={dualModeToolbarItem}
                       oppositeDirName={rightDir ? "复制到下方目录" : undefined}
                       onCopyToOppositeDir={rightDir ? handleCopyLeftToRight : undefined}
                       addFilesRef={leftAddFilesRef}
@@ -382,7 +428,9 @@ export function DualBrowserPage({ settings, refreshKey, bookmarks }: DualBrowser
                 </VStack>
               )}
 
-              <DraggableDivider layoutDir={layoutDir} totalW={totalW} totalH={totalH} ratio={ratio} onDragEnd={(newRatio) => setRatio(newRatio)} onToggleLayout={handleToggleLayout} />
+              {isDualMode ? (
+                <DraggableDivider layoutDir={layoutDir} totalW={totalW} totalH={totalH} ratio={ratio} onDragEnd={(newRatio) => setRatio(newRatio)} onToggleLayout={handleToggleLayout} />
+              ) : null}
             </ZStack>
           );
         }}

@@ -62,6 +62,7 @@ import { resolveOpenerForFile } from "./DefaultOpenerPicker";
 import { getDefaultOpener, setDefaultOpener, OPENER_OPTIONS } from "../manager/DefaultOpener";
 import { AppSettings, saveSettings, readSettings } from "../manager/Settings";
 import { SettingsPage } from "./SettingsPage";
+import { MountDirectoriesPage } from "./MountDirectoriesPage";
 import { Bookmark, getAllBookmarks, addDirectoryBookmark, removeBookmark, renameBookmark } from "../manager/BookmarkManager";
 import { ensureDir, makeTimestamp, importSinglePhotoResult } from "../manager/importHelpers";
 import { DROP_ACCEPTED_TYPES, handleDropToDirectory } from "../manager/dropHandler";
@@ -76,6 +77,25 @@ const _writeClipPath = writeClipboardPath;
 
 const DIRECTORY_POLL_INTERVAL_MS = 999;
 const DIRECTORY_POLL_FORCE_FULL_EVERY = 10;
+
+function ManagedBookmarksSheet({
+  showFolderItemCounts,
+  onBookmarksChanged,
+  onSettingsChange,
+}: {
+  showFolderItemCounts?: boolean;
+  onBookmarksChanged: () => void;
+  onSettingsChange?: (settings: AppSettings) => void;
+}) {
+  const [sheetBookmarks, setSheetBookmarks] = useState<Bookmark[]>(() => getAllBookmarks());
+
+  const handleRefresh = () => {
+    setSheetBookmarks(getAllBookmarks());
+    onBookmarksChanged();
+  };
+
+  return <MountDirectoriesPage bookmarks={sheetBookmarks} showFolderItemCounts={showFolderItemCounts ?? true} onRefresh={handleRefresh} onSettingsChange={onSettingsChange} />;
+}
 
 async function getDirectoryPollToken(dirPath: string): Promise<string | null> {
   try {
@@ -2249,6 +2269,22 @@ function GeneralBrowser({
   // ─ 收藏夹状态 ─
   const [bookmarkRefreshKey, setBookmarkRefreshKey] = useState(0);
   const allBookmarks = useMemo(() => getAllBookmarks(), [bookmarkRefreshKey, bookmarks]);
+  const handleManageBookmarks = async () => {
+    await Navigation.present({
+      element: (
+        <ManagedBookmarksSheet
+          showFolderItemCounts={showFolderItemCounts}
+          onBookmarksChanged={() => {
+            setBookmarkRefreshKey((key) => key + 1);
+            void refreshDirectory();
+          }}
+          onSettingsChange={onSettingsChange}
+        />
+      ),
+      modalPresentationStyle: "pageSheet",
+    });
+    setBookmarkRefreshKey((key) => key + 1);
+  };
 
   // ─ 系统目录 ─
   interface SystemDirEntry {
@@ -2552,21 +2588,10 @@ function GeneralBrowser({
                         }
                       >
                         <Button title="访问 • 输入路径" systemImage="pencil.and.outline" action={handleInputPath} />
-                        <Button title="访问 • 默认路径" systemImage="arrow.counterclockwise" action={handleResetPath} />
-                        <Divider />
                         <Button title="复制当前路径" systemImage="doc.on.clipboard" action={handleCopyPath} />
                         <Divider />
-                        <Button title="手动选择路径收藏" systemImage="star" action={handleAddBookmark} />
-                        {allBookmarks.length > 0 ? (
-                          <>
-                            <Divider />
-                            {allBookmarks.map((bm) => (
-                              <Button title={bm.name} systemImage="folder" action={() => handleNavigateToBookmark(bm)} />
-                            ))}
-                          </>
-                        ) : (
-                          <EmptyView />
-                        )}
+                        <Button title="添加收藏目录" systemImage="star" action={handleAddBookmark} />
+                        <Button title="管理收藏" systemImage="folder.badge.gearshape" action={handleManageBookmarks} />
                         {systemDirEntries.length > 0 ? (
                           <>
                             <Divider />
@@ -2590,6 +2615,16 @@ function GeneralBrowser({
                                   }
                                 }}
                               />
+                            ))}
+                          </>
+                        ) : (
+                          <EmptyView />
+                        )}
+                        {allBookmarks.length > 0 ? (
+                          <>
+                            <Divider />
+                            {allBookmarks.map((bm) => (
+                              <Button title={bm.name} systemImage="folder" action={() => handleNavigateToBookmark(bm)} />
                             ))}
                           </>
                         ) : (

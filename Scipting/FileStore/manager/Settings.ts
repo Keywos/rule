@@ -32,6 +32,8 @@ export interface AppSettingsMeta {
   dualRightBookmarkName: string | null;
   /** 双栏浏览 - 布局方向（左右分栏/上下分栏） */
   dualLayoutDir: "horizontal" | "vertical";
+  /** 双栏浏览 - 是否启用双栏显示 */
+  dualModeEnabled: boolean;
 }
 
 /** 完整设置（序列化用 + 向后兼容） */
@@ -60,6 +62,7 @@ const defaultSettings: AppSettings = {
   dualRightPath: null,
   dualRightBookmarkName: null,
   dualLayoutDir: "horizontal",
+  dualModeEnabled: true,
 };
 
 function normalizeSettings(raw: unknown): AppSettings | null {
