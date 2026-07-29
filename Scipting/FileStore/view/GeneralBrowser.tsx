@@ -2330,6 +2330,7 @@ function GeneralBrowser({
                 key={page + "@navGen" + navGen}
                 page={page}
                 navigationPath={activeNavPath}
+                isHomeScreenHost={isHomeScreenHost}
                 onDirChange={onDirChange}
                 oppositeDirName={oppositeDirName}
                 onCopyToOppositeDir={onCopyToOppositeDir}

@@ -882,14 +882,25 @@ export async function uniquePath(targetPath: string): Promise<string> {
  * 处理 .hidden.zip、无扩展名、特殊字符等边界情况。
  */
 export function sanitizeExtractDirName(archiveName: string): string {
-  // 手动去除压缩扩展名（Path.extname 对 .hidden.zip 返回空）
-  const knownExts = [".zip", ".rar", ".7z", ".tar.gz", ".tgz", ".tar.bz2", ".tar.xz", ".tar", ".gz", ".bz2", ".xz"]
-  let base = archiveName
-  for (const ext of knownExts) {
-    if (base.toLowerCase().endsWith(ext)) {
-      base = base.slice(0, base.length - ext.length)
-      break
+  // 持续剥离归档后缀，避免 .zip.gz 等多层压缩包在目录名中遗留后缀。
+  const knownExts = [".tar.gz", ".tar.bz2", ".tar.xz", ".zip", ".rar", ".7z", ".tgz", ".tar", ".gz", ".bz2", ".xz"];
+  let base = archiveName;
+  let removed = true;
+  while (removed) {
+    removed = false;
+    const lower = base.toLowerCase();
+    for (const ext of knownExts) {
+      if (lower.endsWith(ext)) {
+        base = base.slice(0, base.length - ext.length);
+        removed = true;
+        break;
+      }
     }
+  }
+  // 未知归档格式同样移除其最后一层扩展名；保留以点开头的隐藏文件名。
+  const unknownExt = Path.extname(base);
+  if (unknownExt && base.length > unknownExt.length) {
+    base = base.slice(0, base.length - unknownExt.length);
   }
   // 删除路径分隔符和非法字符
   base = base.replace(/[/\\:*?"<>|]/g, "_").trim()
