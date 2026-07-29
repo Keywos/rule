@@ -11,7 +11,11 @@
   "version" : "1.0.1",
   "iconImage" : null,
   "runInApp" : true,
-  "author" : null,
+  "author" : {
+    "name" : "Keywos",
+    "homepage" : "https:\/\/github.com\/Keywos",
+    "email" : null
+  },
   "description" : null,
   "permissions" : null,
   "icon" : "document.badge.arrow.up",

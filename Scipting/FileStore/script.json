@@ -21,7 +21,11 @@
   },
   "runInApp" : false,
   "description" : null,
-  "author" : null,
+  "author" : {
+    "name" : "Keywos",
+    "homepage" : "https:\/\/github.com\/Keywos",
+    "email" : null
+  },
   "iconImage" : null,
   "contributors" : [
 
