@@ -32,9 +32,11 @@ interface SearchPanelProps {
   showSize?: boolean;
   /** 深度搜索结果数量变化回调（供外部展示空状态等） */
   onResultsChange?: (results: DeepSearchResult[]) => void;
-  /** 导航路径 Observable（文件夹结果用侧滑进入） */
+  /** 搜索结果行的导航路径（普通页面跳转到父目录使用）。 */
   navPath?: any;
-  /** 搜索结果行的左滑操作（每结果） */
+  /** Home Screen 等宿主可覆盖“跳转到目录”的导航行为。 */
+  onNavigateToParentDirectory?: (result: DeepSearchResult) => void;
+  /** 结果行的左滑操作（每结果） */
   resultLeadingActions?: (result: DeepSearchResult) => ContextMenuItem[];
   /** 搜索结果行的右滑操作（每结果） */
   resultTrailingActions?: (result: DeepSearchResult) => ContextMenuItem[];
@@ -116,7 +118,7 @@ function resultToFileInfo(result: DeepSearchResult): FileInfo {
 
 /* ───── 主组件 ───── */
 
-export function SearchPanel({ searchQuery, dirPath, enableDeepSearch = true, onResultTap, onResultsChange, navPath, resultLeadingActions, resultTrailingActions }: SearchPanelProps) {
+export function SearchPanel({ searchQuery, dirPath, enableDeepSearch = true, onResultTap, onResultsChange, navPath, onNavigateToParentDirectory, resultLeadingActions, resultTrailingActions }: SearchPanelProps) {
   /* ── 内部状态 ── */
   const [deepSearchResults, setDeepSearchResults] = useState<DeepSearchResult[]>([]);
   const deepSearchResultsRef = useRef<DeepSearchResult[]>(deepSearchResults);
@@ -397,6 +399,11 @@ export function SearchPanel({ searchQuery, dirPath, enableDeepSearch = true, onR
     };
 
     const gotoParentDir = (result: DeepSearchResult) => {
+      if (onNavigateToParentDirectory) {
+        onNavigateToParentDirectory(result);
+        return;
+      }
+
       const _navPath = navPathRef.current;
       if (!_navPath) return;
       const parent = result.path.substring(0, result.path.lastIndexOf("/"));

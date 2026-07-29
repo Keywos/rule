@@ -9,12 +9,18 @@ interface HomePageProps {
   setRefreshKey: (fn: (k: number) => number) => void;
   onSettingsChange?: (settings: AppSettings) => void;
   clipboardSyncTrigger?: number;
+  isHomeScreenHost?: boolean;
+  navPath?: any;
+  toolbarLeadingItems?: any;
 }
 
-export function HomePage({ settings, bookmarks, refreshKey, onSettingsChange, clipboardSyncTrigger }: HomePageProps) {
+export function HomePage({ settings, bookmarks, refreshKey, onSettingsChange, clipboardSyncTrigger, isHomeScreenHost, navPath, toolbarLeadingItems }: HomePageProps) {
   return (
     <GeneralBrowser
       isHomePage={true}
+      isHomeScreenHost={isHomeScreenHost}
+      navPath={navPath}
+      toolbarLeadingItems={toolbarLeadingItems}
       settings={settings}
       onSettingsChange={onSettingsChange}
       bookmarks={bookmarks}

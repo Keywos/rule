@@ -70,6 +70,7 @@ import { makeDragConfig } from "./FileListItem";
 import { showToast } from "../manager/ToastManager";
 import { startLocalHttpServer, getActiveServers, stopServer, subscribe } from "../manager/LocalHttpServer";
 import { WebPreviewPage } from "./WebPreviewPage";
+import { EditorPage } from "./EditorPage";
 
 // 剪贴板路径文件（用文件持久化，跨 tab/子目录保留）
 const _readClipPath = readClipboardPath;
@@ -140,6 +141,7 @@ function FileRowLink({
   dirPath,
   onDropCompleted,
   onFolderCountChanged,
+  isHomeScreenHost,
 }: {
   file: FileInfo;
   onRefresh: () => void;
@@ -160,6 +162,7 @@ function FileRowLink({
   dirPath?: string;
   onDropCompleted?: () => void;
   onFolderCountChanged?: (folderPath: string, count: number) => void;
+  isHomeScreenHost?: boolean;
 }) {
   const handleRename = async () => {
     const trimmed = await renameWithPrompt(file.name);
@@ -190,6 +193,19 @@ function FileRowLink({
     await shareFilePath(file.path, file.name);
   };
 
+  const openEditor = async (scrollToLine?: number) => {
+    if (isHomeScreenHost) {
+      await Navigation.present({
+        element: <EditorPage path={file.path} mode="present" scrollToLine={scrollToLine} />,
+        modalPresentationStyle: "pageSheet",
+      });
+      return;
+    }
+    if (navPath) {
+      navPath.setValue([...navPath.value, "editor:" + file.path + (scrollToLine ? "::L" + scrollToLine : "")]);
+    }
+  };
+
   // ─ 选择模式 ─
   if (selectMode) {
     return (
@@ -207,7 +223,8 @@ function FileRowLink({
   // ─ 普通模式：使用 FileListItem 实现 ─
   const cat = getFileCategory(file.extension);
   const defaultOpener = file.isDirectory ? null : getDefaultOpener(Path.extname(file.path));
-  const isTextFile = !file.isDirectory && (cat === "text" || cat === "code" || cat === "data");
+  const isDir = file.isDirectory;
+  const isTextFile = !isDir && (cat === "text" || cat === "code" || cat === "data");
 
   if (isTextFile) {
     return (
@@ -254,17 +271,19 @@ function FileRowLink({
               } else if (prefix === "archive:") {
                 await Navigation.present({
                   element: <ArchiveBrowserPage filePath={file.path} />,
-                  modalPresentationStyle: "fullScreen",
+                  modalPresentationStyle: "pageSheet",
                 });
               } else if (prefix === "share:") {
                 await handleShare();
               } else if (prefix === "pdf:") {
                 await QuickLook.previewURLs([file.path], true);
-              } else if (prefix === "webpage:") {
-                const wv = new WebViewController();
-                await wv.loadFile(file.path);
-                await wv.present({ fullscreen: true, navigationTitle: file.name });
-                wv.dispose();
+              } else if (prefix === "editor:") {
+                await openEditor();
+              } else if (isHomeScreenHost) {
+                await Navigation.present({
+                  element: <HomeScreenFileSheet page={prefix + file.path} />,
+                  modalPresentationStyle: "pageSheet",
+                });
               } else {
                 navPath.setValue([...navPath.value, prefix + file.path]);
               }
@@ -311,11 +330,7 @@ function FileRowLink({
                   <Button
                     title="编辑"
                     systemImage="chevron.left.forwardslash.chevron.right"
-                    action={async () => {
-                      if (navPath) {
-                        navPath.setValue([...navPath.value, 'editor:' + file.path]);
-                      }
-                    }}
+                    action={() => openEditor()}
                   />
                   <Divider />
                 </>
@@ -351,7 +366,7 @@ function FileRowLink({
                     action={() => {
                       Navigation.present({
                         element: <ArchiveBrowserPage filePath={file.path} />,
-                        modalPresentationStyle: "fullScreen",
+                        modalPresentationStyle: "pageSheet",
                       });
                     }}
                   />
@@ -481,8 +496,6 @@ function FileRowLink({
     );
   }
 
-  const isDir = file.isDirectory;
-
   return (
     <Button
       action={async () => {
@@ -529,17 +542,19 @@ function FileRowLink({
               } else if (prefix === "archive:") {
                 await Navigation.present({
                   element: <ArchiveBrowserPage filePath={file.path} />,
-                  modalPresentationStyle: "fullScreen",
+                  modalPresentationStyle: "pageSheet",
                 });
               } else if (prefix === "share:") {
                 await handleShare();
               } else if (prefix === "pdf:") {
                 await QuickLook.previewURLs([file.path], true);
-              } else if (prefix === "webpage:") {
-                const wv = new WebViewController();
-                await wv.loadFile(file.path);
-                await wv.present({ fullscreen: true, navigationTitle: file.name });
-                wv.dispose();
+              } else if (prefix === "editor:") {
+                await openEditor();
+              } else if (isHomeScreenHost) {
+                await Navigation.present({
+                  element: <HomeScreenFileSheet page={prefix + file.path} />,
+                  modalPresentationStyle: "pageSheet",
+                });
               } else {
                 navPath.setValue([...navPath.value, prefix + file.path]);
               }
@@ -654,7 +669,7 @@ function FileRowLink({
                   action={() => {
                     Navigation.present({
                       element: <ArchiveBrowserPage filePath={file.path} />,
-                      modalPresentationStyle: "fullScreen",
+                      modalPresentationStyle: "pageSheet",
                     });
                   }}
                 />
@@ -820,6 +835,60 @@ function FileRowLink({
   );
 }
 
+function HomeScreenFileSheet({ page }: { page: string }) {
+  return (
+    <NavigationStack>
+      <FileNavigationDest page={page} />
+    </NavigationStack>
+  );
+}
+
+function HomeScreenBrowserSheet({ page }: { page: string }) {
+  const dismiss = Navigation.useDismiss();
+  const navPath = useObservable<string[]>([]);
+  const [dropRefreshKey, setDropRefreshKey] = useState(0);
+
+  const handleDrop = (info: DropInfo) => {
+    const pages = Array.isArray(navPath.value) ? navPath.value : [];
+    const currentPage = [...pages].reverse().find((entry) => entry.startsWith("browser:")) || page;
+    const targetDirectory = currentPage.slice(8).split("::", 1)[0];
+    if (!targetDirectory) return false;
+
+    handleDropToDirectory(info, targetDirectory, () => {})
+      .then(() => {
+        invalidateDirectoryCache(targetDirectory);
+        setDropRefreshKey((key) => key + 1);
+      })
+      .catch(() => {
+        invalidateDirectoryCache(targetDirectory);
+        setDropRefreshKey((key) => key + 1);
+      });
+    return true;
+  };
+
+  const browserDrop = {
+    types: DROP_ACCEPTED_TYPES,
+    validateDrop: (info: DropInfo) => info.hasItemsConforming(DROP_ACCEPTED_TYPES),
+    performDrop: handleDrop,
+  };
+
+  return (
+    <NavigationStack path={navPath} onDrop={browserDrop}>
+      <BrowserRouteView
+        page={page}
+        navigationPath={navPath}
+        isHomeScreenHost
+        refreshKey={dropRefreshKey}
+        toolbarLeadingItems={
+          <ToolbarItem placement="topBarLeading">
+            <Button title="返回" systemImage="chevron.backward" action={() => dismiss()} />
+          </ToolbarItem>
+        }
+      />
+    </NavigationStack>
+  );
+}
+
 /* ───── 目录浏览器主组件 ───── */
 
 function GeneralBrowser({
@@ -857,6 +926,7 @@ function GeneralBrowser({
   onDropCompleted,
   onFolderCountChanged,
   folderCountUpdateRef,
+  isHomeScreenHost,
 }: {
   dirPath?: string;
   dirName?: string;
@@ -891,6 +961,7 @@ function GeneralBrowser({
   onFilesAdded?: (files: FileInfo[]) => void;
   onDropCompleted?: () => void;
   onFolderCountChanged?: (folderPath: string, count: number) => void;
+  isHomeScreenHost?: boolean;
   folderCountUpdateRef?: { current?: (folderPath: string, count: number) => void };
 }) {
   const cachedFiles = !items && dirPath ? getCachedDirectoryListing(dirPath) : null;
@@ -970,11 +1041,18 @@ function GeneralBrowser({
   const [copiedFilePath, setCopiedFilePath] = useState<string | null>(null);
   // 跳转到目录时高亮的文件路径
   const [highlightedPath, setHighlightedPath] = useState<string | null>(null);
-  const selectedFile = useObservable<string | null>(null);
+  const handledRouteHighlightRef = useRef<string | null>(null);
+  const routeHighlightTimerRef = useRef<number | null>(null);
   const scrollProxy = useRef<any>(null);
   // 标记：首次加载不带动画，避免初次滑动卡顿
   const firstLoadRef = useRef(true);
   const loadSeqRef = useRef(0);
+  useEffect(() => {
+    return () => {
+      if (routeHighlightTimerRef.current) clearTimeout(routeHighlightTimerRef.current);
+    };
+  }, []);
+
   // 启动时和刷新时从文件恢复剪贴板路径
   // 当 externalCopiedPath 由父组件管理（双栏模式）时，以外部来源为准，不读取文件
   useEffect(() => {
@@ -1071,13 +1149,13 @@ function GeneralBrowser({
   const [navGen, setNavGen] = useState(0);
   const prevNavLenRef = useRef(0);
   const homeNavPath = useObservable<string[]>([]);
-
-  const homeNavLength = isHomePage ? homeNavPath.value.length : 0;
+  const activeHomeNavPath = isHomePage && outerNavPath ? outerNavPath : homeNavPath;
+  const homeNavLength = isHomePage ? activeHomeNavPath.value.length : 0;
 
   // 首页模式使用内部状态管理目录路径和导航，非首页直接使用 prop
   // const 声明避免函数参数可变性带来的不可预测行为
   const activeDirPath = isHomePage ? homeCurrentDir || defaultDir : dirPath || "";
-  const activeNavPath = isHomePage ? homeNavPath : outerNavPath;
+  const activeNavPath = isHomePage ? activeHomeNavPath : outerNavPath;
 
   // Refs for stale-closure-safe access in effects（避免陈旧闭包）
   const activeDirPathRef = useRef(activeDirPath);
@@ -1184,16 +1262,19 @@ function GeneralBrowser({
       const itemsList = await listDirectory(loadingDir);
       if (!isLatestLoad()) return;
       // 加载后立即查找要高亮的文件
-      if (highlightFile) {
+      if (highlightFile && handledRouteHighlightRef.current !== highlightFile) {
         const matched = itemsList.find((f) => f.name === highlightFile);
         if (matched) {
+          handledRouteHighlightRef.current = highlightFile;
           withAnimation(Animation.smooth({ duration: 0.4 }), () => {
             setFiles(itemsList);
             setHighlightedPath(matched.path);
           });
           setTimeout(() => scrollProxy.current?.scrollTo(matched.path, "center"), 450);
-          setTimeout(() => {
-            setHighlightedPath(null);
+          if (routeHighlightTimerRef.current) clearTimeout(routeHighlightTimerRef.current);
+          routeHighlightTimerRef.current = setTimeout(() => {
+            setHighlightedPath((current) => (current === matched.path ? null : current));
+            routeHighlightTimerRef.current = null;
           }, 2000);
           setIsLoading(false);
           return;
@@ -1408,17 +1489,20 @@ function GeneralBrowser({
     return sortFilesByOrder(result, sortOrder);
   }, [sourceFiles, searchQuery, sortOrder, filterType]);
 
-  // displayFiles 更新后重新匹配高亮
+  // 路由携带的高亮文件只消费一次，避免目录轮询或列表更新持续重置高亮计时器。
   useEffect(() => {
-    if (!highlightFile) return;
+    if (!highlightFile || handledRouteHighlightRef.current === highlightFile) return;
     console.log("highlightFile changed, search for:", highlightFile, "total files:", displayFiles.length);
     const match = displayFiles.find((f) => f.name === highlightFile);
     if (match) {
+      handledRouteHighlightRef.current = highlightFile;
       console.log("highlightFile match via displayFiles:", match.path);
       setHighlightedPath(match.path);
       setTimeout(() => scrollProxy.current?.scrollTo(match.path, "center"), 100);
-      setTimeout(() => {
-        setHighlightedPath(null);
+      if (routeHighlightTimerRef.current) clearTimeout(routeHighlightTimerRef.current);
+      routeHighlightTimerRef.current = setTimeout(() => {
+        setHighlightedPath((current) => (current === match.path ? null : current));
+        routeHighlightTimerRef.current = null;
       }, 2000);
     } else {
       console.log(
@@ -1431,9 +1515,12 @@ function GeneralBrowser({
   }, [highlightFile, displayFiles, refreshKey]);
 
   // ─ 分页：大数据量时只渲染可见部分 ─
-  const [visibleCount, setVisibleCount] = useState(50);
+  const [visibleCount, setVisibleCount] = useState(100);
   const visibleFiles = useMemo(() => displayFiles.slice(0, visibleCount), [displayFiles, visibleCount]);
   const hasMore = displayFiles.length > visibleCount;
+  const preloadNextPage = (expectedVisibleCount: number) => {
+    setVisibleCount((current) => (current === expectedVisibleCount ? Math.min(current + 100, displayFiles.length) : current));
+  };
 
   // 懒加载文件夹计数：仅对可见文件夹计算（滚动时防抖）
   // refreshKey 驱动的计数由 refreshKey effect 在 loadDirectory 完成后直接处理
@@ -2222,7 +2309,7 @@ function GeneralBrowser({
       <Button title="从相册导入" systemImage="photo.on.rectangle" action={handleImportFromPhotos} />
       <Button title="从文件导入" systemImage="doc.badge.plus" action={handleImportFromFiles} />
       <Divider />
-      <Menu title="更多导入" systemImage="ellipsis.circle">
+      <Menu title="更多导入" systemImage="plus">
         <Button title="图片" systemImage="photo" action={handleImportImages} />
         <Button title="视频" systemImage="video" action={handleImportVideos} />
         <Button title="实况照片" systemImage="livephoto" action={handleImportLivePhotosOnly} />
@@ -2238,22 +2325,11 @@ function GeneralBrowser({
       <NavigationDestination>
         {(page) => {
           if (page.startsWith("browser:")) {
-            let dPath = page.slice(8);
-            let hFile: string | undefined;
-            const sepIdx = dPath.indexOf("::");
-            if (sepIdx !== -1) {
-              hFile = decodeURIComponent(dPath.slice(sepIdx + 2));
-              dPath = dPath.slice(0, sepIdx);
-            }
             return (
-              <GeneralBrowser
+              <BrowserRouteView
                 key={page + "@navGen" + navGen}
-                dirPath={dPath}
-                dirName={Path.basename(dPath)}
-                rootPath={dPath}
-                navPath={activeNavPath}
-                highlightFile={hFile}
-                isHomePage={false}
+                page={page}
+                navigationPath={activeNavPath}
                 onDirChange={onDirChange}
                 oppositeDirName={oppositeDirName}
                 onCopyToOppositeDir={onCopyToOppositeDir}
@@ -2560,12 +2636,10 @@ function GeneralBrowser({
             scrollProxy.current = proxy;
             return (
               <List
-                selection={selectedFile}
                 listStyle="plain"
                 navigationTitle={titleDisplayPath}
                 navigationBarTitleDisplayMode="inline"
                 navigationDestination={isHomePage ? homeNavigationDest : navigationDestination}
-                refreshable={refresh}
                 onDrop={currentDirectoryDrop}
                 searchable={{
                   value: searchQuery,
@@ -2587,6 +2661,7 @@ function GeneralBrowser({
                   <Toolbar>
                     <ToolbarItem placement="principal">
                       <Menu
+                        onDrop={currentDirectoryDrop}
                         label={
                           <Text font="headline" lineLimit={1}>
                             {titleDisplayPath}
@@ -2691,7 +2766,7 @@ function GeneralBrowser({
                                       await Pasteboard.setString(actualUrl);
                                       await Navigation.present({
                                         element: <WebPreviewPage url={actualUrl} />,
-                                        modalPresentationStyle: "fullScreen",
+                                        modalPresentationStyle: "pageSheet",
                                       });
                                     } catch (e) {
                                       console.log("启动 HTTP Server 或打开预览失败:", e);
@@ -2858,6 +2933,20 @@ function GeneralBrowser({
                     dirPath={activeDirPath}
                     onResultsChange={setDeepSearchResults}
                     navPath={activeNavPath}
+                    onNavigateToParentDirectory={
+                      isHomeScreenHost
+                        ? async (result) => {
+                            await Navigation.present({
+                              element: (
+                                <HomeScreenBrowserSheet
+                                  page={"browser:" + Path.dirname(result.path) + "::" + encodeURIComponent(Path.basename(result.path))}
+                                />
+                              ),
+                              modalPresentationStyle: "pageSheet",
+                            });
+                          }
+                        : undefined
+                    }
                     resultLeadingActions={(result) => [
                       {
                         title: "重命名",
@@ -3000,11 +3089,13 @@ function GeneralBrowser({
                           // editor 类型且有匹配行：直接 present 编辑器并跳转行号
                           if (prefix === "editor:") {
                             const line = result.matchedLine || (result.allMatches && result.allMatches.length > 0 ? result.allMatches[0].line : undefined);
-                            if (line && activeNavPath) {
-                              // 用 ::L 嵌入行号 = 导航栈方式（普通文件也用同一方式）
-                              activeNavPath.setValue([...activeNavPath.value, prefix + result.path + "::L" + line]);
+                            if (isHomeScreenHost) {
+                              await Navigation.present({
+                                element: <EditorPage path={result.path} mode="present" scrollToLine={line} />,
+                                modalPresentationStyle: "pageSheet",
+                              });
                             } else if (activeNavPath) {
-                              activeNavPath.setValue([...activeNavPath.value, prefix + result.path]);
+                              activeNavPath.setValue([...activeNavPath.value, prefix + result.path + (line ? "::L" + line : "")]);
                             }
                           } else if (prefix === "share:") {
                             await shareFilePath(result.path, result.name);
@@ -3033,7 +3124,8 @@ function GeneralBrowser({
                   ) : (
                     <Section>
                       {visibleFiles.map((file, fileIdx) => (
-                        <FileRowLink
+                        <Group key={file.path}>
+                          <FileRowLink
                           key={file.path}
                           file={file}
                           onRefresh={refreshDirectory}
@@ -3054,16 +3146,30 @@ function GeneralBrowser({
                           dirPath={effectiveDropDir}
                           onDropCompleted={onDropCompleted}
                           onFolderCountChanged={applyFolderCountUpdate}
+                          isHomeScreenHost={isHomeScreenHost}
                         />
+                        {hasMore && fileIdx === Math.max(0, visibleFiles.length - 26) ? (
+                          <HStack
+                            frame={{ maxWidth: "infinity", height: 1 }}
+                            listRowBackground={<Rectangle fill="clear" />}
+                            listRowSeparator={{ visibility: "hidden", edges: "all" }}
+                            onAppear={() => preloadNextPage(visibleFiles.length)}
+                          >
+                            <EmptyView />
+                          </HStack>
+                        ) : (
+                          <EmptyView />
+                        )}
+                        </Group>
                       ))}
-                      {hasMore ? <Button title="加载更多" onAppear={() => setVisibleCount((prev) => prev + 50)} action={() => setVisibleCount((prev) => prev + 50)} /> : <EmptyView />}
+                      {hasMore ? <Button title="加载更多" action={() => preloadNextPage(visibleFiles.length)} /> : <EmptyView />}
                     </Section>
                   )
                 ) : (
                   <EmptyView />
                 )}
 
-                {displayFiles.length > 0 ? (
+                {deepSearchResults.length === 0 ? (
                   <Section>
                     <HStack spacing={12} alignment="center" listRowBackground={<></>} listRowSeparator={{ visibility: "hidden", edges: "all" }} padding={{ top: 20, bottom: 20 }}>
                       <Spacer />
@@ -3087,9 +3193,9 @@ function GeneralBrowser({
 
   // 计算当前目录路径（处理子文件夹导航：取导航栈中最新的 browser: 路径）
   let effectiveDropDir = activeDirPath || "";
-  if (isHomePage && homeNavPath.value.length > 0) {
-    for (let i = homeNavPath.value.length - 1; i >= 0; i--) {
-      const p = homeNavPath.value[i];
+  if (isHomePage && activeHomeNavPath.value.length > 0) {
+    for (let i = activeHomeNavPath.value.length - 1; i >= 0; i--) {
+      const p = activeHomeNavPath.value[i];
       if (p.startsWith("browser:")) {
         effectiveDropDir = p.slice(8);
         break;
@@ -3097,10 +3203,10 @@ function GeneralBrowser({
     }
   }
 
-  return isHomePage ? (
+  return isHomePage && !outerNavPath ? (
     <ZStack frame={{ maxWidth: "infinity", maxHeight: "infinity" }}>
       <NavigationStack
-        path={homeNavPath}
+        path={activeHomeNavPath}
         onDrop={{
           types: DROP_ACCEPTED_TYPES,
           validateDrop: (info) => {
@@ -3113,7 +3219,7 @@ function GeneralBrowser({
           },
           performDrop: (info) => {
             // 从 NavigationStack 路径中获取当前真实目录
-            const pathArray = Array.isArray(homeNavPath?.value) ? homeNavPath.value : homeNavPath?.value ? [homeNavPath.value] : [];
+            const pathArray = Array.isArray(activeHomeNavPath?.value) ? activeHomeNavPath.value : activeHomeNavPath?.value ? [activeHomeNavPath.value] : [];
             let destDir = effectiveDropDir;
             for (let i = pathArray.length - 1; i >= 0; i--) {
               const p = typeof pathArray[i] === "string" ? pathArray[i] : "";
@@ -3180,4 +3286,38 @@ function GeneralBrowser({
   );
 }
 
-export { GeneralBrowser };
+function BrowserRouteView({
+  page,
+  navigationPath,
+  isHomeScreenHost,
+  ...browserProps
+}: {
+  page: string;
+  navigationPath: any;
+  isHomeScreenHost?: boolean;
+  [key: string]: any;
+}) {
+  let dirPath = page.slice(8);
+  let highlightFile: string | undefined;
+  const separatorIndex = dirPath.indexOf("::");
+  if (separatorIndex !== -1) {
+    highlightFile = decodeURIComponent(dirPath.slice(separatorIndex + 2));
+    dirPath = dirPath.slice(0, separatorIndex);
+  }
+
+  return (
+    <GeneralBrowser
+      key={page}
+      {...browserProps}
+      dirPath={dirPath}
+      dirName={Path.basename(dirPath)}
+      rootPath={dirPath}
+      navPath={navigationPath}
+      highlightFile={highlightFile}
+      isHomePage={false}
+      isHomeScreenHost={isHomeScreenHost}
+    />
+  );
+}
+
+export { GeneralBrowser, BrowserRouteView };

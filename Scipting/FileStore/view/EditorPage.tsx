@@ -75,6 +75,7 @@ export function EditorPage(props: EditorPageProps) {
   const normalizedExt = ext.toLowerCase()
   const isMarkdownFile = normalizedExt === ".md"
   const isHTMLFile = normalizedExt === ".html" || normalizedExt === ".htm"
+  const isSVGFile = normalizedExt === ".svg"
   const isJavaScriptFile = [".js", ".mjs", ".cjs", ".jsx"].includes(normalizedExt)
   const isJSONFile = normalizedExt === ".json"
   const editorExt = getEditorExt(ext)
@@ -207,6 +208,32 @@ export function EditorPage(props: EditorPageProps) {
       await webView.present({ fullscreen: true, navigationTitle: fileName })
     } catch (e) {
       console.log("HTML预览失败:", e)
+    } finally {
+      webView.dispose()
+    }
+  }
+  const handleSVGPreview = async () => {
+    if (!controllerRef.current) return
+    const webView = new WebViewController()
+    const previewHTML = `<!doctype html>
+<html>
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    :root { color-scheme: light dark; }
+    html, body { min-height: 100%; margin: 0; background: #FFFFFF; }
+    @media (prefers-color-scheme: dark) {
+      html, body { background: #060606; }
+    }
+  </style>
+</head>
+<body>${controllerRef.current.content}</body>
+</html>`
+    try {
+      await webView.loadHTML(previewHTML, `file://${Path.dirname(path)}/`)
+      await webView.present({ navigationTitle: fileName })
+    } catch (e) {
+      console.log("SVG预览失败:", e)
     } finally {
       webView.dispose()
     }
@@ -522,7 +549,7 @@ export function EditorPage(props: EditorPageProps) {
               <Button key="close" title="关闭" systemImage="xmark" action={handleClose} />,
             ],
             topBarTrailing: [
-              <Menu key="more-menu" title="" systemImage="ellipsis">
+              <Menu key="more-menu" title="" systemImage="plus">
                 <Menu title="编码">
                   {ENCODING_OPTIONS.map((enc) => (
                     <Button
@@ -544,6 +571,9 @@ export function EditorPage(props: EditorPageProps) {
                     systemImage="eye"
                     action={handleMarkdownPreview}
                   />
+                )}
+                {isSVGFile && (
+                  <Button title="预览 SVG" systemImage="eye" action={handleSVGPreview} />
                 )}
                 {isJavaScriptFile && (
                   <>
@@ -592,7 +622,7 @@ export function EditorPage(props: EditorPageProps) {
         navigationBarTitleDisplayMode="inline"
         toolbar={{
           topBarTrailing: [
-              <Menu key="encoding-menu" title="" systemImage="ellipsis">
+              <Menu key="encoding-menu" title="" systemImage="plus">
               <Menu title="编码">
                 {ENCODING_OPTIONS.map((enc) => (
                   <Button
@@ -614,6 +644,9 @@ export function EditorPage(props: EditorPageProps) {
                   systemImage="eye"
                   action={handleMarkdownPreview}
                 />
+              )}
+              {isSVGFile && (
+                <Button title="预览 SVG" systemImage="eye" action={handleSVGPreview} />
               )}
               {isJavaScriptFile && (
                 <>

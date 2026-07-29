@@ -33,7 +33,7 @@ import {
   getBuiltinDirectories,
   getAllBookmarks,
 } from "../manager/BookmarkManager";
-import { copyAndToast, copiedMessage, renameWithPrompt, buildSystemDirDefs } from "../manager/utils";
+import { copyAndToast, copiedMessage, renameWithPrompt, buildSystemDirDefs, invalidateDirectoryCache } from "../manager/utils";
 import { FileListItem } from "./FileListItem";
 import { GeneralBrowser } from "./GeneralBrowser";
 import { SettingsPage } from "./SettingsPage";
@@ -41,6 +41,7 @@ import { saveSettings, readSettings, AppSettings } from "../manager/Settings";
 import { FileNavigationDest } from "./MediaViewer";
 import { showToast } from "../manager/ToastManager";
 import { ToastOverlay } from "./ToastOverlay";
+import { DROP_ACCEPTED_TYPES, handleDropToDirectory } from "../manager/dropHandler";
 
 interface MountDirectoriesPageProps {
   bookmarks: Bookmark[];
@@ -314,6 +315,7 @@ export function MountDirectoriesPage({ bookmarks, showFolderItemCounts, onRefres
 
   const [systemDirs, setSystemDirs] = useState(() => resolveSystemDirs());
   const [systemDirCounts, setSystemDirCounts] = useState<Map<string, number>>(new Map());
+  const [directoryDropRefreshKey, setDirectoryDropRefreshKey] = useState(0);
   useEffect(() => {
     (async () => {
       const counts = new Map<string, number>();
@@ -384,8 +386,44 @@ export function MountDirectoriesPage({ bookmarks, showFolderItemCounts, onRefres
     }
   };
 
+  const handleMountedDirectoryDrop = (info: DropInfo) => {
+    const pages = Array.isArray(navPath.value) ? navPath.value : [];
+    let targetDirectory = "";
+
+    for (let index = pages.length - 1; index >= 0; index--) {
+      const page = pages[index];
+      if (page.startsWith("browser:")) {
+        targetDirectory = page.slice(8).split("::", 1)[0];
+        break;
+      }
+    }
+
+    if (!targetDirectory) return false;
+    handleDropToDirectory(info, targetDirectory, () => {})
+      .then((createdPaths) => {
+        if (createdPaths.length > 0) {
+          invalidateDirectoryCache(targetDirectory);
+          setDirectoryDropRefreshKey((key) => key + 1);
+        }
+      })
+      .catch(() => {
+        invalidateDirectoryCache(targetDirectory);
+        setDirectoryDropRefreshKey((key) => key + 1);
+      });
+    return true;
+  };
+
+  const mountedDirectoryDrop = {
+    types: DROP_ACCEPTED_TYPES,
+    validateDrop: (info: DropInfo) => {
+      const pages = Array.isArray(navPath.value) ? navPath.value : [];
+      return pages.some((page) => page.startsWith("browser:")) && info.hasItemsConforming(DROP_ACCEPTED_TYPES);
+    },
+    performDrop: handleMountedDirectoryDrop,
+  };
+
   return (
-    <NavigationStack path={navPath}>
+    <NavigationStack path={navPath} onDrop={mountedDirectoryDrop}>
       <VStack frame={{ maxWidth: "infinity", maxHeight: "infinity" }}>
         <List
           listStyle="plain"
@@ -427,6 +465,7 @@ export function MountDirectoriesPage({ bookmarks, showFolderItemCounts, onRefres
                       highlightFile={highlightFile}
                       showFolderItemCounts={showFolderItemCounts}
                       onOpenSettings={handleOpenSettings}
+                      refreshKey={directoryDropRefreshKey}
                     />
                   );
                 }
@@ -436,7 +475,7 @@ export function MountDirectoriesPage({ bookmarks, showFolderItemCounts, onRefres
           }
           toolbar={{
             topBarTrailing: [
-              <Menu title="" systemImage="ellipsis">
+              <Menu title="" systemImage="plus">
                 <Button
                   title={selectMode ? "完成选择" : "选择"}
                   systemImage="checkmark.circle"
@@ -510,7 +549,7 @@ export function MountDirectoriesPage({ bookmarks, showFolderItemCounts, onRefres
                     ...sysFile,
                     name: sysDir.displayName || sysDir.name,
                   }}
-                  destination={<GeneralBrowser dirPath={sysDir.path} dirName={sysDir.displayName || sysDir.name} rootPath={sysDir.path} />}
+                  destination={<GeneralBrowser dirPath={sysDir.path} dirName={sysDir.displayName || sysDir.name} rootPath={sysDir.path} refreshKey={directoryDropRefreshKey} />}
                   subtitle={showFolderItemCounts !== false && count != null ? `${count} 项` : (sysDir as any).tag || "本机"}
                   subtitleForegroundStyle="tertiaryLabel"
                   hideTopSeparator={idx === 0}
@@ -580,7 +619,7 @@ export function MountDirectoriesPage({ bookmarks, showFolderItemCounts, onRefres
                     <FileListItem
                       key={bookmark.id}
                       file={bookmarkAsFile}
-                      destination={isAccessible ? <GeneralBrowser dirPath={dirPath} dirName={bookmark.name} rootPath={dirPath} /> : undefined}
+                      destination={isAccessible ? <GeneralBrowser dirPath={dirPath} dirName={bookmark.name} rootPath={dirPath} refreshKey={directoryDropRefreshKey} /> : undefined}
                       subtitle={
                         isAccessible
                           ? showFolderItemCounts !== false && folderCounts.has(bookmark.path)

@@ -72,7 +72,7 @@ export function ToolbarMenu<F extends string = string>({ selectMode, sort, filte
   const hasFilter = !!(filter && filterOptions.length > 0);
 
   return (
-    <Menu title="" systemImage="ellipsis">
+    <Menu title="" systemImage="plus">
       {/* ─── 选择模式 ─── */}
       {hasSelectMode ? (
         <>

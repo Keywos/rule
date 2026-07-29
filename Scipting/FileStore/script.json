@@ -7,7 +7,7 @@
     "Files"
   ],
   "icon" : "folder.fill",
-  "version" : "1.5.1",
+  "version" : "1.6.0",
   "remoteResource" : {
     "autoUpdateInterval" : null,
     "url" : "https:\/\/github.com\/Keywos\/rule\/tree\/main\/Scipting\/FileStore",
@@ -17,7 +17,7 @@
   "name" : "FileStore",
   "localizedDescriptions" : {
     "en" : "File Store, browse and preview various file types",
-    "zh" : "File Store, 文件挂载、预览各种文件类型"
+    "zh" : "File Store, 文件挂载、预览各种文件类型, 增加 home_screen_default_ui.tsx Scripting 版本: 3.3.0 (8), 脚本编辑器增加 svg 预览"
   },
   "runInApp" : false,
   "description" : null,

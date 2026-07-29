@@ -12,7 +12,8 @@ import {
 import { unpackLivePhoto } from '../manager/LivePhotoPacker'
 import { FilePreviewView } from './FilePreview'
 import { EditorPage } from './EditorPage'
-import { FileInfo, getFileCategory, ensureLocalFile, readTextFile, safeUnzip } from '../manager/utils'
+import { FileInfo, getFileCategory, ensureLocalFile, readTextFile, safeUnzip, invalidateDirectoryCache } from '../manager/utils'
+import { DROP_ACCEPTED_TYPES, handleDropToDirectory } from '../manager/dropHandler'
 import { FileInfoPage } from './FileListItem'
 import { GeneralBrowser } from './GeneralBrowser'
 
@@ -441,8 +442,33 @@ export function ArchiveBrowserPage({ filePath, navigationPath }: { filePath: str
     <ArchiveBrowserDirectory dirPath={extractDir} rootPath={extractDir} rootName={Path.basename(filePath)} navPath={navPath} onSaveAndExit={handleSaveAndExit} onDiscardAndExit={handleDiscardAndExit} />
   )
 
+  const handleArchiveDrop = (info: DropInfo) => {
+    if (!extractDir) return false
+    const pages = Array.isArray(navPath.value) ? navPath.value : []
+    let targetDirectory = extractDir
+
+    for (let index = pages.length - 1; index >= 0; index--) {
+      const page = pages[index]
+      if (page.startsWith('browser:')) {
+        targetDirectory = page.slice(8).split('::', 1)[0]
+        break
+      }
+    }
+
+    handleDropToDirectory(info, targetDirectory, () => {})
+      .then(() => invalidateDirectoryCache(targetDirectory))
+      .catch(() => invalidateDirectoryCache(targetDirectory))
+    return true
+  }
+
+  const archiveDirectoryDrop = {
+    types: DROP_ACCEPTED_TYPES,
+    validateDrop: (info: DropInfo) => !!extractDir && info.hasItemsConforming(DROP_ACCEPTED_TYPES),
+    performDrop: handleArchiveDrop,
+  }
+
   // 独立模态页从首次渲染起就保持 NavigationStack，避免加载完成时切换根视图。
-  return navigationPath ? content : <NavigationStack path={localNavPath}>{content}</NavigationStack>
+  return navigationPath ? content : <NavigationStack path={localNavPath} onDrop={archiveDirectoryDrop}>{content}</NavigationStack>
 }
 
 /* ───── 共享文件导航分发（image/video/preview/livephoto/editor/info/markdown）───── */
