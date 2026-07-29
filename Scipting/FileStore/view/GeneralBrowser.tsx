@@ -279,11 +279,6 @@ function FileRowLink({
                 await QuickLook.previewURLs([file.path], true);
               } else if (prefix === "editor:") {
                 await openEditor();
-              } else if (isHomeScreenHost) {
-                await Navigation.present({
-                  element: <HomeScreenFileSheet page={prefix + file.path} />,
-                  modalPresentationStyle: "pageSheet",
-                });
               } else {
                 navPath.setValue([...navPath.value, prefix + file.path]);
               }
@@ -550,11 +545,6 @@ function FileRowLink({
                 await QuickLook.previewURLs([file.path], true);
               } else if (prefix === "editor:") {
                 await openEditor();
-              } else if (isHomeScreenHost) {
-                await Navigation.present({
-                  element: <HomeScreenFileSheet page={prefix + file.path} />,
-                  modalPresentationStyle: "pageSheet",
-                });
               } else {
                 navPath.setValue([...navPath.value, prefix + file.path]);
               }
@@ -832,60 +822,6 @@ function FileRowLink({
         <FileRowContent file={file} folderCounts={folderCounts} />
       </HStack>
     </Button>
-  );
-}
-
-function HomeScreenFileSheet({ page }: { page: string }) {
-  return (
-    <NavigationStack>
-      <FileNavigationDest page={page} />
-    </NavigationStack>
-  );
-}
-
-function HomeScreenBrowserSheet({ page }: { page: string }) {
-  const dismiss = Navigation.useDismiss();
-  const navPath = useObservable<string[]>([]);
-  const [dropRefreshKey, setDropRefreshKey] = useState(0);
-
-  const handleDrop = (info: DropInfo) => {
-    const pages = Array.isArray(navPath.value) ? navPath.value : [];
-    const currentPage = [...pages].reverse().find((entry) => entry.startsWith("browser:")) || page;
-    const targetDirectory = currentPage.slice(8).split("::", 1)[0];
-    if (!targetDirectory) return false;
-
-    handleDropToDirectory(info, targetDirectory, () => {})
-      .then(() => {
-        invalidateDirectoryCache(targetDirectory);
-        setDropRefreshKey((key) => key + 1);
-      })
-      .catch(() => {
-        invalidateDirectoryCache(targetDirectory);
-        setDropRefreshKey((key) => key + 1);
-      });
-    return true;
-  };
-
-  const browserDrop = {
-    types: DROP_ACCEPTED_TYPES,
-    validateDrop: (info: DropInfo) => info.hasItemsConforming(DROP_ACCEPTED_TYPES),
-    performDrop: handleDrop,
-  };
-
-  return (
-    <NavigationStack path={navPath} onDrop={browserDrop}>
-      <BrowserRouteView
-        page={page}
-        navigationPath={navPath}
-        isHomeScreenHost
-        refreshKey={dropRefreshKey}
-        toolbarLeadingItems={
-          <ToolbarItem placement="topBarLeading">
-            <Button title="返回" systemImage="chevron.backward" action={() => dismiss()} />
-          </ToolbarItem>
-        }
-      />
-    </NavigationStack>
   );
 }
 
@@ -2934,20 +2870,6 @@ function GeneralBrowser({
                     dirPath={activeDirPath}
                     onResultsChange={setDeepSearchResults}
                     navPath={activeNavPath}
-                    onNavigateToParentDirectory={
-                      isHomeScreenHost
-                        ? async (result) => {
-                            await Navigation.present({
-                              element: (
-                                <HomeScreenBrowserSheet
-                                  page={"browser:" + Path.dirname(result.path) + "::" + encodeURIComponent(Path.basename(result.path))}
-                                />
-                              ),
-                              modalPresentationStyle: "pageSheet",
-                            });
-                          }
-                        : undefined
-                    }
                     resultLeadingActions={(result) => [
                       {
                         title: "重命名",
@@ -3098,6 +3020,11 @@ function GeneralBrowser({
                             } else if (activeNavPath) {
                               activeNavPath.setValue([...activeNavPath.value, prefix + result.path + (line ? "::L" + line : "")]);
                             }
+                          } else if (prefix === "archive:" && isHomeScreenHost) {
+                            await Navigation.present({
+                              element: <ArchiveBrowserPage filePath={result.path} />,
+                              modalPresentationStyle: "pageSheet",
+                            });
                           } else if (prefix === "share:") {
                             await shareFilePath(result.path, result.name);
                           } else if (prefix === "pdf:") {

@@ -12,9 +12,11 @@ interface DualBrowserPageProps {
   setRefreshKey: (fn: (k: number) => number) => void;
   onSettingsChange?: (settings: AppSettings) => void;
   bookmarks?: Bookmark[];
+  isHomeScreenHost?: boolean;
+  secondaryToolbarLeadingItems?: any;
 }
 
-export function DualBrowserPage({ settings, refreshKey, bookmarks, onSettingsChange }: DualBrowserPageProps) {
+export function DualBrowserPage({ settings, refreshKey, bookmarks, onSettingsChange, isHomeScreenHost, secondaryToolbarLeadingItems }: DualBrowserPageProps) {
   // 跨栏复制文件乐观更新注入
   const leftAddFilesRef = useRef<(files: FileInfo[]) => void>(() => {});
   const rightAddFilesRef = useRef<(files: FileInfo[]) => void>(() => {});
@@ -288,6 +290,7 @@ export function DualBrowserPage({ settings, refreshKey, bookmarks, onSettingsCha
                 <VStack frame={{ maxWidth: "infinity", maxHeight: "infinity" }} spacing={0}>
                   <GeneralBrowser
                     isHomePage={true}
+                    isHomeScreenHost={isHomeScreenHost}
                     settings={leftSettings}
                     onSettingsChange={handleLeftSettingsChange}
                     refreshKey={leftKey}
@@ -297,7 +300,7 @@ export function DualBrowserPage({ settings, refreshKey, bookmarks, onSettingsCha
                     onExternalCopy={handleExternalCopy}
                     onDirChange={handleLeftDirChange}
                    toolbarLeadingItems={dualModeToolbarItem}
-                    addFilesRef={leftAddFilesRef}
+                                        addFilesRef={leftAddFilesRef}
                     folderCountUpdateRef={leftFolderCountUpdateRef}
                     bookmarks={bookmarks}
                     onFilesAdded={(files) => {
@@ -313,6 +316,7 @@ export function DualBrowserPage({ settings, refreshKey, bookmarks, onSettingsCha
                   <VStack frame={{ width: Math.max(40, totalW * ratio) }} spacing={0}>
                     <GeneralBrowser
                       isHomePage={true}
+                      isHomeScreenHost={isHomeScreenHost}
                       settings={leftSettings}
                       onSettingsChange={handleLeftSettingsChange}
                       // onFullscreen={onFullscreen}
@@ -323,7 +327,7 @@ export function DualBrowserPage({ settings, refreshKey, bookmarks, onSettingsCha
                       onExternalCopy={handleExternalCopy}
                       onDirChange={handleLeftDirChange}
                       toolbarLeadingItems={dualModeToolbarItem}
-                      oppositeDirName={rightDir ? (layoutDir === "horizontal" ? "复制到右侧目录" : "复制到下方目录") : undefined}
+                                          oppositeDirName={rightDir ? (layoutDir === "horizontal" ? "复制到右侧目录" : "复制到下方目录") : undefined}
                       onCopyToOppositeDir={rightDir ? handleCopyLeftToRight : undefined}
                       addFilesRef={leftAddFilesRef}
                       folderCountUpdateRef={leftFolderCountUpdateRef}
@@ -343,6 +347,7 @@ export function DualBrowserPage({ settings, refreshKey, bookmarks, onSettingsCha
                   <VStack frame={{ width: Math.max(40, totalW * (1 - ratio)) }} spacing={0}>
                     <GeneralBrowser
                       isHomePage={true}
+                      isHomeScreenHost={isHomeScreenHost}
                       settings={rightSettings}
                       onSettingsChange={handleRightSettingsChange}
                       refreshKey={rightKey}
@@ -351,6 +356,7 @@ export function DualBrowserPage({ settings, refreshKey, bookmarks, onSettingsCha
                       externalCopiedPath={sharedCopiedPath}
                       onExternalCopy={handleExternalCopy}
                       onDirChange={handleRightDirChange}
+                       toolbarLeadingItems={secondaryToolbarLeadingItems}
                       oppositeDirName={leftDir ? (layoutDir === "horizontal" ? "复制到左侧目录" : "复制到上方目录") : undefined}
                       onCopyToOppositeDir={leftDir ? handleCopyRightToLeft : undefined}
                       initialLoadDelay={300}
@@ -374,6 +380,7 @@ export function DualBrowserPage({ settings, refreshKey, bookmarks, onSettingsCha
                   <VStack frame={{ height: Math.max(40, totalH * ratio) }} spacing={0}>
                     <GeneralBrowser
                       isHomePage={true}
+                      isHomeScreenHost={isHomeScreenHost}
                       settings={leftSettings}
                       onSettingsChange={handleLeftSettingsChange}
                       refreshKey={leftKey}
@@ -383,7 +390,7 @@ export function DualBrowserPage({ settings, refreshKey, bookmarks, onSettingsCha
                       onExternalCopy={handleExternalCopy}
                       onDirChange={handleLeftDirChange}
                       toolbarLeadingItems={dualModeToolbarItem}
-                      oppositeDirName={rightDir ? "复制到下方目录" : undefined}
+                                          oppositeDirName={rightDir ? "复制到下方目录" : undefined}
                       onCopyToOppositeDir={rightDir ? handleCopyLeftToRight : undefined}
                       addFilesRef={leftAddFilesRef}
                       folderCountUpdateRef={leftFolderCountUpdateRef}
@@ -403,6 +410,7 @@ export function DualBrowserPage({ settings, refreshKey, bookmarks, onSettingsCha
                   <VStack frame={{ height: Math.max(40, totalH * (1 - ratio)) }} spacing={0}>
                     <GeneralBrowser
                       isHomePage={true}
+                      isHomeScreenHost={isHomeScreenHost}
                       settings={rightSettings}
                       onSettingsChange={handleRightSettingsChange}
                       refreshKey={rightKey}
@@ -411,6 +419,7 @@ export function DualBrowserPage({ settings, refreshKey, bookmarks, onSettingsCha
                       externalCopiedPath={sharedCopiedPath}
                       onExternalCopy={handleExternalCopy}
                       onDirChange={handleRightDirChange}
+                       toolbarLeadingItems={secondaryToolbarLeadingItems}
                       oppositeDirName={leftDir ? "复制到上方目录" : undefined}
                       onCopyToOppositeDir={leftDir ? handleCopyRightToLeft : undefined}
                       initialLoadDelay={300}

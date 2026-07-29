@@ -3,6 +3,7 @@
 
 import { Path } from 'scripting'
 import { ensureDir, makeTimestamp } from './importHelpers'
+import { packLivePhoto } from './LivePhotoPacker'
 import { writeToUniquePath } from './utils'
 
 // 接受的 UTType — 覆盖文件、URL、文本、图片
@@ -30,6 +31,7 @@ export const DROP_ACCEPTED_TYPES: UTType[] = [
   "public.plain-text",
   "public.utf8-plain-text",
   "public.image",
+  "com.apple.live-photo",
 ]
 
 // 仅文件类型（用于文件导入兜底）
@@ -108,8 +110,31 @@ async function readAndImportProvider(
   }
 
   const types = provider.registeredTypes || []
+  // 不依赖 canLoadLivePhoto() 预检：部分拖放来源会将实况照片声明为普通图片，
+  // 但 loadLivePhoto() 仍可取得配对资源。必须立刻启动请求，不能等其他异步分支。
+  const livePhotoRequest = provider.loadLivePhoto().catch(() => null)
+  console.log('拖放提供器类型:', JSON.stringify(types), 'canLoadLivePhoto:', provider.canLoadLivePhoto())
 
-  // ─── 1. 优先尝试 loadFilePath（其他 app 拖出的真实文件）───
+  // ─── 1. 优先读取实况照片并打包为单个 .live 文件 ───
+  // 仅在完整打包成功后返回，否则继续走下面的文件/图片等回退路径。
+  try {
+    const livePhoto = await livePhotoRequest
+    if (livePhoto) {
+      const packed = packDroppedLivePhoto(await livePhoto.getAssetResources())
+      if (packed) {
+        await directoryReady
+        const name = `LIVE_${ts}.live`
+        const { path: destPath } = await writeToUniquePath(Path.join(dirPath, name), (targetPath) => FileManager.writeAsData(targetPath, packed))
+        console.log(`拖拽导入实况照片: ${name} -> ${dirPath}`)
+        return destPath
+      }
+      console.log('实况照片资源不完整，回退到普通拖拽导入')
+    }
+  } catch (e) {
+    console.log('实况照片打包失败，回退到普通拖拽导入:', e)
+  }
+
+  // ─── 2. 优先尝试 loadFilePath（其他 app 拖出的真实文件）───
   const fileLoadTypes = [...FILE_TYPES, ...(provider.registeredTypes || [])]
   for (const type of fileLoadTypes) {
     try {
@@ -128,7 +153,7 @@ async function readAndImportProvider(
     }
   }
 
-  // ─── 2. 尝试 loadUIImage（图片）───
+  // ─── 3. 尝试 loadUIImage（图片）───
   const canLoadImage = provider.canLoadUIImage?.() ?? provider.hasItemConforming("public.image")
   if (canLoadImage) {
     try {
@@ -148,7 +173,7 @@ async function readAndImportProvider(
     }
   }
 
-  // ─── 3. 尝试 loadURL（URL 链接）───
+  // ─── 4. 尝试 loadURL（URL 链接）───
   if (
     types.includes("public.url") ||
     types.includes("public.file-url") ||
@@ -176,7 +201,7 @@ async function readAndImportProvider(
     }
   }
 
-  // ─── 4. 尝试 loadText（文本）───
+  // ─── 5. 尝试 loadText（文本）───
   if (
     types.includes("public.text") ||
     types.includes("public.plain-text") ||
@@ -197,7 +222,7 @@ async function readAndImportProvider(
     }
   }
 
-  // ─── 5. 最终兜底：loadData 通用二进制 ───
+  // ─── 6. 最终兜底：loadData 通用二进制 ───
   for (const type of types) {
     try {
       const data = await provider.loadData(type)
@@ -214,6 +239,57 @@ async function readAndImportProvider(
 
   console.log(`无法读取拖入的项目 #${index + 1}`)
   return null
+}
+
+function packDroppedLivePhoto(
+  resources: Array<{ data: Data; contentType: UTType; originalFilename: string }>,
+): Data | null {
+  let imageData: Data | null = null
+  let imageExt: string | null = null
+  let videoData: Data | null = null
+
+  for (const resource of resources) {
+    const contentType = String(resource.contentType || '').toLowerCase()
+    const filename = resource.originalFilename || ''
+    const filenameExt = Path.extname(filename).toLowerCase().replace(/^\./, '')
+    const resolvedImageExt = imageExtensionForLivePhotoResource(contentType, filenameExt)
+
+    if (!imageData && resolvedImageExt) {
+      imageData = resource.data
+      imageExt = resolvedImageExt
+      continue
+    }
+
+    if (!videoData && isLivePhotoVideoResource(contentType, filenameExt)) {
+      videoData = resource.data
+    }
+  }
+
+  return imageData && imageExt && videoData ? packLivePhoto(imageData, imageExt, videoData) : null
+}
+
+function imageExtensionForLivePhotoResource(contentType: string, filenameExt: string): string | null {
+  const extensionByType: Record<string, string> = {
+    'public.heic': 'heic',
+    'public.heif': 'heif',
+    'public.jpeg': 'jpg',
+    'public.png': 'png',
+  }
+  if (extensionByType[contentType]) return extensionByType[contentType]
+  if (['heic', 'heif', 'jpg', 'jpeg', 'png', 'dng'].includes(filenameExt)) {
+    return filenameExt === 'jpeg' ? 'jpg' : filenameExt
+  }
+  return null
+}
+
+function isLivePhotoVideoResource(contentType: string, filenameExt: string): boolean {
+  return (
+    contentType === 'com.apple.quicktime-movie' ||
+    contentType === 'public.movie' ||
+    contentType === 'public.video' ||
+    contentType === 'public.mpeg-4' ||
+    filenameExt === 'mov'
+  )
 }
 
 function escapeXml(str: string): string {
