@@ -194,13 +194,13 @@ function FileRowLink({
   };
 
   const openEditor = async (scrollToLine?: number) => {
-    if (isHomeScreenHost) {
+/*     if (isHomeScreenHost) {
       await Navigation.present({
         element: <EditorPage path={file.path} mode="present" scrollToLine={scrollToLine} />,
         modalPresentationStyle: "pageSheet",
       });
       return;
-    }
+    } */
     if (navPath) {
       navPath.setValue([...navPath.value, "editor:" + file.path + (scrollToLine ? "::L" + scrollToLine : "")]);
     }
@@ -288,7 +288,7 @@ function FileRowLink({
         listRowSeparator={hideTopSeparator ? { visibility: "hidden", edges: "top" } : undefined}
         listRowBackground={isHighlighted ? <Rectangle fill="systemGray" opacity={0.15} /> : undefined}
         trailingSwipeActions={{
-          // 不设 destructive role：该角色会让 SwiftUI 将滑动动作按“立即删除”处理，
+          // 不设 destructive role：该角色会让 SwiftUI 将滑动动作按"立即删除"处理，
             // 即使随后弹出确认框，取消后再次滑动也会触发原生状态崩溃。
             actions: [<Button title="删除" action={handleSwipeDelete} />, <Button title="简介" action={handleShowInfo} />],
         }}
@@ -352,7 +352,7 @@ function FileRowLink({
               ) : (
                 <EmptyView />
               )}
-              {/* 压缩/解压 — 所有文件都有压缩选项，归档文件额外有解压选项 */}
+              {/* 压缩/解压 -- 所有文件都有压缩选项，归档文件额外有解压选项 */}
               {getFileCategory(file.extension) === "archive" ? (
                 <>
                   <Button
@@ -555,7 +555,7 @@ function FileRowLink({
       listRowSeparator={hideTopSeparator ? { visibility: "hidden", edges: "top" } : undefined}
       listRowBackground={isHighlighted ? <Rectangle fill="systemGray" opacity={0.15} /> : undefined}
       trailingSwipeActions={{
-        // 不设 destructive role：该角色会让 SwiftUI 将滑动动作按“立即删除”处理，
+        // 不设 destructive role：该角色会让 SwiftUI 将滑动动作按"立即删除"处理，
             // 即使随后弹出确认框，取消后再次滑动也会触发原生状态崩溃。
             actions: [<Button title="删除" action={handleSwipeDelete} />, <Button title="简介" action={handleShowInfo} />],
       }}
@@ -650,7 +650,7 @@ function FileRowLink({
             ) : (
               <EmptyView />
             )}
-            {/* 压缩/解压 — 所有非目录文件都有压缩选项，归档文件额外有解压选项 */}
+            {/* 压缩/解压 -- 所有非目录文件都有压缩选项，归档文件额外有解压选项 */}
             {!file.isDirectory && getFileCategory(file.extension) === "archive" ? (
               <>
                 <Button
@@ -1394,7 +1394,7 @@ function GeneralBrowser({
       try {
         const confirmed = await Dialog.confirm({
           title: "删除文件",
-          message: `确定要删除“${file.name}”吗？此操作不可撤销。`,
+          message: `确定要删除"${file.name}"吗？此操作不可撤销。`,
           cancelLabel: "取消",
           confirmLabel: "删除",
         });
@@ -3012,12 +3012,12 @@ function GeneralBrowser({
                           // editor 类型且有匹配行：直接 present 编辑器并跳转行号
                           if (prefix === "editor:") {
                             const line = result.matchedLine || (result.allMatches && result.allMatches.length > 0 ? result.allMatches[0].line : undefined);
-                            if (isHomeScreenHost) {
+                            /* if (isHomeScreenHost) {
                               await Navigation.present({
                                 element: <EditorPage path={result.path} mode="present" scrollToLine={line} />,
                                 modalPresentationStyle: "pageSheet",
                               });
-                            } else if (activeNavPath) {
+                            } else */ if (activeNavPath) {
                               activeNavPath.setValue([...activeNavPath.value, prefix + result.path + (line ? "::L" + line : "")]);
                             }
                           } else if (prefix === "archive:" && isHomeScreenHost) {
