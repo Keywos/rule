@@ -6,6 +6,7 @@ import { readSettings, saveSettings } from "../manager/Settings";
 // import { HomePage } from "./HomePage";
 import { MountDirectoriesPage } from "./MountDirectoriesPage";
 import { DualBrowserPage } from "./DualBrowserPage";
+import { SettingsTabPage } from "./SettingsTabPage";
 import { ToastOverlay } from "./ToastOverlay";
 import { showToast } from "../manager/ToastManager";
 import { getServerCount, hasActiveServers, stopHttpBackgroundIfIdle } from "../manager/LocalHttpServer";
@@ -67,7 +68,7 @@ export function HomeView() {
   };
 
   const handleTabChange = (index: number) => {
-    if (index === 2) {
+    if (index === 3) {
       // 退出时直接最小化/结束，避免同步重建整棵 TabView 造成卡顿；
       // 恢复时会由 onResume 重建并清除原生退出 Tab 的残留选中状态。
       void exitCurrentInstance();
@@ -76,7 +77,7 @@ export function HomeView() {
     lastContentTabRef.current = index;
     setTabIndex(index);
     // 记住默认标签页
-    if (index <= 1) {
+    if (index <= 2) {
       setTimeout(() => {
         saveSettings({ ...settings, defaultTab: index });
       }, 233);
@@ -116,10 +117,22 @@ export function HomeView() {
             <MountDirectoriesPage bookmarks={bookmarks} showFolderItemCounts={settings.showFolderItemCounts} onRefresh={onRefresh} onSettingsChange={(newSettings) => setSettings(newSettings)} />
           </Group>
         </Tab>
- 
-   
 
-        <Tab title="退出" systemImage="pencil.slash" value={2} role={settings.showExitButton ? "search" : undefined}>
+        <Tab title="设置" systemImage="gearshape.fill" value={2}>
+          <Group labelStyle="titleAndIcon">
+            <SettingsTabPage
+              settings={settings}
+              onSettingsChange={(newSettings) => {
+                saveSettings(newSettings);
+                setSettings(newSettings);
+              }}
+              bookmarks={bookmarks}
+              onSwitchTab={handleTabChange}
+            />
+          </Group>
+        </Tab>
+
+        <Tab title="退出" systemImage="pencil.slash" value={3} role={settings.showExitButton ? "search" : undefined}>
           <EmptyView />
         </Tab>
       </TabView>

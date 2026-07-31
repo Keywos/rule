@@ -102,3 +102,17 @@ export function setDefaultOpener(ext: string, prefix: OpenerPrefix): void {
   data[ext.toLowerCase()] = prefix
   saveDefaults(data)
 }
+
+/** 重置全部默认打开方式（清空持久化存储与缓存） */
+export function resetAllDefaultOpeners(): void {
+  _defaultsCache = {}
+  const st = getStorage()
+  try {
+    if (typeof st?.set === 'function') st.set(DEFAULTS_KEY, '{}', SHARED_OPTIONS)
+    else st?.setString?.(DEFAULTS_KEY, '{}', SHARED_OPTIONS)
+  } catch { }
+  try {
+    if (typeof st?.set === 'function') st.set(DEFAULTS_KEY, '{}')
+    else st?.setString?.(DEFAULTS_KEY, '{}')
+  } catch { }
+}
