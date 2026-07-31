@@ -549,7 +549,7 @@ export function EditorPage(props: EditorPageProps) {
               <Button key="close" title="关闭" systemImage="xmark" action={handleClose} />,
             ],
             topBarTrailing: [
-              <Menu key="more-menu" title="" systemImage="plus">
+              <Menu key="more-menu" title="" systemImage="ellipsis">
                 <Menu title="编码">
                   {ENCODING_OPTIONS.map((enc) => (
                     <Button
@@ -622,7 +622,7 @@ export function EditorPage(props: EditorPageProps) {
         navigationBarTitleDisplayMode="inline"
         toolbar={{
           topBarTrailing: [
-              <Menu key="encoding-menu" title="" systemImage="plus">
+              <Menu key="encoding-menu" title="" systemImage="ellipsis">
               <Menu title="编码">
                 {ENCODING_OPTIONS.map((enc) => (
                   <Button

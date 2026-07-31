@@ -475,7 +475,7 @@ export function MountDirectoriesPage({ bookmarks, showFolderItemCounts, onRefres
           }
           toolbar={{
             topBarTrailing: [
-              <Menu title="" systemImage="plus">
+              <Menu title="" systemImage="ellipsis">
                 <Button
                   title={selectMode ? "完成选择" : "选择"}
                   systemImage="checkmark.circle"

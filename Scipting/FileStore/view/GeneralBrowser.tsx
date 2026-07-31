@@ -288,7 +288,7 @@ function FileRowLink({
         listRowSeparator={hideTopSeparator ? { visibility: "hidden", edges: "top" } : undefined}
         listRowBackground={isHighlighted ? <Rectangle fill="systemGray" opacity={0.15} /> : undefined}
         trailingSwipeActions={{
-          // 不设 destructive role：该角色会让 SwiftUI 将滑动动作按"立即删除"处理，
+          // 不设 destructive role：该角色会让 SwiftUI 将滑动动作按“立即删除”处理，
             // 即使随后弹出确认框，取消后再次滑动也会触发原生状态崩溃。
             actions: [<Button title="删除" action={handleSwipeDelete} />, <Button title="简介" action={handleShowInfo} />],
         }}
@@ -352,7 +352,7 @@ function FileRowLink({
               ) : (
                 <EmptyView />
               )}
-              {/* 压缩/解压 -- 所有文件都有压缩选项，归档文件额外有解压选项 */}
+              {/* 压缩/解压 — 所有文件都有压缩选项，归档文件额外有解压选项 */}
               {getFileCategory(file.extension) === "archive" ? (
                 <>
                   <Button
@@ -555,7 +555,7 @@ function FileRowLink({
       listRowSeparator={hideTopSeparator ? { visibility: "hidden", edges: "top" } : undefined}
       listRowBackground={isHighlighted ? <Rectangle fill="systemGray" opacity={0.15} /> : undefined}
       trailingSwipeActions={{
-        // 不设 destructive role：该角色会让 SwiftUI 将滑动动作按"立即删除"处理，
+        // 不设 destructive role：该角色会让 SwiftUI 将滑动动作按“立即删除”处理，
             // 即使随后弹出确认框，取消后再次滑动也会触发原生状态崩溃。
             actions: [<Button title="删除" action={handleSwipeDelete} />, <Button title="简介" action={handleShowInfo} />],
       }}
@@ -650,7 +650,7 @@ function FileRowLink({
             ) : (
               <EmptyView />
             )}
-            {/* 压缩/解压 -- 所有非目录文件都有压缩选项，归档文件额外有解压选项 */}
+            {/* 压缩/解压 — 所有非目录文件都有压缩选项，归档文件额外有解压选项 */}
             {!file.isDirectory && getFileCategory(file.extension) === "archive" ? (
               <>
                 <Button
@@ -1394,7 +1394,7 @@ function GeneralBrowser({
       try {
         const confirmed = await Dialog.confirm({
           title: "删除文件",
-          message: `确定要删除"${file.name}"吗？此操作不可撤销。`,
+          message: `确定要删除“${file.name}”吗？此操作不可撤销。`,
           cancelLabel: "取消",
           confirmLabel: "删除",
         });
@@ -2245,7 +2245,7 @@ function GeneralBrowser({
       <Button title="从相册导入" systemImage="photo.on.rectangle" action={handleImportFromPhotos} />
       <Button title="从文件导入" systemImage="doc.badge.plus" action={handleImportFromFiles} />
       <Divider />
-      <Menu title="更多导入" systemImage="plus">
+      <Menu title="更多导入" systemImage="ellipsis">
         <Button title="图片" systemImage="photo" action={handleImportImages} />
         <Button title="视频" systemImage="video" action={handleImportVideos} />
         <Button title="实况照片" systemImage="livephoto" action={handleImportLivePhotosOnly} />
