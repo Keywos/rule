@@ -1,0 +1,49 @@
+{
+  "iconImage": null,
+  "runInApp": false,
+  "name": "BatteryHealth",
+  "entry": "index.tsx",
+  "color": "rgba(184, 158, 128,1)",
+  "localizedDescriptions": {
+    "de": "",
+    "fr": "",
+    "zh": "分析电池健康数据",
+    "ru": "",
+    "it": "",
+    "ja": "",
+    "pt": "",
+    "en": "Analyze battery health from synced diagnostic files",
+    "es": ""
+  },
+  "permissions": null,
+  "description": null,
+  "intentInputTypes": [
+    "fileURLs",
+    "Text",
+    "FileURLs"
+  ],
+  "author" : {
+    "name" : "Keywos",
+    "homepage" : "https:\/\/github.com\/Keywos",
+    "email" : null
+  },
+  "version": "1.1.0",
+  "contributors": [],
+  "remoteResource": {
+    "autoUpdateInterval": null,
+    "url": "https://github.com/Keywos/rule/tree/main/Scripting/BatteryHealth",
+    "hash": ""
+  },
+  "localizedNames": {
+    "zh": "",
+    "ja": "",
+    "en": "",
+    "ru": "",
+    "fr": "",
+    "it": "",
+    "pt": "",
+    "de": "",
+    "es": ""
+  },
+  "icon": "square.2.layers.3d.fill"
+}
