@@ -36,10 +36,32 @@ export function buildSystemDirDefs(): Array<{ name: string; getPath: () => strin
   return defs
 }
 /**
+ * 判断字符串是否为“正常解码出的文本”。
+ * 用于拦截二进制文件 / 解码失败产生的乱码：
+ * - U+FFFD 替换字符：toDecodedString 等 API 对无法解码的字节统一替换为 U+FFFD
+ * - NUL 字节（\u0000）：典型二进制标志
+ * - 异常控制字符占比过高（排除 \t \n \r）：典型二进制标志
+ * 空字符串视为可接受（空文件场景），由调用方结合文件大小判断。
+ */
+export function isPlausibleText(text: string | null | undefined): boolean {
+  if (text == null) return false
+  if (text.length === 0) return true
+  if (text.includes("\uFFFD")) return false
+  if (text.includes("\u0000")) return false
+  let controlCount = 0
+  for (let i = 0; i < text.length; i++) {
+    const code = text.charCodeAt(i)
+    if ((code < 0x20 && code !== 0x09 && code !== 0x0a && code !== 0x0d) || code === 0x7f) {
+      controlCount++
+    }
+  }
+  return controlCount / text.length <= 0.02
+}
+
+/**
  * 读取文本文件（统一入口）：
  * - 先 ensureLocalFile（iCloud 按需下载）
- * - 用 isBinaryFile 跳过二进制
- * - 多编码回退
+ * - 多编码回退（每个候选都经过 isPlausibleText 过滤，拒绝二进制/解码失败乱码）
  * - maxBytes：在任何完整读取前按文件元数据拒绝超限文件（适合搜索索引）
  */
 export async function readTextFile(filePath: string, maxBytes?: number): Promise<string | null> {
@@ -64,7 +86,7 @@ export async function readTextFile(filePath: string, maxBytes?: number): Promise
     // 1. 默认编码（通常会自动识别 UTF-8/BOM）
     try {
       const text = await FileManager.readAsString(filePath)
-      if (isUsableText(text)) return text
+      if (isUsableText(text) && isPlausibleText(text)) return text
     } catch { }
 
     // 2. 多编码回退，避免 GBK/UTF-16/Shift-JIS 等文件打开为空白
@@ -87,7 +109,7 @@ export async function readTextFile(filePath: string, maxBytes?: number): Promise
         const text = await FileManager.readAsString(filePath, enc)
         console.log(enc)
 
-        if (isUsableText(text)) return text
+        if (isUsableText(text) && isPlausibleText(text)) return text
       } catch { }
     }
 
@@ -99,13 +121,14 @@ export async function readTextFile(filePath: string, maxBytes?: number): Promise
       for (const enc of encodings) {
         try {
           const text = data.toRawString(enc as any)
-          if (text != null && (text.length > 0 || dataSize === 0)) return text
+          if (text != null && (text.length > 0 || dataSize === 0) && isPlausibleText(text)) return text
         } catch { }
       }
       if (dataSize > 0) {
         try {
+          // toDecodedString 会把坏字节替换成 U+FFFD，二进制文件解码后必然含替换字符 → 拒绝
           const decoded = data.toDecodedString("utf8")
-          if (decoded != null) return decoded
+          if (decoded != null && isPlausibleText(decoded)) return decoded
         } catch { }
       }
     } catch { }

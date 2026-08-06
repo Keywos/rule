@@ -7,7 +7,7 @@
 
 import { useColorScheme, Navigation, NavigationStack, VStack, HStack, Text, Button, Divider, Image, useState, useEffect, useMemo, useRef, Editor, Path, EmptyView, Menu, ScrollView, Markdown } from "scripting"
 import { getEditorExt } from "../manager/editorConfig"
-import { getFileIcon, fmtSize, langMap, ensureLocalFile } from "../manager/utils"
+import { getFileIcon, fmtSize, langMap, ensureLocalFile, isPlausibleText } from "../manager/utils"
 import { minifyJSPreserveNames, minifyJSPreserveNamesAndComments, minifyJSAggressive } from "../manager/jsFormatter"
 import { minifyHTML } from "../manager/htmlFormatter"
 import { formatWithPrettier } from "../manager/prettierFormatter"
@@ -95,6 +95,9 @@ export function EditorPage(props: EditorPageProps) {
   // 只有确认内容是成功读取/用户明确编辑后，才允许写回文件。
   // 防止编码切换解码失败得到空字符串，然后自动保存/关闭保存把原文件清空。
   const [saveEnabled, setSaveEnabled] = useState(mode === "preview" ? false : !!(initialContent && initialContent.length > 0))
+  // 文件未能解码为文本（二进制/未知编码）时置 true：整个会话禁用保存，
+  // 切换编码成功重新加载后自动恢复。
+  const [decodeFailed, setDecodeFailed] = useState(false)
   const [loadTrigger, setLoadTrigger] = useState(0)
 
   const handleEncodingChange = async (newEncoding: string) => {
@@ -267,7 +270,11 @@ export function EditorPage(props: EditorPageProps) {
           const stat = await FileManager.stat(path)
           fileSize = typeof stat.size === "number" ? stat.size : -1
         } catch { }
-        const isUsableText = (value: string | null | undefined) => value != null && (value.length > 0 || fileSize === 0)
+        const isUsableText = (value: string | null | undefined) => {
+          // 只有明确知道文件大小为 0 时才接受空字符串；stat 失败/未知大小不能把空字符串当成功。
+          // 同时用 isPlausibleText 拦截二进制/解码失败产生的乱码（替换字符、NUL、控制字符）。
+          return value != null && isPlausibleText(value) && (value.length > 0 || fileSize === 0)
+        }
 
         const fallbackEncodings = ["utf-8", "utf-16", "gb18030", "gbk", "ascii"] as const
         for (const enc of fallbackEncodings) {
@@ -280,6 +287,7 @@ export function EditorPage(props: EditorPageProps) {
                 setActualEncoding(enc)
                 setEncoding(enc)
                 setSaveEnabled(true)
+                setDecodeFailed(false)
                 setLoadError(false)
                 setReady(true)
               }
@@ -295,12 +303,13 @@ export function EditorPage(props: EditorPageProps) {
           for (const enc of fallbackEncodings) {
             try {
               const alt = data.toRawString(enc as any)
-              if (alt != null && (alt.length > 0 || dataSize === 0)) {
+              if (alt != null && (alt.length > 0 || dataSize === 0) && isPlausibleText(alt)) {
                 if (!cancelled) {
                   setContent(alt)
                   setActualEncoding(enc)
                   setEncoding(enc)
                   setSaveEnabled(true)
+                  setDecodeFailed(false)
                   setLoadError(false)
                   setReady(true)
                 }
@@ -310,37 +319,44 @@ export function EditorPage(props: EditorPageProps) {
           }
           if (dataSize > 0) {
             try {
+              // toDecodedString 会把坏字节替换成 U+FFFD，二进制文件解码后必然含替换字符 → 拒绝
               const decoded = data.toDecodedString("utf8")
-              if (!cancelled) {
-                setContent(decoded)
-                setEncoding("utf-8")
-                setSaveEnabled(true)
-                setLoadError(false)
-                setReady(true)
+              if (decoded != null && isPlausibleText(decoded)) {
+                if (!cancelled) {
+                  setContent(decoded)
+                  setEncoding("utf-8")
+                  setSaveEnabled(true)
+                  setDecodeFailed(false)
+                  setLoadError(false)
+                  setReady(true)
+                }
+                return
               }
-              return
             } catch { }
           }
         } catch { }
 
         if (!cancelled) {
-          // 所有读取方式都失败时，优先使用入口传入的非空内容；再不行才空内容打开。
-          // 如果只能空内容打开，禁止保存，避免把原文件覆盖成空文件。
-          const fallbackContent = initialContent && initialContent.length > 0 ? initialContent : ""
+          // 所有读取方式都失败（二进制/无法解码）时：
+          // - 入口传入的内容若本身是合法文本才允许作为兜底（readTextFile 已过滤乱码）；
+          // - 否则以空内容打开并标记 decodeFailed：编辑器禁用保存，避免把乱码/空白覆盖回原文件。
+          const fallbackContent = initialContent && initialContent.length > 0 && isPlausibleText(initialContent) ? initialContent : ""
           setContent(fallbackContent)
           setEncoding("utf-8")
           setSaveEnabled(fallbackContent.length > 0)
+          setDecodeFailed(fallbackContent.length === 0)
           setLoadError(false)
           setReady(true)
         }
       } catch {
         if (!cancelled) {
           // 读取异常也不要阻止打开编辑器，优先使用入口内容兜底。
-          // 如果只能空内容打开，禁止保存，避免把原文件覆盖成空文件。
-          const fallbackContent = initialContent && initialContent.length > 0 ? initialContent : ""
+          // 兜底内容不是合法文本时禁用保存，避免把乱码/空白覆盖原文件。
+          const fallbackContent = initialContent && initialContent.length > 0 && isPlausibleText(initialContent) ? initialContent : ""
           setContent(fallbackContent)
           setEncoding("utf-8")
           setSaveEnabled(fallbackContent.length > 0)
+          setDecodeFailed(fallbackContent.length === 0)
           setLoadError(false)
           setReady(true)
         }
@@ -370,12 +386,20 @@ export function EditorPage(props: EditorPageProps) {
   const latestContentRef = useRef(initialContent ?? "")
   const saveEnabledRef = useRef(saveEnabled)
   const actualEncodingRef = useRef(actualEncoding)
+  const decodeFailedRef = useRef(decodeFailed)
   const closingRef = useRef(false)
   controllerRef.current = controller
   saveEnabledRef.current = saveEnabled
   actualEncodingRef.current = actualEncoding
+  decodeFailedRef.current = decodeFailed
 
   const enqueueSave = async (contentToSave: string, encodingToSave: string): Promise<void> => {
+    // 解码失败（二进制/未知编码）时绝不写回原文件，防止把乱码/错误文本覆盖进去。
+    // 切换编码成功重新加载后 decodeFailed 会复位，保存自动恢复。
+    if (decodeFailedRef.current) {
+      console.log("跳过保存：文件未能成功解码为文本")
+      return
+    }
     const write = async () => {
       await FileManager.writeAsString(path, contentToSave, encodingToSave as any)
     }
@@ -407,6 +431,9 @@ export function EditorPage(props: EditorPageProps) {
     latestContentRef.current = controller.content
     controller.onContentChanged = (newContent: string) => {
       latestContentRef.current = newContent
+      // 解码失败（二进制/未知编码）：不自动保存，用户输入也不会重新启用保存；
+      // 只能通过“编码”菜单切换编码成功重新加载后恢复。
+      if (decodeFailedRef.current) return
       // 如果当前内容来自“解码失败后的空白兜底”，不要把空白自动写回原文件。
       // 用户真正输入了内容后再重新允许保存。
       if (!saveEnabledRef.current && newContent.length === 0) return
@@ -537,6 +564,22 @@ export function EditorPage(props: EditorPageProps) {
     )
   }
 
+  // ─── 解码失败提示条（二进制/未知编码时禁用保存） ───
+  const renderDecodeFailedBanner = () => {
+    if (!decodeFailed) return <EmptyView />
+    return (
+      <VStack spacing={4} alignment="leading" padding={{ vertical: 8, horizontal: 12 }}>
+        <HStack spacing={6} alignment="center">
+          <Image systemName="exclamationmark.triangle.fill" foregroundStyle="systemOrange" frame={{ width: 16, height: 16 }} />
+          <Text font="footnote" fontWeight="semibold">无法解码为文本</Text>
+        </HStack>
+        <Text font="footnote" foregroundStyle="secondaryLabel">
+          该文件可能是二进制文件或使用了未知编码，已禁用保存（防止乱码覆盖原文件）。可在“编码”菜单切换编码后重新加载。
+        </Text>
+      </VStack>
+    )
+  }
+
   // ─── 各模式渲染 ───
   if (mode === "present") {
     return (
@@ -596,6 +639,7 @@ export function EditorPage(props: EditorPageProps) {
             ],
           }}
         >
+          {renderDecodeFailedBanner()}
           <Divider />
           <Editor
             background={bgColor}
@@ -669,6 +713,7 @@ export function EditorPage(props: EditorPageProps) {
           ],
         }}
       >
+        {renderDecodeFailedBanner()}
         <Divider />
 
         <Editor
