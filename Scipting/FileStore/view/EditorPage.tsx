@@ -12,6 +12,7 @@ import { minifyJSPreserveNames, minifyJSPreserveNamesAndComments, minifyJSAggres
 import { minifyHTML } from "../manager/htmlFormatter"
 import { formatWithPrettier } from "../manager/prettierFormatter"
 import { showToast } from "../manager/ToastManager"
+import { HexPreviewPage } from "./HexPreviewPage"
 
 function MarkdownPreview({ content, fileName }: { content: string; fileName: string }) {
   const dismiss = Navigation.useDismiss()
@@ -255,6 +256,20 @@ export function EditorPage(props: EditorPageProps) {
       element: <MarkdownPreview content={controllerRef.current.content} fileName={fileName} />,
       modalPresentationStyle: "fullScreen",
     })
+  }
+
+  // 二进制 Hex 预览：直接读原始字节转十六进制转储，独立只读页面，不经过解码也不写回。
+  const handleHexPreview = async () => {
+    try {
+      await ensureLocalFile(path)
+      await Navigation.present({
+        element: <HexPreviewPage path={path} fileName={fileName} fileSize={propFileSize} />,
+        modalPresentationStyle: "fullScreen",
+      })
+    } catch (e) {
+      console.log("二进制预览失败:", e)
+      showToast("二进制预览失败")
+    }
   }
 
   useEffect(() => {
@@ -602,6 +617,8 @@ export function EditorPage(props: EditorPageProps) {
                       action={() => handleEncodingChange(enc.value)}
                     />
                   ))}
+                  <Divider />
+                  <Button title="二进制预览（Hex）" systemImage="number" action={handleHexPreview} />
                 </Menu>
                 <Divider />
                 <Button
@@ -676,6 +693,8 @@ export function EditorPage(props: EditorPageProps) {
                     action={() => handleEncodingChange(enc.value)}
                   />
                 ))}
+                <Divider />
+                <Button title="二进制预览（Hex）" systemImage="number" action={handleHexPreview} />
               </Menu>
               <Divider />
               <Button
