@@ -136,7 +136,7 @@ export async function readTextFile(filePath: string, maxBytes?: number): Promise
 
   return null
 }
-/** 使用系统分享 / Open in… 菜单分享文件（DocumentInteraction） */
+/** 长按 菜单 使用系统分享 / Open in… 菜单分享文件（DocumentInteraction） */
 export async function shareFilePath(filePath: string, fileName: string) {
   try {
     const tmpPath = Path.join(FileManager.temporaryDirectory, fileName)
