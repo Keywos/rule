@@ -139,12 +139,6 @@ export async function readTextFile(filePath: string, maxBytes?: number): Promise
 /** 使用系统分享 / Open in… 菜单分享文件（DocumentInteraction） */
 export async function shareFilePath(filePath: string, fileName: string) {
   try {
-    // 优先直接对原路径弹出菜单，避免多余拷贝
-    try {
-      await DocumentInteraction.optionsMenu(filePath)
-      return
-    } catch { }
-    // 安全域 / 无法直接分享时，复制到临时目录再分享
     const tmpPath = Path.join(FileManager.temporaryDirectory, fileName)
     if (await FileManager.exists(tmpPath)) {
       await FileManager.remove(tmpPath)
