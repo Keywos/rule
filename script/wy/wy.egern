@@ -1,0 +1,82 @@
+name: 去广告 - 网易云音乐
+description: 全面净化
+open_url: ''
+author: '@key'
+homepage: https://github.com/Keywos/rule/blob/main/script/wy
+icon: https://raw.githubusercontent.com/Keywos/rule/main/tv/app/144px/Netease.png
+dns: {}
+rules:
+- domain:
+    match: iadmusicmat.music.126.net
+    policy: REJECT
+- domain:
+    match: iadmat.nosdn.127.net
+    policy: REJECT
+- domain:
+    match: iadmatapk.nosdn.127.net
+    policy: REJECT
+- domain:
+    match: httpdns.n.netease.com
+    policy: REJECT
+- domain:
+    match: httpdns.music.163.com
+    policy: REJECT
+url_rewrites:
+- match: ^https?:\/\/(ipv4|interface\d?)\.music\.163.com\/x?e?api\/ad
+  location: http://reject-dict/
+  status_code: 200
+- match: ^https?:\/\/interface\d?\.music\.163\.com\/(x|w)?e?api\/(side-bar\/mini-program\/music-service\/account|delivery\/(batch-deliver|deliver)|moment\/tab\/info\/get|yunbei\/account\/entrance\/get)
+  location: http://reject-dict/
+  status_code: 200
+- match: ^https?:\/\/interface\d?\.music\.163\.com\/eapi\/(resource\/comments?\/musiciansaid|community\/friends\/fans-group\/artist\/group\/get|user\/sub\/artist|music\/songshare\/text\/recommend\/get|mine\/applet\/redpoint|resniche\/position\/play\/new\/get)
+  location: http://reject-dict/
+  status_code: 200
+- match: ^https?:\/\/interface\d?\.music\.163.com\/w?e?api\/(search\/(chart|default|rcmd\/keyword|specialkeyword)|resource-exposure\/|activity\/bonus\/playpage\/time\/query)
+  location: http://reject-dict/
+  status_code: 200
+- match: ^https?:\/\/interface\d?\.music\.163.com\/eapi\/(mlivestream\/entrance\/playpage|link\/(position\/show\/strategy|scene\/show)|ios\/version|v\d\/content\/exposure\/comment\/banner)
+  location: http://reject-dict/
+  status_code: 200
+scriptings:
+- http_response:
+    name: ne_mian
+    match: ^https?:\/\/(ipv4|interface\d?)\.music\.163\.com\/x?e?api\/(batch|v\d\/resource\/comment\/floor\/get)
+    script_url: https://raw.githubusercontent.com/Keywos/rule/main/script/wy/js/egern.js
+    timeout: 20
+    body_required: true
+    binary_body: true
+- http_response:
+    name: ne_home
+    match: ^https?:\/\/(ipv4|interface\d?)\.music\.163\.com\/x?e?api\/(homepage\/block\/page|link\/page\/rcmd\/(resource\/show|block\/resource\/multi\/refresh))
+    script_url: https://raw.githubusercontent.com/Keywos/rule/main/script/wy/js/egern.js
+    timeout: 20
+    body_required: true
+    binary_body: true
+- http_response:
+    name: ne_fx
+    match: ^https?:\/\/(ipv4|interface\d?)\.music\.163\.com\/x?e?api\/link\/page\/discovery\/resource\/show
+    script_url: https://raw.githubusercontent.com/Keywos/rule/main/script/wy/js/egern.js
+    timeout: 20
+    body_required: true
+    binary_body: true
+- http_response:
+    name: ne_mybarad
+    match: ^https?:\/\/(ipv4|interface\d?)\.music\.163\.com\/x?e?api\/link\/position\/show\/resource
+    script_url: https://raw.githubusercontent.com/Keywos/rule/main/script/wy/js/egern.js
+    timeout: 20
+    body_required: true
+    binary_body: true
+- http_response:
+    name: ne_foll
+    match: ^https?:\/\/(ipv4|interface\d?)\.music\.163\.com\/x?e?api\/user\/follow\/users\/mixed\/get
+    script_url: https://raw.githubusercontent.com/Keywos/rule/main/script/wy/js/egern.js
+    timeout: 20
+    body_required: true
+    binary_body: true
+mitm:
+  hostnames:
+    includes:
+    - interface.music.163.com
+    - interface3.music.163.com
+    - ipv4.music.163.com
+    - interface9.music.163.com
