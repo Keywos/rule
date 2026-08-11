@@ -2411,16 +2411,17 @@ function GeneralBrowser({
     <Group>
       <Divider />
       <Button title="从相册导入" systemImage="photo.on.rectangle" action={handleImportFromPhotos} />
+   {/*     <Button title="实况照片" systemImage="livephoto" action={handleImportLivePhotosOnly} /> */}
       <Button title="从文件导入" systemImage="doc.badge.plus" action={handleImportFromFiles} />
       <Divider />
-      <Menu title="更多导入" systemImage="ellipsis">
+      {/* <Menu title="更多导入" systemImage="ellipsis">
         <Button title="图片" systemImage="photo" action={handleImportImages} />
         <Button title="视频" systemImage="video" action={handleImportVideos} />
         <Button title="实况照片" systemImage="livephoto" action={handleImportLivePhotosOnly} />
         <Divider />
         <Button title="拍照" systemImage="camera.viewfinder" action={handleTakePhoto} />
         <Button title="录像" systemImage="video.circle" action={handleRecordVideo} />
-      </Menu>
+      </Menu> */}
     </Group>
   );
 
@@ -2989,9 +2990,11 @@ function GeneralBrowser({
                         }
                         otherItems={
                           <Group>
+                            
+            <ControlGroup>
                             <Button title="新建文件" systemImage="doc.text" action={handleCreateNewFile} />
                             <Button title="新建文件夹" systemImage="folder.badge.plus" action={() => handleCreateFile("folder")} />
-                            <Button title="快速新建JS" systemImage="chevron.left.forwardslash.chevron.right" action={() => handleCreateFile("js", true)} />
+                            <Button title="新建 JS" systemImage="chevron.left.forwardslash.chevron.right" action={() => handleCreateFile("js", true)} />
                             {isHomePage ? (
                               importToolbarItems
                             ) : (
@@ -3000,6 +3003,8 @@ function GeneralBrowser({
                                 {toolbarOtherItems ?? <EmptyView />}
                               </>
                             )}
+                
+            </ControlGroup>
                           </Group>
                         }
                         bottomItem={

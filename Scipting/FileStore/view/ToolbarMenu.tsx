@@ -73,6 +73,16 @@ export function ToolbarMenu<F extends string = string>({ selectMode, sort, filte
 
   return (
     <Menu title="" systemImage="ellipsis">
+      {/* ─── 顶部菜单项（新建/导入等） ─── */}
+      {otherItems ? (
+        <>
+          {otherItems}
+          <Divider />
+        </>
+      ) : (
+        <EmptyView />
+      )}
+
       {/* ─── 选择模式 ─── */}
       {hasSelectMode ? (
         <>
@@ -134,16 +144,6 @@ export function ToolbarMenu<F extends string = string>({ selectMode, sort, filte
               />
             );
           })}
-        </>
-      ) : (
-        <EmptyView />
-      )}
-
-      {/* ─── 底部菜单项（如"新建文件"） ─── */}
-      {otherItems ? (
-        <>
-          <Divider />
-          {otherItems}
         </>
       ) : (
         <EmptyView />
