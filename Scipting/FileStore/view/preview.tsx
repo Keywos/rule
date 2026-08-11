@@ -97,6 +97,7 @@ export function HomeView() {
   return (
     <ZStack alignment="bottomTrailing" frame={{ maxWidth: "infinity", maxHeight: "infinity" }}>
       <TabView
+        //tabBarMinimizeBehavior={"onScrollDown"}
         tabBarMinimizeBehavior={settings.tabBarMinimizeOnScroll ? "onScrollDown" : "never"}
         tabIndex={tabIndex}
         onTabIndexChanged={handleTabChange}

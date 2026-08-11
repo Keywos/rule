@@ -57,7 +57,7 @@ import { ArchiveBrowserPage, FileNavigationDest } from "./MediaViewer";
 import { ToolbarMenu } from "./ToolbarMenu";
 import { FileListItem, FileInfoDialog } from "./FileListItem";
 import { filterFiles, sortFilesByOrder, DEFAULT_SORT_ORDER, DEFAULT_FILTER_TYPE } from "../manager/sortFilter";
-import { isLivePhotoFile, unpackLivePhoto } from "../manager/LivePhotoPacker";
+import { isLivePhotoFile, unpackLivePhoto, packLivePhoto } from "../manager/LivePhotoPacker";
 import { resolveOpenerForFile } from "./DefaultOpenerPicker";
 import { getDefaultOpener, setDefaultOpener, OPENER_OPTIONS } from "../manager/DefaultOpener";
 import { AppSettings, saveSettings, readSettings } from "../manager/Settings";
@@ -567,6 +567,170 @@ function FileRowLink({
           <Group>
             {isLivePhotoFile(file.name) ? (
               <>
+                <Button
+                  title="替换图片"
+                  systemImage="photo.badge.arrow.down"
+                  action={async () => {
+                    let imagePath: string | null = null;
+                    let taggedImagePath: string | null = null;
+                    try {
+                      const results = await Photos.pick({ filter: PHPickerFilter.images(), limit: 1 });
+                      const result = results?.[0];
+                      if (!result) return;
+                      imagePath = await result.imagePath();
+                      if (!imagePath) {
+                        showToast("无法读取所选图片");
+                        return;
+                      }
+                      const imageData = await FileManager.readAsData(imagePath);
+                      const liveData = await FileManager.readAsData(file.path);
+                      if (!imageData || !liveData) {
+                        showToast("替换图片失败");
+                        return;
+                      }
+                      const unpacked = unpackLivePhoto(liveData);
+                      if (!unpacked) {
+                        showToast("不是有效的 live 文件");
+                        return;
+                      }
+
+                      // 新图片必须带上原 Live Photo 的 asset identifier，才能继续
+                      // 与原视频配对。直接替换图片二进制会导致 LivePhoto.from 加载失败。
+                      const originalMeta = await ImageIO.readMetadata(unpacked.imageData).catch(() => null);
+                      const assetIdentifier = originalMeta?.makerApple?.["17"];
+                      if (typeof assetIdentifier !== "string" || !assetIdentifier) {
+                        showToast("原 live 缺少配对信息，无法替换图片");
+                        return;
+                      }
+
+                      taggedImagePath = Path.join(FileManager.temporaryDirectory, `_live_replace_${Date.now()}.heic`);
+                      await ImageIO.writeImage({
+                        source: imageData,
+                        to: taggedImagePath,
+                        format: "heic",
+                        metadata: { makerApple: { "17": assetIdentifier } },
+                      });
+                      const taggedImageData = await FileManager.readAsData(taggedImagePath);
+                      if (!taggedImageData) {
+                        showToast("无法生成配对图片");
+                        return;
+                      }
+
+                      const packed = packLivePhoto(taggedImageData, "heic", unpacked.videoData);
+                      await FileManager.writeAsData(file.path, packed);
+                      invalidateDirectoryCache(dirPath || Path.dirname(file.path));
+                      onRefresh();
+                      showToast("已替换图片");
+                    } catch (e) {
+                      console.log("替换图片失败:", e);
+                      showToast("替换图片失败");
+                    } finally {
+                      if (imagePath) {
+                        try {
+                          await FileManager.remove(imagePath);
+                        } catch {}
+                      }
+                      if (taggedImagePath) {
+                        try {
+                          await FileManager.remove(taggedImagePath);
+                        } catch {}
+                      }
+                    }
+                  }}
+                />
+                <Button
+                  title="替换视频"
+                  systemImage="video.badge.plus"
+                  action={async () => {
+                    let videoPath: string | null = null;
+                    const generatedPairPaths: string[] = [];
+                    try {
+                      const results = await Photos.pick({ filter: PHPickerFilter.videos(), limit: 1 });
+                      const result = results?.[0];
+                      if (!result) return;
+                      videoPath = await result.videoPath();
+                      if (!videoPath) {
+                        showToast("无法读取所选视频");
+                        return;
+                      }
+                      const videoData = await FileManager.readAsData(videoPath);
+                      const liveData = await FileManager.readAsData(file.path);
+                      if (!videoData || !liveData) {
+                        showToast("替换视频失败");
+                        return;
+                      }
+                      const unpacked = unpackLivePhoto(liveData);
+                      if (!unpacked) {
+                        showToast("不是有效的 live 文件");
+                        return;
+                      }
+
+                      // 普通相册视频不一定带 Live Photo 所需的配对元数据。
+                      // 先用系统 API 生成标准的 Live Photo 配对视频，避免直接
+                      // 将普通 MP4/MOV 塞入 .live 后无法被 LivePhoto.from 加载。
+                      const originalMeta = await ImageIO.readMetadata(unpacked.imageData).catch(() => null);
+                      const originalAssetIdentifier = originalMeta?.makerApple?.["17"];
+                      const pair = await LivePhoto.createFromVideo({
+                        videoPath,
+                        assetIdentifier: typeof originalAssetIdentifier === "string" ? originalAssetIdentifier : undefined,
+                        maxDuration: 10,
+                        imageFormat: "heic",
+                      });
+                      generatedPairPaths.push(pair.imagePath, pair.videoPath);
+                      const pairedVideoData = await FileManager.readAsData(pair.videoPath);
+                      if (!pairedVideoData) {
+                        showToast("无法生成 Live Photo 视频");
+                        return;
+                      }
+
+                      // 原图片已有配对标识时保留原图片；没有标识时使用系统生成的
+                      // 配套静态图，否则图片和视频的标识无法匹配。
+                      let imageData = unpacked.imageData;
+                      if (typeof originalAssetIdentifier !== "string") {
+                        const generatedImageData = await FileManager.readAsData(pair.imagePath);
+                        if (generatedImageData) imageData = generatedImageData;
+                      }
+                      const packed = packLivePhoto(imageData, typeof originalAssetIdentifier === "string" ? unpacked.imageExt : "heic", pairedVideoData);
+                      await FileManager.writeAsData(file.path, packed);
+                      invalidateDirectoryCache(dirPath || Path.dirname(file.path));
+                      onRefresh();
+                      showToast("已替换视频");
+                    } catch (e) {
+                      console.log("替换视频失败:", e);
+                      showToast("替换视频失败");
+                    } finally {
+                      if (videoPath) {
+                        try {
+                          await FileManager.remove(videoPath);
+                        } catch {}
+                      }
+                      for (const generatedPath of generatedPairPaths) {
+                        try {
+                          await FileManager.remove(generatedPath);
+                        } catch {}
+                      }
+                    }
+                  }}
+                />
+                <Button
+                  title="提取图片"
+                  systemImage="photo"
+                  action={async () => {
+                    try {
+                      const data = await FileManager.readAsData(file.path);
+                      if (data) {
+                        const unpacked = unpackLivePhoto(data);
+                        if (unpacked) {
+                          const imgPath = Path.join(Path.dirname(file.path), Path.basename(file.name, ".live") + "." + unpacked.imageExt);
+                          await FileManager.writeAsData(imgPath, unpacked.imageData);
+                          onRefresh();
+                        }
+                      }
+                    } catch (e) {
+                      console.log("提取图片失败:", e);
+                    }
+                  }}
+                />
                 <Button
                   title="提取视频"
                   systemImage="video"

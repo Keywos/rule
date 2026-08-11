@@ -2,6 +2,7 @@ import { Button, Group, Script, ToolbarItem, ZStack, useState } from "scripting"
 import { Bookmark, getAllBookmarks } from "./manager/BookmarkManager";
 import { readSettings } from "./manager/Settings";
 import { DualBrowserPage } from "./view/DualBrowserPage";
+import { ToastOverlay } from "./view/ToastOverlay";
 
 export default function HomeScreenDefaultUi() {
   const [settings, setSettings] = useState(() => readSettings());
@@ -30,6 +31,7 @@ export default function HomeScreenDefaultUi() {
           }
         />
       </Group>
+      <ToastOverlay />
     </ZStack>
   );
 }
