@@ -17,9 +17,9 @@ export async function ensureLocalFile(filePath: string): Promise<boolean> {
 
 export function buildSystemDirDefs(): Array<{ name: string; getPath: () => string; icon: string; tag: string }> {
   const defs: Array<{ name: string; getPath: () => string; icon: string; tag: string }> = [
-    { name: "iPhone/Scripting", getPath: () => FileManager.documentsDirectory, icon: "paperclip", tag: "本机" },
+   // { name: "iPhone/Scripting", getPath: () => FileManager.documentsDirectory, icon: "paperclip", tag: "本机" },
     {
-      name: "iPhone/Scripting/File Store",
+      name: "File Store",
       getPath: () => Path.join(FileManager.documentsDirectory, "File Store"),
       icon: "book.pages.fill",
       tag: "本机",

@@ -20,6 +20,7 @@ import {
   Path,
   useObservable,
   Group,
+  ControlGroup,
   Spacer,
   Toolbar,
   ToolbarItem,
@@ -298,7 +299,12 @@ function FileRowLink({
         contextMenu={{
           menuItems: (
             <Group>
-              {!file.isDirectory && (file.extension.toLowerCase() === '.html' || file.extension.toLowerCase() === '.htm' || file.extension.toLowerCase() === '.md') ? (
+            <ControlGroup>
+              <Button title="拷贝" systemImage="doc.on.doc" action={async () => { await onCopyPath?.(file.path); }} />
+              <Button title="重命名" systemImage="pencil" action={handleRename} />
+              <Button title="分享" systemImage="square.and.arrow.up" action={handleShare} />
+            </ControlGroup>
+                          {!file.isDirectory && (file.extension.toLowerCase() === '.html' || file.extension.toLowerCase() === '.htm' || file.extension.toLowerCase() === '.md') ? (
                 <>
                   {file.extension.toLowerCase() === '.md' ? (
                     <Button
@@ -332,15 +338,6 @@ function FileRowLink({
               ) : (
                 <EmptyView />
               )}
-              <Button title="重命名" systemImage="pencil" action={handleRename} />
-              <Button
-                title="拷贝"
-                systemImage="doc.on.doc"
-                action={async () => {
-                  await onCopyPath?.(file.path);
-                }}
-              />
-              <Button title="分享" systemImage="square.and.arrow.up" action={handleShare} />
               {copyToDirTitle && onCopyToDir ? (
                 <Button
                   title={copyToDirTitle}
@@ -565,7 +562,12 @@ function FileRowLink({
       contextMenu={{
         menuItems: (
           <Group>
-            {isLivePhotoFile(file.name) ? (
+                         <ControlGroup>
+               <Button title="拷贝" systemImage="doc.on.doc" action={async () => { await onCopyPath?.(file.path); }} />
+               <Button title="重命名" systemImage="pencil" action={handleRename} />
+               <Button title="分享" systemImage="square.and.arrow.up" action={handleShare} />
+             </ControlGroup>
+             {isLivePhotoFile(file.name) ? (
               <>
                 <Button
                   title="替换图片"
@@ -905,15 +907,7 @@ function FileRowLink({
                 }}
               />
             )}
-            {/* 复制文件路径到剪贴板 */}
-            <Button
-              title="拷贝"
-              systemImage="doc.on.doc"
-              action={async () => {
-                await onCopyPath?.(file.path);
-              }}
-            />
-            <Button title="分享" systemImage="square.and.arrow.up" action={handleShare} />
+            {/*  */}
             {copyToDirTitle && onCopyToDir ? (
               <Button
                 title={copyToDirTitle}
@@ -2779,11 +2773,13 @@ function GeneralBrowser({
                           </Text>
                         }
                       >
-                        <Button title="访问 • 输入路径" systemImage="pencil.and.outline" action={handleInputPath} />
+                        <ControlGroup>
+                          <Button title="前往目录" systemImage="pencil.and.outline" action={handleInputPath} />
+                          <Button title="添加收藏" systemImage="star" action={handleAddBookmark} />
+                          <Button title="管理收藏" systemImage="folder.badge.gearshape" action={handleManageBookmarks} />
+                        </ControlGroup>
                         <Button title="复制当前路径" systemImage="doc.on.clipboard" action={handleCopyPath} />
                         <Divider />
-                        <Button title="添加收藏目录" systemImage="star" action={handleAddBookmark} />
-                        <Button title="管理收藏" systemImage="folder.badge.gearshape" action={handleManageBookmarks} />
                         {systemDirEntries.length > 0 ? (
                           <>
                             <Divider />
