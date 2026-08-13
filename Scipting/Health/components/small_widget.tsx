@@ -25,7 +25,7 @@ function SparkLine({ data }: { data: number[] }) {
         <VStack
           key={index}
           frame={{ width: 3, height: value === 0 ? 3 : 6 + ((value - min) / range) * 16 }}
-          background={{ color: "white", opacity: index === data.length - 1 ? 1 : 0.45 }}
+          background={{ color: "white", opacity: 0.45 }}
           clipShape={{ type: "rect", cornerRadius: 1.5 }}
         />
       ))}
