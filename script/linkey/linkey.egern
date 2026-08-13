@@ -39,4 +39,4 @@ scriptings:
 mitm:
   hostnames:
     includes:
-    - *.linkey.com
+    - '*.linkey.com'
