@@ -1,35 +1,40 @@
 {
-  "author" : {
-    "email" : "",
-    "name" : "",
-    "homepage" : "https"
+  "intentInputTypes" : [],
+  "localizedNames" : {
+    "zh" : "",
+    "ja" : "",
+    "pt" : "",
+    "es" : "",
+    "fr" : "",
+    "en" : "",
+    "it" : "",
+    "de" : "",
+    "ru" : ""
   },
-  "localizedDescriptions" : {
-    "zh" : "展示HRV计算的出的压力状态。",
-    "en" : "It shows the pressure state calculated by HRV, as well as heart rate and steps, supporting two sizes: medium and small."
-  },
+  "name" : "Health",
+  "permissions" : null,
+  "color" : "rgba(238, 92, 98,1)",
+  "icon" : "bolt.heart.fill",
   "contributors" : [
 
   ],
-  "description" : "It shows the pressure state calculated by HRV, as well as heart rate and steps, supporting two sizes: medium and small.",
-  "intentInputTypes" : [
-
-  ],
-  "color" : "rgba(238, 92, 98,1)",
-  "version" : "1.0.0",
-  "permissions" : null,
-  "localizedNames" : {
-    "en" : "",
-    "zh" : ""
-  },
   "runInApp" : false,
+  "description" : null,
+  "version" : "1.0.1",
+  "iconImage" : null,
+  "entry" : "index.tsx",
+  "localizedDescriptions" : {
+    "zh" : "展示HRV等健康状态。",
+    "en" : ""
+  },
+  "author" : {
+    "homepage" : "https:\/\/github.com\/Keywos",
+    "email" : null,
+    "name" : "Keywos"
+  },
   "remoteResource" : {
     "hash" : "",
     "autoUpdateInterval" : null,
     "url" : "https:\/\/github.com\/Keywos\/rule\/tree\/main\/Scipting\/Health"
   }
-  "name" : "Health",
-  "icon" : "bolt.heart.fill",
-  "entry" : "index.tsx",
-  "iconImage" : ""
 }
