@@ -14,14 +14,14 @@ openUrl: |-
 http:
 
   mitm:
-    - "surgetool.com"
+    - "*.linkey.com"
 
   url-rewrite:
     - >-
-      ^https?:\/\/surgetool\.com\/?$ - reject
+      ^https?:\/\/.*\.linkey\.com\/?$ - reject
 
   script:
-    - match: ^https?:\/\/surgetool\.com\/api\/ping\/binary
+    - match: ^https?:\/\/.*\.linkey\.com\/api\/ping\/binary
       name: "binary_test"
       type: request
       require-body: true
@@ -29,14 +29,14 @@ http:
       binary-mode: true
       timeout: 50
 
-    - match: ^https?:\/\/surgetool\.com\/api\/test
+    - match: ^https?:\/\/.*\.linkey\.com\/api\/test
       name: "crypto_test"
       type: request
       require-body: true
       max-size: 2000000000
       timeout: 300
 
-    - match: ^https?:\/\/surgetool\.com\/api\/ping\?
+    - match: ^https?:\/\/.*\.linkey\.com\/api\/ping\?
       name: "SPing"
       type: request
       require-body: true

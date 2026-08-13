@@ -1,5 +1,5 @@
 ## Surge Tool 故障排查/规则统计
-- [Surge Tool](https://raw.githubusercontent.com/Keywos/rule/main/script/st/surgetool.sgmodule) 复制安装地址
+- [Surge Tool](https://raw.githubusercontent.com/Keywos/rule/main/script/st/linkey.sgmodule) 复制安装地址
 
 - 访问地址
 - http://trouble.shoot  

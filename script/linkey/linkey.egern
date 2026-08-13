@@ -4,13 +4,13 @@ open_url: https://github.com/Keywos/rule/blob/main/script/linkey
 icon: https://raw.githubusercontent.com/Keywos/rule/main/tv/app/144px/Netease.png
 dns: {}
 url_rewrites:
-- match: ^https?:\/\/surgetool\.com\/?$
+- match: ^https?:\/\/.*\.linkey\.com\/?$
   location: http://reject/
   status_code: 307
 scriptings:
 - http_request:
     name: binary_test
-    match: ^https?:\/\/surgetool\.com\/api\/ping\/binary
+    match: ^https?:\/\/.*\.linkey\.com\/api\/ping\/binary
     script_url: https://raw.githubusercontent.com/Keywos/rule/main/script/net_test/js/ntbm.js
     max_size: 2000000000
     timeout: 50
@@ -18,20 +18,20 @@ scriptings:
     binary_body: true
 - http_request:
     name: crypto_test
-    match: ^https?:\/\/surgetool\.com\/api\/test
+    match: ^https?:\/\/.*\.linkey\.com\/api\/test
     script_url: https://raw.githubusercontent.com/Keywos/rule/main/script/net_test/js/nt.js
     max_size: 2000000000
     timeout: 300
     body_required: true
 - http_request:
     name: SPing
-    match: ^https?:\/\/surgetool\.com\/api\/ping\?
+    match: ^https?:\/\/.*\.linkey\.com\/api\/ping\?
     script_url: https://raw.githubusercontent.com/Keywos/rule/main/script/api_ping/js/api_ping.js
     timeout: 200
     body_required: true
 - http_request:
     name: Sfetch
-    match: ^https?:\/\/surgetool\.com\/api\/fetch\?url=
+    match: ^https?:\/\/.*\.linkey\.com\/api\/fetch\?url=
     script_url: https://raw.githubusercontent.com/Keywos/rule/main/script/api_ping/js/Sfetch.js
     max_size: 2000000000
     timeout: 300
@@ -39,4 +39,4 @@ scriptings:
 mitm:
   hostnames:
     includes:
-    - surgetool.com
+    - *.linkey.com
