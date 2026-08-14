@@ -73,6 +73,7 @@ function openerIcon(prefix: OpenerPrefix): string {
     case 'livephoto:': return 'livephoto'
     case 'extract:': return 'archivebox'
     case 'extractfolder:': return 'folder.badge.gearshape'
+    case 'extract7z:': return 'lock.open'
     case 'share:': return 'square.and.arrow.up'
   }
 }
@@ -90,6 +91,7 @@ function openerDescription(prefix: OpenerPrefix): string {
     case 'livephoto:': return '使用 Live Photo 查看器打开'
     case 'extract:': return '解压归档文件到当前目录'
     case 'extractfolder:': return '解压到以文件名命名的子文件夹'
+    case 'extract7z:': return '解压到以文件名命名的子文件夹（含 7z 加密归档，自动弹密码框）'
     case 'share:': return '使用系统分享菜单打开'
   }
 }

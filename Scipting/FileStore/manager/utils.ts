@@ -931,54 +931,249 @@ function shellQuote(value: string): string {
   return `'${value.replace(/'/g, `'"'"'`)}'`
 }
 
-/** 解压到目标目录，避免覆盖已有文件。先解压到临时目录，再用 uniquePath 逐个移动 */
+/* ─── 7z 归档（AES-256 加密）─── */
+
+/** 判断是否为 .7z 归档文件 */
+export function isSevenZFile(filePath: string): boolean {
+  return Path.extname(filePath).toLowerCase() === ".7z"
+}
+
+/**
+ * 检测归档真实类型（不依赖扩展名）：
+ * - "7z"：魔数 37 7A BC AF 27 1C（"7z¼¯'"）
+ * - "zip"：PK（50 4B）开头，含 WinZip AES 加密 zip（文件头仍是 PK）
+ */
+async function detectArchiveKind(filePath: string): Promise<"7z" | "zip" | "other"> {
+  try {
+    const bytes = await FileManager.readAsBytes(filePath)
+    if (bytes.length >= 2) {
+      if (bytes[0] === 0x37 && bytes[1] === 0x7a) return "7z"
+      if (bytes[0] === 0x50 && bytes[1] === 0x4b) return "zip"
+    }
+  } catch { }
+  return "other"
+}
+
+/** 判断 7z 操作错误是否为“密码错误”（Archive API 对错误密码与损坏归档使用同一错误码） */
+function isSevenZPasswordError(e: unknown): boolean {
+  const err = e as { name?: string; code?: string }
+  return !!err && err.name === "ArchiveError" && err.code === "invalidPasswordOrCorruptArchive"
+}
+
+/** 弹出居中的密码输入框（obscureText 隐藏明文） */
+async function promptSevenZPassword(title: string, message: string, placeholder: string): Promise<string | null> {
+  return await Dialog.prompt({
+    title,
+    message,
+    obscureText: true,
+    placeholder,
+    cancelLabel: "取消",
+    confirmLabel: "确定",
+  })
+}
+
+/**
+ * 将 7z 归档解压到新目录 destDir（目录由 Archive API 创建，destDir 必须不存在）。
+ * 归档需要密码时自动弹出居中的密码输入框；密码错误会提示重试（最多 3 次尝试）。
+ * @returns true 解压成功；false 用户取消了输入密码
+ */
+export async function extractSevenZ(archivePath: string, destDir: string): Promise<boolean> {
+  let password: string | undefined
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      const task = Archive.extract7z({
+        sourcePath: archivePath,
+        destinationPath: destDir,
+        ...(password !== undefined ? { password } : {}),
+      })
+      await task.result
+      return true
+    } catch (e) {
+      if (!isSevenZPasswordError(e)) {
+        console.log("[extractSevenZ] 非密码错误:", JSON.stringify({ name: (e as any)?.name, code: (e as any)?.code, message: (e as any)?.message || String(e) }))
+        throw e
+      }
+      // 打印 7z 引擎的原始错误，便于判断它是否支持当前文件格式
+      console.log("[extractSevenZ] 尝试", attempt, "失败:", JSON.stringify({ name: (e as any)?.name, code: (e as any)?.code, message: (e as any)?.message || String(e) }))
+      if (attempt > 0) {
+        // 密码错误：extract7z 可能已创建目标目录并写入了部分内容，先清理再重试
+        try { await FileManager.remove(destDir) } catch { }
+      }
+      const input = await promptSevenZPassword(
+        attempt === 0 ? "输入解压密码" : "密码错误，请重试",
+        Path.basename(archivePath),
+        "该 7z 归档需要密码",
+      )
+      if (input == null) return false
+      password = input
+    }
+  }
+  // 多次密码错误：清理最后一次可能残留的半成品目录
+  try { await FileManager.remove(destDir) } catch { }
+  throw new Error("解压失败：密码错误次数过多")
+}
+
+/**
+ * 创建 AES-256 加密的 7z 归档（内容与文件名默认全部加密）。
+ * 压缩前弹出居中的密码输入框，并二次确认密码防止误输。
+ * @returns true 压缩成功；false 用户取消或密码无效
+ */
+export async function createSevenZArchive(sourcePath: string, destPath: string): Promise<boolean> {
+  const password = await promptSevenZPassword(
+    "7z 加密压缩 (AES-256)",
+    Path.basename(sourcePath),
+    "输入加密密码",
+  )
+  if (password == null) return false
+  if (!password) {
+    try { await Dialog.alert({ title: "密码不能为空", message: "加密压缩必须设置密码。" }) } catch { }
+    return false
+  }
+  const confirm = await promptSevenZPassword(
+    "确认密码",
+    Path.basename(sourcePath),
+    "再次输入加密密码",
+  )
+  if (confirm == null) return false
+  if (confirm !== password) {
+    try { await Dialog.alert({ title: "两次输入的密码不一致", message: "请重新发起压缩。" }) } catch { }
+    return false
+  }
+  const task = Archive.create7z({
+    sources: [{ path: sourcePath }],
+    destinationPath: destPath,
+    password,
+    encryptHeader: true,
+  })
+  await task.result
+  return true
+}
+
+/** 按归档格式解压到 destDir（zip/tar 等要求 destDir 已存在；7z 由 Archive API 自行创建）。返回 false 表示用户取消了 7z 密码输入 */
+async function extractArchiveInto(archivePath: string, destDir: string): Promise<boolean> {
+  const name = Path.basename(archivePath).toLowerCase()
+  const ext = Path.extname(archivePath).toLowerCase()
+
+  // 判断压缩格式并选择解压方式
+  const isTarGz = name.endsWith(".tar.gz")
+  const isTarBz2 = name.endsWith(".tar.bz2")
+  const isTarXz = name.endsWith(".tar.xz")
+  const isTgz = name.endsWith(".tgz")
+  const isTar = ext === ".tar" || isTarGz || isTarBz2 || isTarXz || isTgz
+
+  if (ext === ".zip") {
+    await FileManager.unzip(archivePath, destDir)
+  } else if (isSevenZFile(archivePath)) {
+    // 7z：使用 Archive API（支持 AES-256 加密归档，需要密码时自动弹出输入框）
+    return await extractSevenZ(archivePath, destDir)
+  } else if (isTar) {
+    const r = await Shell.run(`tar -xf ${shellQuote(archivePath)}`, { cwd: destDir })
+    if (r.exitCode !== 0) {
+      throw new Error(`tar 解压失败: ${r.output}`)
+    }
+  } else if (ext === ".gz" && !isTarGz) {
+    // 单独 .gz 文件（非 tar.gz）
+    const outName = name.slice(0, -3)
+    const r = await Shell.run(`gzip -d -c ${shellQuote(archivePath)} > ${shellQuote(Path.join(destDir, outName))}`)
+    if (r.exitCode !== 0) {
+      throw new Error(`gzip 解压失败: ${r.output}`)
+    }
+  } else if (ext === ".bz2" && !isTarBz2) {
+    const outName = name.slice(0, -4)
+    const r = await Shell.run(`bzip2 -d -c ${shellQuote(archivePath)} > ${shellQuote(Path.join(destDir, outName))}`)
+    if (r.exitCode !== 0) {
+      throw new Error(`bzip2 解压失败: ${r.output}`)
+    }
+  } else if (ext === ".xz" && !isTarXz) {
+    const outName = name.slice(0, -3)
+    const r = await Shell.run(`xz -d -c ${shellQuote(archivePath)} > ${shellQuote(Path.join(destDir, outName))}`)
+    if (r.exitCode !== 0) {
+      throw new Error(`xz 解压失败: ${r.output}`)
+    }
+  } else {
+    try {
+      await FileManager.unzip(archivePath, destDir)
+    } catch {
+      throw new Error(`不支持的压缩格式: ${ext}`)
+    }
+  }
+  return true
+}
+
+/**
+ * 解压到新目录（不经过临时目录）：非 7z 先创建 destDir 再直接解压；7z 由 Archive API 自行创建 destDir。
+ * 调用方需保证 destDir 唯一（重名时自行加后缀）。
+ * @returns true 解压成功；false 用户取消了 7z 密码输入
+ */
+export async function extractArchiveToNewDir(archivePath: string, destDir: string): Promise<boolean> {
+  if (!isSevenZFile(archivePath)) {
+    await FileManager.createDirectory(destDir, true)
+  }
+  return await extractArchiveInto(archivePath, destDir)
+}
+
+/**
+ * 智能解压到新目录（不依赖扩展名，只看文件真实内容）。长按「7z 解压」入口专用：
+ * - 7z 内容（无论后缀）：走 7z 引擎（Archive.extract7z），加密自动弹居中的密码输入框；
+ * - zip 内容：先原生无密码解压（普通 zip 直接成功）；若解出来是空（iOS 原生 unzip 会静默跳过加密条目），
+ *   说明是加密 zip —— 原生 API（FileManager.unzip / Archive.extract7z）均不支持解密码 zip，给出明确提示。
+ * @returns true 解压成功；false 用户取消了密码输入
+ */
+export async function extractSevenZToNewDir(archivePath: string, destDir: string): Promise<boolean> {
+  const kind = await detectArchiveKind(archivePath)
+  console.log("[7z解压] 真实类型:", kind)
+  if (kind === "7z") {
+    return await extractSevenZ(archivePath, destDir)
+  }
+  if (kind === "zip") {
+    await FileManager.createDirectory(destDir, true)
+    let unzipError: unknown = null
+    try {
+      await FileManager.unzip(archivePath, destDir)
+    } catch (e) {
+      unzipError = e
+    }
+    if (unzipError) {
+      console.log("[7z解压] unzip 失败:", JSON.stringify({ name: (unzipError as any)?.name, code: (unzipError as any)?.code, message: (unzipError as any)?.message }))
+    } else {
+      // iOS 原生 unzip 遇到加密条目不报错，而是静默跳过 → 解出来是空目录/空文件夹
+      const extracted = await countFilesRecursive(destDir)
+      console.log("[7z解压] unzip 后文件数:", extracted)
+      if (extracted > 0) return true
+      console.log("[7z解压] unzip 结果为空 → 加密 zip，原生不支持解密码 zip")
+    }
+    // 清理空结果目录
+    try { await FileManager.remove(destDir) } catch { }
+    throw new Error("加密 zip 无法直接解压（iOS 原生不支持加密 zip），请在电脑或支持密码解压的应用中解压")
+  }
+  throw new Error(`不是有效的压缩文件: ${Path.basename(archivePath)}`)
+}
+
+/** 递归统计目录下所有文件（不含目录本身）的数量 */
+async function countFilesRecursive(dirPath: string): Promise<number> {
+  let count = 0
+  const entries = await FileManager.readDirectory(dirPath)
+  for (const entry of entries) {
+    const p = Path.join(dirPath, entry)
+    try {
+      if (await FileManager.isDirectory(p)) count += await countFilesRecursive(p)
+      else count += 1
+    } catch { }
+  }
+  return count
+}
+
+/** 解压到目标目录，避免覆盖已有文件。先解压到临时目录，再用 uniquePath 逐个移动（用于“解压到当前目录”等已有目录场景） */
 export async function safeUnzip(archivePath: string, destDir: string): Promise<void> {
   const tmpDir = await uniquePath(Path.join(FileManager.temporaryDirectory, `_unzip_${Date.now()}`))
-  await FileManager.createDirectory(tmpDir)
+  const is7z = isSevenZFile(archivePath)
+  // 7z 由 Archive.extract7z 自行创建目标目录，因此不预创建 tmpDir
+  if (!is7z) {
+    await FileManager.createDirectory(tmpDir)
+  }
   try {
-    const name = Path.basename(archivePath).toLowerCase()
-    const ext = Path.extname(archivePath).toLowerCase()
-
-    // 判断压缩格式并选择解压方式
-    const isTarGz = name.endsWith(".tar.gz")
-    const isTarBz2 = name.endsWith(".tar.bz2")
-    const isTarXz = name.endsWith(".tar.xz")
-    const isTgz = name.endsWith(".tgz")
-    const isTar = ext === ".tar" || isTarGz || isTarBz2 || isTarXz || isTgz
-
-    if (ext === ".zip") {
-      await FileManager.unzip(archivePath, tmpDir)
-    } else if (isTar) {
-      const r = await Shell.run(`tar -xf ${shellQuote(archivePath)}`, { cwd: tmpDir })
-      if (r.exitCode !== 0) {
-        throw new Error(`tar 解压失败: ${r.output}`)
-      }
-    } else if (ext === ".gz" && !isTarGz) {
-      // 单独 .gz 文件（非 tar.gz）
-      const outName = name.slice(0, -3)
-      const r = await Shell.run(`gzip -d -c ${shellQuote(archivePath)} > ${shellQuote(Path.join(tmpDir, outName))}`)
-      if (r.exitCode !== 0) {
-        throw new Error(`gzip 解压失败: ${r.output}`)
-      }
-    } else if (ext === ".bz2" && !isTarBz2) {
-      const outName = name.slice(0, -4)
-      const r = await Shell.run(`bzip2 -d -c ${shellQuote(archivePath)} > ${shellQuote(Path.join(tmpDir, outName))}`)
-      if (r.exitCode !== 0) {
-        throw new Error(`bzip2 解压失败: ${r.output}`)
-      }
-    } else if (ext === ".xz" && !isTarXz) {
-      const outName = name.slice(0, -3)
-      const r = await Shell.run(`xz -d -c ${shellQuote(archivePath)} > ${shellQuote(Path.join(tmpDir, outName))}`)
-      if (r.exitCode !== 0) {
-        throw new Error(`xz 解压失败: ${r.output}`)
-      }
-    } else {
-      try {
-        await FileManager.unzip(archivePath, tmpDir)
-      } catch {
-        throw new Error(`不支持的压缩格式: ${ext}`)
-      }
-    }
+    const ok = await extractArchiveInto(archivePath, tmpDir)
+    if (!ok) return // 用户取消输入密码，不移动任何文件
 
     const copiedPaths: string[] = []
     const entries = await FileManager.readDirectory(tmpDir)

@@ -47,6 +47,10 @@ import {
   uniquePath,
   sanitizeExtractDirName,
   safeUnzip,
+  isSevenZFile,
+  extractArchiveToNewDir,
+  extractSevenZToNewDir,
+  createSevenZArchive,
   shareFilePath,
   buildSystemDirDefs,
 } from "../manager/utils";
@@ -207,6 +211,49 @@ function FileRowLink({
     }
   };
 
+  // ─ 7z 加密压缩（AES-256）：先弹居中的密码输入框，再二次确认 ─
+  const handleSevenZCompress = async () => {
+    try {
+      const parent = dirPath || Path.dirname(file.path);
+      const destPath = await uniquePath(Path.join(parent, file.name + ".7z"));
+      const ok = await createSevenZArchive(file.path, destPath);
+      if (!ok) return; // 用户取消或密码无效
+      invalidateDirectoryCache(parent);
+      onRefresh();
+      showToast("7z 加密压缩完成");
+    } catch (e) {
+      console.log("7z 压缩失败:", e);
+      showToast("7z 压缩失败");
+    }
+  };
+
+  // ─ 解压到“文件名（无后缀）”子目录：先创建目录（重名自动加后缀），再直接解压，不经过临时目录 ─
+  // mode="7z" 表示走 7z 引擎（长按「7z 解压」入口，不看扩展名）；"auto" 表示按扩展名通用解压（解压到文件夹内）
+  const handleExtractToFolder = async (mode: "auto" | "7z" = "auto") => {
+    try {
+      const archiveName = sanitizeExtractDirName(file.name);
+      const parentDir = dirPath || Path.dirname(file.path);
+      let extractDir = Path.join(parentDir, archiveName);
+      if (await FileManager.exists(extractDir)) {
+        let counter = 1;
+        while (await FileManager.exists(Path.join(parentDir, `${archiveName}_${String(counter).padStart(2, "0")}`))) {
+          counter++;
+        }
+        extractDir = Path.join(parentDir, `${archiveName}_${String(counter).padStart(2, "0")}`);
+      }
+      const ok = mode === "7z"
+        ? await extractSevenZToNewDir(file.path, extractDir) // 7z 引擎：真正是 7z（无论后缀）都解压，加密自动弹居中的密码框
+        : await extractArchiveToNewDir(file.path, extractDir); // 通用：按扩展名分发
+      if (!ok) return; // 用户取消输入密码
+      invalidateDirectoryCache(parentDir);
+      onRefresh();
+      showToast(`已解压到 ${Path.basename(extractDir)}`);
+    } catch (e) {
+      console.log("解压失败:", e);
+      showToast("解压失败");
+    }
+  };
+
   // ─ 选择模式 ─
   if (selectMode) {
     return (
@@ -248,27 +295,11 @@ function FileRowLink({
                   showToast("解压失败");
                 }
               } else if (prefix === "extractfolder:") {
-                // 解压到以文件名命名的子文件夹
-                try {
-                  const archiveName = sanitizeExtractDirName(file.name);
-                  const parentDir = dirPath || Path.dirname(file.path);
-                  let extractDir = Path.join(parentDir, archiveName);
-                  if (await FileManager.exists(extractDir)) {
-                    let counter = 1;
-                    while (await FileManager.exists(Path.join(parentDir, `${archiveName}_${String(counter).padStart(2, "0")}`))) {
-                      counter++;
-                    }
-                    extractDir = Path.join(parentDir, `${archiveName}_${String(counter).padStart(2, "0")}`);
-                  }
-                  await FileManager.createDirectory(extractDir, true);
-                  await safeUnzip(file.path, extractDir);
-                  invalidateDirectoryCache(parentDir);
-                  onRefresh();
-                  showToast(`已解压到 ${Path.basename(extractDir)}`);
-                } catch (e) {
-                  console.log("解压失败:", e);
-                  showToast("解压失败");
-                }
+                // 解压到以文件名命名的子文件夹（先建目录、重名加后缀、不经过临时目录；按扩展名通用解压）
+                await handleExtractToFolder();
+              } else if (prefix === "extract7z:") {
+                // 7z 解压：始终走 7z 引擎，不看扩展名（真正 7z 加密文件自动弹居中的密码输入框）
+                await handleExtractToFolder("7z");
               } else if (prefix === "archive:") {
                 await Navigation.present({
                   element: <ArchiveBrowserPage filePath={file.path} />,
@@ -378,33 +409,17 @@ function FileRowLink({
                       }
                     }}
                   />
-                  <Button
-                    title={`解压到${sanitizeExtractDirName(file.name)}`}
-                    systemImage="folder.badge.gearshape"
-                    action={async () => {
-                      try {
-                        const archiveName = sanitizeExtractDirName(file.name);
-                        let extractDir = Path.join(dirPath || Path.dirname(file.path), archiveName);
-                        if (await FileManager.exists(extractDir)) {
-                          let counter = 1;
-                          while (await FileManager.exists(Path.join(dirPath || Path.dirname(file.path), `${archiveName}_${String(counter).padStart(2, "0")}`))) {
-                            counter++;
-                          }
-                          extractDir = Path.join(dirPath || Path.dirname(file.path), `${archiveName}_${String(counter).padStart(2, "0")}`);
-                        }
-                        await FileManager.createDirectory(extractDir, true);
-                        await safeUnzip(file.path, extractDir);
-                        invalidateDirectoryCache(dirPath || Path.dirname(file.path));
-                        onRefresh();
-                        showToast(`已解压到 ${Path.basename(extractDir)}`);
-                      } catch (e) {
-                        console.log("解压失败:", e);
-                        showToast("解压失败");
-                      }
-                    }}
-                  />
                   <Divider />
                 </>
+              ) : (
+                <EmptyView />
+              )}
+              {!file.isDirectory ? (
+                <Button
+                  title={`7z 解压到${sanitizeExtractDirName(file.name)}`}
+                  systemImage="lock.open"
+                  action={() => handleExtractToFolder("7z")}
+                />
               ) : (
                 <EmptyView />
               )}
@@ -423,6 +438,11 @@ function FileRowLink({
                     showToast("压缩失败");
                   }
                 }}
+              />
+              <Button
+                title="7z 加密压缩 (AES-256)"
+                systemImage="lock.doc"
+                action={handleSevenZCompress}
               />
               <Divider />
               {!file.isDirectory ? (
@@ -510,27 +530,11 @@ function FileRowLink({
                   showToast("解压失败");
                 }
               } else if (prefix === "extractfolder:") {
-                // 解压到以文件名命名的子文件夹
-                try {
-                  const archiveName = sanitizeExtractDirName(file.name);
-                  const parentDir = dirPath || Path.dirname(file.path);
-                  let extractDir = Path.join(parentDir, archiveName);
-                  if (await FileManager.exists(extractDir)) {
-                    let counter = 1;
-                    while (await FileManager.exists(Path.join(parentDir, `${archiveName}_${String(counter).padStart(2, "0")}`))) {
-                      counter++;
-                    }
-                    extractDir = Path.join(parentDir, `${archiveName}_${String(counter).padStart(2, "0")}`);
-                  }
-                  await FileManager.createDirectory(extractDir, true);
-                  await safeUnzip(file.path, extractDir);
-                  invalidateDirectoryCache(parentDir);
-                  onRefresh();
-                  showToast(`已解压到 ${Path.basename(extractDir)}`);
-                } catch (e) {
-                  console.log("解压失败:", e);
-                  showToast("解压失败");
-                }
+                // 解压到以文件名命名的子文件夹（先建目录、重名加后缀、不经过临时目录；按扩展名通用解压）
+                await handleExtractToFolder();
+              } else if (prefix === "extract7z:") {
+                // 7z 解压：始终走 7z 引擎，不看扩展名（真正 7z 加密文件自动弹居中的密码输入框）
+                await handleExtractToFolder("7z");
               } else if (prefix === "archive:") {
                 await Navigation.present({
                   element: <ArchiveBrowserPage filePath={file.path} />,
@@ -846,30 +850,9 @@ function FileRowLink({
                   }}
                 />
                 <Button
-                  title={`解压到${sanitizeExtractDirName(file.name)} 内`}
-                  systemImage="folder.badge.gearshape"
-                  action={async () => {
-                    try {
-                      const archiveName = sanitizeExtractDirName(file.name);
-                      let extractDir = Path.join(dirPath || Path.dirname(file.path), archiveName);
-                      // 避免覆盖已有目录，追加 _01 _02
-                      if (await FileManager.exists(extractDir)) {
-                        let counter = 1;
-                        while (await FileManager.exists(Path.join(dirPath || Path.dirname(file.path), `${archiveName}_${String(counter).padStart(2, "0")}`))) {
-                          counter++;
-                        }
-                        extractDir = Path.join(dirPath || Path.dirname(file.path), `${archiveName}_${String(counter).padStart(2, "0")}`);
-                      }
-                      await FileManager.createDirectory(extractDir, true);
-                      await safeUnzip(file.path, extractDir);
-                      invalidateDirectoryCache(dirPath || Path.dirname(file.path));
-                      onRefresh();
-                      showToast(`已解压到 ${Path.basename(extractDir)}`);
-                    } catch (e) {
-                      console.log("解压失败:", e);
-                      showToast("解压失败");
-                    }
-                  }}
+                  title={`7z 解压到${sanitizeExtractDirName(file.name)}`}
+                  systemImage="lock.open"
+                  action={() => handleExtractToFolder("7z")}
                 />
                 <Divider />
                 <Button
@@ -888,24 +871,45 @@ function FileRowLink({
                     }
                   }}
                 />
+                <Button
+                  title="7z 加密压缩 (AES-256)"
+                  systemImage="lock.doc"
+                  action={handleSevenZCompress}
+                />
               </>
             ) : (
-              <Button
-                title="压缩"
-                systemImage="shippingbox"
-                action={async () => {
-                  try {
-                    const destPath = await uniquePath(Path.join(dirPath || Path.dirname(file.path), file.name + ".zip"));
-                    await FileManager.zip(file.path, destPath);
-                    invalidateDirectoryCache(dirPath || Path.dirname(file.path));
-                    onRefresh();
-                    showToast("压缩完成");
-                  } catch (e) {
-                    console.log("压缩失败:", e);
-                    showToast("压缩失败");
-                  }
-                }}
-              />
+              <>
+                {!file.isDirectory ? (
+                  <Button
+                    title={`7z 解压到${sanitizeExtractDirName(file.name)}`}
+                    systemImage="lock.open"
+                    action={() => handleExtractToFolder("7z")}
+                  />
+                ) : (
+                  <EmptyView />
+                )}
+                <Button
+                  title="压缩"
+                  systemImage="shippingbox"
+                  action={async () => {
+                    try {
+                      const destPath = await uniquePath(Path.join(dirPath || Path.dirname(file.path), file.name + ".zip"));
+                      await FileManager.zip(file.path, destPath);
+                      invalidateDirectoryCache(dirPath || Path.dirname(file.path));
+                      onRefresh();
+                      showToast("压缩完成");
+                    } catch (e) {
+                      console.log("压缩失败:", e);
+                      showToast("压缩失败");
+                    }
+                  }}
+                />
+                <Button
+                  title="7z 加密压缩 (AES-256)"
+                  systemImage="lock.doc"
+                  action={handleSevenZCompress}
+                />
+              </>
             )}
             {/*  */}
             {copyToDirTitle && onCopyToDir ? (

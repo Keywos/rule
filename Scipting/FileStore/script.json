@@ -7,7 +7,7 @@
     "Files"
   ],
   "icon" : "folder.fill",
-  "version" : "1.9.3",
+  "version" : "1.9.4",
   "remoteResource" : {
     "autoUpdateInterval" : null,
     "url" : "https:\/\/github.com\/Keywos\/rule\/tree\/main\/Scipting\/FileStore",
