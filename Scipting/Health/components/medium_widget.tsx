@@ -83,7 +83,7 @@ export function MediumWidget({ hrvValue, heartRate, steps, hrvHistory, hrh, upda
           {status}
         </Text>
         <Text font={11} foregroundStyle="white" opacity={0.8}>
-          {(day_light ? day_light : " ") + wrist_temp}
+          {(day_light || "") + (wrist_temp || "")}
         </Text>
         <Spacer />
         <Text font={11} foregroundStyle="white" opacity={0.8}>

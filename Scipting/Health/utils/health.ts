@@ -14,8 +14,8 @@ export async function fetchTodayDaylight(): Promise<string | undefined> {
 
 // 手腕温度
 export async function fetchLatestWristTemperature(): Promise<string | undefined> {
-  const item = (
-    await Health.queryQuantitySamples("appleSleepingWristTemperature", {
+  try {
+    const list = await Health.queryQuantitySamples("appleSleepingWristTemperature", {
       limit: 1,
       sortDescriptors: [
         {
@@ -24,8 +24,14 @@ export async function fetchLatestWristTemperature(): Promise<string | undefined>
         },
       ],
     })
-  )[0]
-  return item ? `  ${Math.round(item.quantityValue(HealthUnit.degreeCelsius()) * 10) / 10}℃` : undefined
+    if (!list || list.length === 0) return undefined
+    const value = list[0].quantityValue(HealthUnit.degreeCelsius())
+    if (!Number.isFinite(value)) return undefined
+    return `  ${Math.round(value * 10) / 10}℃`
+  } catch (err) {
+    console.warn("读取手腕温度失败:", err)
+    return undefined
+  }
 }
 
 export async function fetchTodayHRVHourly(): Promise<{
