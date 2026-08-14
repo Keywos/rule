@@ -104,7 +104,7 @@ async function run() {
 
       await Navigation.present({
         element: cat === "archive" ? <ArchiveBrowserPage filePath={filePath} /> : <FilePreviewView fileInfo={fileInfo} content={content} />,
-        modalPresentationStyle: "fullScreen",
+        modalPresentationStyle: "overFullScreen",
       });
       Script.exit();
       return;
@@ -115,7 +115,7 @@ async function run() {
 
   await Navigation.present({
     element: <HomeView />,
-    modalPresentationStyle: "fullScreen",
+    modalPresentationStyle: "overFullScreen",
   });
 }
 
