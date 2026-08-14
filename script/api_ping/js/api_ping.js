@@ -76,10 +76,7 @@
     const headers = {
       "Content-Type": "application/json; charset=utf-8",
       "Access-Control-Allow-Origin": "*",
-      "Timing-Allow-Origin": "*",
-      "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-      "Access-Control-Allow-Headers": "*",
-      "Access-Control-Expose-Headers": "*",
+      "Timing-Allow-Origin": "*"
     };
     if (getEnv() == "Quantumult X") {
       $done({
