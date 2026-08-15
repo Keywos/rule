@@ -15,7 +15,7 @@ export const colors = {
 
 export const todayText: DynamicShapeStyle = {
     light: 'rgba(255,255,255,0.99)',
-    dark: 'rgba(255,255,255,0.95)'
+    dark: 'rgba(255,255,255,0.9)'
 }
 
 export const labText: DynamicShapeStyle = {
