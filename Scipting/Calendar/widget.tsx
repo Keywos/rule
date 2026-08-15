@@ -34,7 +34,8 @@ import {
   getHolidayType,
   getFestivalName,
   getMonthHolidayData,
-  getHolidayCalColor
+  getHolidayCalColor,
+  getUpcomingHolidayRanges
 } from './holidayUtils'
 import SmallWidget from './widgets/SmallWidget'
 import { color, colors } from './degisn'
@@ -282,6 +283,121 @@ async function MonthlyWidget() {
   )
 }
 
+// 农历月份数字 + 日名，如 7·初一（正/冬/腊 -> 1/11/12）
+function lunarMonthNum(date: Date): string {
+  const ld = lunar(date)
+  const map: Record<string, string> = {
+    正: '一', 冬: '11', 腊: '12'
+  }
+  const n = map[ld.monthName] ?? ld.monthName
+  return `${n} / ${ld.dayName}`
+}
+
+async function MediumWidget() {
+  const today = new Date()
+  const year = today.getFullYear()
+  const month = today.getMonth()
+
+  await fetchHolidays(year)
+
+  const { dotDays, festivals } = getMonthHolidayData(year, month)
+  const dots: Record<number, Color> = {}
+  if (dotDays.size > 0) {
+    const dotColor = getHolidayCalColor(year) ?? colors.systemGreen.light
+    for (const d of dotDays) {
+      dots[d] = dotColor as Color
+    }
+  }
+
+
+  const lunarToday = lunar(today)
+
+
+
+
+  // 从今天起往后延续的最近 5 条节假日（可跨月）
+  const shown = await getUpcomingHolidayRanges(5, today)
+
+  return (
+    <EnvironmentValuesReader keys={['widgetRenderingMode']}>
+      {({ widgetRenderingMode }) => (
+        <HStack spacing={0} frame={Widget.displaySize}>
+          {/* 左半边：今日摘要 + 本月节假日（只显示今天及之后的最近 5 条） */}
+          <VStack
+            alignment="leading"
+            spacing={3}
+            padding={{ leading: 14, trailing: 10, top: 16, bottom: 0 }}
+            frame={{ maxWidth: 'infinity', maxHeight: 'infinity' }}
+          >
+            {/* 今日日期 + 农历 */}
+            <HStack spacing={8} alignment="center">
+              <Text
+                font={24}
+                fontWeight="bold"
+                foregroundStyle={colors.systemRed}
+                widgetAccentable
+              >
+                {today.getDate()}
+              </Text>
+              <VStack alignment="leading" spacing={1}>
+                <Text font={13} fontWeight="bold" foregroundStyle="label">
+                  {month + 1}月{today.getDate()}日 周{getWeekDayName(today)}
+                </Text>
+                <Text font={11} foregroundStyle="secondaryLabel">
+                  农历{lunarToday.monthName}月{lunarToday.dayName}
+                </Text>
+              </VStack>
+            </HStack>
+
+            <Spacer frame={{ minHeight: 3 }} />
+
+            {/* 今天及之后最近的 5 条节假日（可跨月） */}
+            {shown.length === 0 ? (
+              <Text font={11} foregroundStyle="secondaryLabel">
+                近期暂无节假日
+              </Text>
+            ) : (
+              shown.map((item) => (
+                <HStack key={`${item.year}-${item.month}-${item.start}`} spacing={1} alignment="center">
+                  <Text
+                    font={10}
+                    foregroundStyle="secondaryLabel"
+                    frame={{ width: 80, alignment: 'leading' }}
+                    multilineTextAlignment="leading"
+                  >
+
+                    {lunarMonthNum(new Date(item.year, item.month, item.start))} / {item.start === item.end
+                      ? `${item.month + 1}.${item.start}`
+                      : `${item.month + 1}.${item.start}-${item.end}`}
+                  </Text>
+                  <Text
+                    font={12}
+                    lineLimit={1}
+                    fontWeight="medium"
+                    foregroundStyle={
+                      item.type === 'holiday'
+                        ? colors.systemGreen
+                        : colors.systemRed
+                    }
+                    frame={{ maxWidth: 'infinity' }}
+                    widgetAccentable
+                  >
+                    {item.name}
+                  </Text>
+                </HStack>
+              ))
+            )}
+            <HStack frame={{ minHeight: 11 }} />
+          </VStack>
+
+          {/* 右半边：小组件月历布局 */}
+          <SmallWidget {...{ widgetRenderingMode, dots, festivals }} />
+        </HStack>
+      )}
+    </EnvironmentValuesReader>
+  )
+}
+
 async function LargeMonthlyWidget() {
   const val = Storage.get<string>('monthOffset') || '0'
   let offset = 0
@@ -441,20 +557,20 @@ async function LargeMonthlyWidget() {
                           background={
                             isToday
                               ? {
-                                  style:
-                                    widgetRenderingMode === 'accented'
-                                      ? 'rgba(255,0,0,0.3)'
-                                      : colors.systemRed,
-                                  shape: 'circle'
-                                }
+                                style:
+                                  widgetRenderingMode === 'accented'
+                                    ? 'rgba(255,0,0,0.3)'
+                                    : colors.systemRed,
+                                shape: 'circle'
+                              }
                               : selectedDate && isSameDay(date, selectedDate)
                                 ? {
-                                    style:
-                                      widgetRenderingMode === 'accented'
-                                        ? 'rgba(28,28,30,0.5)'
-                                        : 'secondarySystemBackground',
-                                    shape: 'circle'
-                                  }
+                                  style:
+                                    widgetRenderingMode === 'accented'
+                                      ? 'rgba(28,28,30,0.5)'
+                                      : 'secondarySystemBackground',
+                                  shape: 'circle'
+                                }
                                 : undefined
                           }
                           alignment="center"
@@ -466,9 +582,9 @@ async function LargeMonthlyWidget() {
                             foregroundStyle={
                               isToday
                                 ? 'rgba(255,255,255,0.95)'
-                                  : date.getDay() === 0 || date.getDay() === 6
-                                    ? 'secondaryLabel'
-                                    : 'label'
+                                : date.getDay() === 0 || date.getDay() === 6
+                                  ? 'secondaryLabel'
+                                  : 'label'
                             }
                             widgetAccentable
                             multilineTextAlignment="center"
@@ -545,6 +661,9 @@ async function WidgetView() {
   if (Widget.family === 'systemSmall') {
     return await MonthlyWidget()
   }
+  if (Widget.family === 'systemMedium') {
+    return await MediumWidget()
+  }
   if (Widget.family === 'systemLarge') {
     return await LargeMonthlyWidget()
   }
@@ -552,7 +671,7 @@ async function WidgetView() {
 }
 
 // Main execution
-;(async () => {
+; (async () => {
   const val = Storage.get<string>('weekOffset') || '0'
   let offset = 0
   try {

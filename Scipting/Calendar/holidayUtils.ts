@@ -185,3 +185,105 @@ export function getMonthHolidayData(
   }
   return { dotDays, festivals: festivalDays }
 }
+
+export interface MonthHolidayEntry {
+  day: number // 1-31
+  name: string // 节日名（如“国庆节”）/ “休” / “班”
+  type: 'festival' | 'holiday' | 'work'
+}
+
+// 从缓存读取某月（month 为 0 起下标）的节假日列表，按日期升序
+// 同一天若同时有节日名与休/班标记，优先显示节日名
+// 无缓存时返回空数组（调用方应先确保 fetchHolidays）
+export function getMonthHolidayList(year: number, month: number): MonthHolidayEntry[] {
+  const data = loadYearData(year)
+  if (!data) return []
+
+  const entries: MonthHolidayEntry[] = []
+  const daysInMonth = new Date(year, month + 1, 0).getDate()
+  const monthPrefix = `${(month + 1).toString().padStart(2, '0')}-`
+
+  for (let d = 1; d <= daysInMonth; d++) {
+    const dateKey = `${monthPrefix}${d.toString().padStart(2, '0')}`
+    const festival = data.festivals[dateKey]
+    const info = data.holidays[dateKey]
+    if (festival) {
+      entries.push({ day: d, name: festival, type: 'festival' })
+    } else if (info) {
+      entries.push({
+        day: d,
+        name: info.holiday ? '休' : '班',
+        type: info.holiday ? 'holiday' : 'work'
+      })
+    }
+  }
+  return entries
+}
+
+export interface MonthHolidayRange {
+  start: number // 起始日 1-31
+  end: number // 结束日 1-31
+  name: string
+  type: 'festival' | 'holiday' | 'work'
+}
+
+// 将某月节假日列表按“连续日期 + 同名同类”合并为区间，如 1-7日 国庆节、14-16日 休
+// 单天则为 start === end。数据来自缓存，调用方应先确保 fetchHolidays
+export function getMonthHolidayRanges(year: number, month: number): MonthHolidayRange[] {
+  const items = getMonthHolidayList(year, month)
+  const ranges: MonthHolidayRange[] = []
+  for (const item of items) {
+    const last = ranges[ranges.length - 1]
+    if (
+      last &&
+      last.end === item.day - 1 &&
+      last.name === item.name &&
+      last.type === item.type
+    ) {
+      last.end = item.day
+    } else {
+      ranges.push({
+        start: item.day,
+        end: item.day,
+        name: item.name,
+        type: item.type
+      })
+    }
+  }
+  return ranges
+}
+
+export interface UpcomingHolidayRange extends MonthHolidayRange {
+  year: number
+  month: number // 0-based
+}
+
+// 从今天起往后依次收集最近 count 条节假日/调休区间，可跨月、跨年
+// 首个月仅取今天及之后；后续月份全部纳入。每进入新的一年会自动 fetchHolidays 补缓存
+export async function getUpcomingHolidayRanges(
+  count = 5,
+  from = new Date()
+): Promise<UpcomingHolidayRange[]> {
+  const result: UpcomingHolidayRange[] = []
+  const startYear = from.getFullYear()
+  const startMonth = from.getMonth()
+  let year = startYear
+  let month = startMonth
+  for (let step = 0; step < 24 && result.length < count; step++) {
+    await fetchHolidays(year)
+    const items = getMonthHolidayRanges(year, month)
+    const todayDay = step === 0 ? from.getDate() : 1
+    for (const item of items) {
+      if (item.end >= todayDay) {
+        result.push({ ...item, year, month })
+        if (result.length >= count) break
+      }
+    }
+    month++
+    if (month > 11) {
+      month = 0
+      year++
+    }
+  }
+  return result.slice(0, count)
+}

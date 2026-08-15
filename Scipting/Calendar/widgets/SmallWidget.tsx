@@ -31,7 +31,10 @@ export default function SmallWidget({
   const month = today.getMonth()
 
   const lunarDate = lunar(today)
-  const lunarText = `${lunarDate.monthName}月${lunarDate.dayName}`
+  // 正/冬/腊 换成大写数字（正月=壹月、冬月=拾壹月、腊月=拾贰月）
+  const bigMonth: Record<string, string> = { 正: '一', 冬: '十一', 腊: '十二' }
+  const monthName = bigMonth[lunarDate.monthName] ?? lunarDate.monthName
+  const lunarText = `${monthName}月${lunarDate.dayName}`
 
   const firstDay = new Date(year, month, 1)
   const lastDay = new Date(year, month + 1, 0)
@@ -56,6 +59,20 @@ export default function SmallWidget({
   for (let i = 0; i < gridDays.length; i += 7) {
     weeks.push(gridDays.slice(i, i + 7))
   }
+
+  const rowHeight = 15
+  const refSpacing = 2
+  const refRows = 6
+  const gridHeightBudget = refRows * rowHeight + refRows * refSpacing
+  const verticalSpacing =
+    weeks.length >= refRows
+      ? refSpacing
+      : Math.max(
+          refSpacing,
+          Math.round(
+            (gridHeightBudget - weeks.length * rowHeight) / weeks.length
+          )
+        )
 
   const weekDayNames =
     firstDayOfWeek === 1
@@ -83,13 +100,13 @@ export default function SmallWidget({
         </Text>
 
         <Capsule offset={{ x: -3, y: 0 }} fill="separator" frame={{ width: 0.5, height: 10 }} />
-        <Text offset={{ x: -6, y: 0 }} font={11} fontWeight="medium" foregroundStyle="gray">
+        <Text offset={{ x: -6, y: 0 }} font={11} fontWeight="medium" foregroundStyle="secondaryLabel">
           {lunarText}
         </Text>
       </HStack>
       {/* <Spacer frame={{ minHeight: 4 }} /> */}
       {/* Calendar Grid */}
-      <Grid verticalSpacing={2} horizontalSpacing={0}>
+      <Grid verticalSpacing={verticalSpacing} horizontalSpacing={0}>
         <GridRow
         //padding={{ leading: 6, trailing: 0, top: 0, bottom: 0 }}
         //background={"red"}
@@ -165,9 +182,9 @@ export default function SmallWidget({
                       widgetAccentable
                     />
                   ) : dotColor ? (
-                    <Circle
+                    <Capsule
                       fill={dotColor}
-                      frame={{ width: 3, height: 3 }}
+                      frame={{ width: 12, height: 1 }}
                       widgetAccentable
                     />
                   ) : undefined}
