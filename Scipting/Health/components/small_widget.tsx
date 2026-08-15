@@ -74,7 +74,7 @@ export function SmallWidget({ hrvValue, status, statusIcon, hrvHistory, steps, u
             padding={{ leading: 6, trailing: 0, top: 0, bottom: 1 }}
             >
             <Text font={{ name: "system", size: 36 }} fontWeight="bold" fontDesign="rounded" foregroundStyle="white">
-              {hrvValue != null ? Math.round(hrvValue) : "—"}
+              {hrvValue != null ? Math.round(hrvValue) : "--"}
             </Text>
             <Text font={{ name: "system", size: 12 }} fontWeight="medium" foregroundStyle="white" opacity={0.6}>
               HRV
@@ -87,21 +87,21 @@ export function SmallWidget({ hrvValue, status, statusIcon, hrvHistory, steps, u
 
       <Spacer />
       <HStack
-        spacing={6}
+        spacing={1}
         alignment="center"
-        padding={{ leading: 10, trailing: 10, top: 3, bottom: 15 }}
+        padding={{ leading: 6, trailing: 0, top: 3, bottom: 15 }}
         clipShape={{ type: "rect", cornerRadius: 12 }}
         frame={{ maxWidth: Infinity }}
       >
         <Image systemName="figure.walk" font={{ name: "system", size: 11 }} foregroundStyle="white" opacity={0.7} />
         <Text opacity={0.66} font={{ name: "system", size: 14 }} fontWeight="semibold" fontDesign="rounded" foregroundStyle="white">
-          {steps != null ? steps.toLocaleString() : "—"}
+         {steps != null ? steps.toLocaleString() : "--"}
         </Text>
         <Spacer />
           <Text font={{ name: "system", size: 10 }} foregroundStyle="white" opacity={0.6}>
           {(wristTemp?wristTemp:"")} ㅤ
         </Text>
-        <Image systemName="chevron.right" font={{ name: "system", size: 8 }} foregroundStyle="white" opacity={0.4} />
+        <Image   padding={{ leading:4, trailing: 6 }} systemName="chevron.right" font={{ name: "system", size: 8 }} foregroundStyle="white" opacity={0.5} />
       </HStack>
     </VStack>
   )

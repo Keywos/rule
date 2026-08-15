@@ -20,7 +20,7 @@
   ],
   "runInApp" : false,
   "description" : null,
-  "version" : "1.1.0",
+  "version" : "1.1.1",
   "iconImage" : null,
   "entry" : "index.tsx",
   "localizedDescriptions" : {
