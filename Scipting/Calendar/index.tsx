@@ -18,7 +18,7 @@ import {
   VStack,
   Widget,
 } from 'scripting'
-
+import { colors, todayText,labText } from './degisn'
 // Helper to get ISO week number
 function getCurrentWeek() {
   const date = new Date()
@@ -141,7 +141,7 @@ function WeekCalculator() {
           <Section header={<Text>RESULT</Text>}>
             <HStack>
               <VStack alignment='leading'>
-                <Text font='caption' foregroundStyle='secondaryLabel'>
+                <Text font='caption' foregroundStyle={labText}>
                   Start Date
                 </Text>
                 <Text font='title3'>{result.start}</Text>
@@ -151,7 +151,7 @@ function WeekCalculator() {
             </HStack>
             <HStack>
               <VStack alignment='leading'>
-                <Text font='caption' foregroundStyle='secondaryLabel'>
+                <Text font='caption' foregroundStyle={labText}>
                   End Date
                 </Text>
                 <Text font='title3'>{result.end}</Text>

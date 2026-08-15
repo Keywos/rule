@@ -14,7 +14,7 @@
     "es" : "",
     "ru" : ""
   },
-  "version" : "2.2.0",
+  "version" : "2.2.1",
   "description" : null,
   "entry" : "index.tsx",
   "runInApp" : false,

@@ -13,6 +13,17 @@ export const colors = {
     }
 } satisfies Record<string, ColorRGBA>
 
+export const todayText: DynamicShapeStyle = {
+    light: 'rgba(255,255,255,0.99)',
+    dark: 'rgba(255,255,255,0.95)'
+}
+
+export const labText: DynamicShapeStyle = {
+    light: 'rgba(177,177,177,0.85)',
+    dark: 'rgba(177,177,177,0.8)'
+}
+
+
 export function color(rgba: ColorRGBA, alpha: number) {
     if (typeof rgba === 'string') {
         return rgba.replace(/,\s*[\d.]+\)$/, `,${alpha})`) as ColorStringRGBA

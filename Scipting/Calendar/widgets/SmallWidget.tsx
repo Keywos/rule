@@ -14,7 +14,7 @@ import {
 } from 'scripting'
 import { isSameDay } from '../dateUtils'
 import { lunar } from '../lunar'
-import { colors } from '../degisn'
+import { colors, todayText,labText } from '../degisn'
 import { OpenAppIntent } from '../app_intents'
 
 export default function SmallWidget({
@@ -60,6 +60,7 @@ export default function SmallWidget({
     weeks.push(gridDays.slice(i, i + 7))
   }
 
+  // 网格高度稳定：6 行时保持默认行距；5 行（或更少）时放大行距，让总高度接近一致，避免布局跳动
   const rowHeight = 15
   const refSpacing = 2
   const refRows = 6
@@ -100,7 +101,7 @@ export default function SmallWidget({
         </Text>
 
         <Capsule offset={{ x: -3, y: 0 }} fill="separator" frame={{ width: 0.5, height: 10 }} />
-        <Text offset={{ x: -6, y: 0 }} font={11} fontWeight="medium" foregroundStyle="secondaryLabel">
+        <Text offset={{ x: -6, y: 0 }} font={11} fontWeight="medium" foregroundStyle={labText}>
           {lunarText}
         </Text>
       </HStack>
@@ -120,8 +121,8 @@ export default function SmallWidget({
                 (firstDayOfWeek === 1
                   ? i === 5 || i === 6
                   : i === 0 || i === 6)
-                  ? 'secondaryLabel'
-                  : 'label'
+                  ? labText
+                  : todayText
               }
               frame={{ maxWidth: 'infinity' }}
               multilineTextAlignment="center"
@@ -151,11 +152,7 @@ export default function SmallWidget({
                 >
                   {isToday && (
                     <Circle
-                      fill={
-                        widgetRenderingMode === 'accented'
-                          ? 'rgba(255,0,0,0.3)'
-                          : colors.systemRed
-                      }
+                      fill={colors.systemRed}
                       frame={{ width: 18, height: 18 }}
                     />
                   )}
@@ -165,12 +162,11 @@ export default function SmallWidget({
                     fontWeight="medium"
                     foregroundStyle={
                       isToday
-                        ? 'rgba(255,255,255,0.95)'
+                        ? todayText
                         : date.getDay() === 0 || date.getDay() === 6
-                          ? 'secondaryLabel'
-                          : 'label'
+                          ? labText
+                          : todayText
                     }
-                    widgetAccentable
                     multilineTextAlignment="center"
                   >
                     {date.getDate().toString()}

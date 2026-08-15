@@ -23,6 +23,7 @@ import {
   addDays,
   isSameDay
 } from './dateUtils'
+
 import {
   ChangeWeekIntent,
   SelectDateIntent,
@@ -38,7 +39,7 @@ import {
   getUpcomingHolidayRanges
 } from './holidayUtils'
 import SmallWidget from './widgets/SmallWidget'
-import { color, colors } from './degisn'
+import { color, colors, todayText,labText } from './degisn'
 
 async function WeeklyWidget() {
   const val = Storage.get<string>('weekOffset') || '0'
@@ -102,12 +103,12 @@ async function WeeklyWidget() {
               <Image
                 systemName="chevron.left"
                 font={12}
-                foregroundStyle="secondaryLabel"
+                foregroundStyle={labText}
                 widgetAccentedRenderingMode="accented"
               />
             </Button>
             <Button intent={ChangeWeekIntent('reset')} buttonStyle="plain">
-              <Text font={24} foregroundStyle="label">
+              <Text font={24} foregroundStyle={labText}>
                 {formatYear(offset ? startOfWeekDate : today)}
                 {offset ? startOfWeekDate.getMonth() + 1 : today.getMonth() + 1}
                 月
@@ -115,7 +116,7 @@ async function WeeklyWidget() {
             </Button>
             <Spacer />
             <VStack alignment="trailing" spacing={2}>
-              <Text font={14} foregroundStyle="secondaryLabel" widgetAccentable>
+              <Text font={14} foregroundStyle={labText} widgetAccentable>
                 第{weekNum}周
               </Text>
             </VStack>
@@ -127,7 +128,7 @@ async function WeeklyWidget() {
               <Image
                 systemName="chevron.right"
                 font={12}
-                foregroundStyle="secondaryLabel"
+                foregroundStyle={labText}
                 widgetAccentable
               />
             </Button>
@@ -142,7 +143,7 @@ async function WeeklyWidget() {
                 <Text
                   font={11}
                   foregroundStyle={
-                    item.isToday ? colors.systemRed : 'secondaryLabel'
+                    item.isToday ? colors.systemRed : labText
                   }
                   fontWeight="medium"
                   multilineTextAlignment="center"
@@ -172,7 +173,7 @@ async function WeeklyWidget() {
                           <Circle
                             fill="secondarySystemBackground"
                             opacity={
-                              widgetRenderingMode === 'accented' ? 0.1 : 1
+                              widgetRenderingMode === 'accented' ? 0.1 : 0.5
                             }
                           />
                         ) : undefined
@@ -185,10 +186,10 @@ async function WeeklyWidget() {
                         font={16}
                         foregroundStyle={
                           item.isToday
-                            ? 'rgba(255,255,255,0.95)'
-                            : 'label'
+                            ? todayText
+                            : labText
                         }
-                        widgetAccentable
+                        widgetAccentable={!item.isToday}
                         multilineTextAlignment="center"
                       >
                         {item.dayNum.toString()}
@@ -198,12 +199,12 @@ async function WeeklyWidget() {
                         lineLimit={1}
                         foregroundStyle={
                           item.isToday
-                            ? 'rgba(255,255,255,0.95)'
+                            ? todayText
                             : item.eventTitle
                               ? colors.systemRed
-                              : 'secondaryLabel'
+                              : labText
                         }
-                        widgetAccentable
+                        widgetAccentable={!item.isToday}
                         multilineTextAlignment="center"
                         fontWeight="medium"
                       >
@@ -216,17 +217,15 @@ async function WeeklyWidget() {
                     <Text
                       frame={{ width: 14, height: 14 }}
                       background={{
-                        style: color(
+                        style:
                           item.holidayType === 'work'
                             ? colors.systemRed
                             : colors.systemGreen,
-                          widgetRenderingMode === 'accented' ? 0.3 : 1
-                        ),
                         shape: 'circle'
                       }}
                       font={10}
-                      foregroundStyle="rgba(255,255,255,0.95)"
-                      widgetAccentable
+                      foregroundStyle={todayText}
+                      widgetAccentable={false}
                     >
                       {item.holidayType === 'work' ? '班' : '休'}
                     </Text>
@@ -243,7 +242,7 @@ async function WeeklyWidget() {
             />
             <Text
               font={14}
-              foregroundStyle="label"
+              foregroundStyle={labText}
               multilineTextAlignment="leading"
             >
               {dayDesc}
@@ -340,10 +339,10 @@ async function MediumWidget() {
                 {today.getDate()}
               </Text>
               <VStack alignment="leading" spacing={1}>
-                <Text font={13} fontWeight="bold" foregroundStyle="label">
+                <Text font={13} fontWeight="bold" foregroundStyle={todayText}>
                   {month + 1}月{today.getDate()}日 周{getWeekDayName(today)}
                 </Text>
-                <Text font={11} foregroundStyle="secondaryLabel">
+                <Text font={11} foregroundStyle={labText}>
                   农历{lunarToday.monthName}月{lunarToday.dayName}
                 </Text>
               </VStack>
@@ -353,7 +352,7 @@ async function MediumWidget() {
 
             {/* 今天及之后最近的 5 条节假日（可跨月） */}
             {shown.length === 0 ? (
-              <Text font={11} foregroundStyle="secondaryLabel">
+              <Text font={11} foregroundStyle={labText}>
                 近期暂无节假日
               </Text>
             ) : (
@@ -361,7 +360,7 @@ async function MediumWidget() {
                 <HStack key={`${item.year}-${item.month}-${item.start}`} spacing={1} alignment="center">
                   <Text
                     font={10}
-                    foregroundStyle="secondaryLabel"
+                    foregroundStyle={todayText}
                     frame={{ width: 80, alignment: 'leading' }}
                     multilineTextAlignment="leading"
                   >
@@ -473,14 +472,14 @@ async function LargeMonthlyWidget() {
               <Image
                 systemName="chevron.left"
                 font={12}
-                foregroundStyle="secondaryLabel"
+                foregroundStyle={labText}
               />
             </Button>
             <Button intent={ChangeMonthIntent('reset')} buttonStyle="plain">
               <Text
                 font={16}
                 fontWeight="bold"
-                foregroundStyle="label"
+                foregroundStyle={todayText}
                 widgetAccentable
               >
                 {year}年{month + 1}月
@@ -495,7 +494,7 @@ async function LargeMonthlyWidget() {
               <Image
                 systemName="chevron.right"
                 font={12}
-                foregroundStyle="secondaryLabel"
+                foregroundStyle={labText}
                 widgetAccentable
               />
             </Button>
@@ -514,8 +513,8 @@ async function LargeMonthlyWidget() {
                     (firstDayOfWeek === 1
                       ? i === 5 || i === 6
                       : i === 0 || i === 6)
-                      ? 'secondaryLabel'
-                      : 'label'
+                      ? labText
+                      : todayText
                   }
                   frame={{ maxWidth: 'infinity' }}
                   multilineTextAlignment="center"
@@ -557,10 +556,7 @@ async function LargeMonthlyWidget() {
                           background={
                             isToday
                               ? {
-                                style:
-                                  widgetRenderingMode === 'accented'
-                                    ? 'rgba(255,0,0,0.3)'
-                                    : colors.systemRed,
+                                style: colors.systemRed,
                                 shape: 'circle'
                               }
                               : selectedDate && isSameDay(date, selectedDate)
@@ -568,7 +564,7 @@ async function LargeMonthlyWidget() {
                                   style:
                                     widgetRenderingMode === 'accented'
                                       ? 'rgba(28,28,30,0.5)'
-                                      : 'secondarySystemBackground',
+                                      : 'rgba(28,28,30,0.3)',
                                   shape: 'circle'
                                 }
                                 : undefined
@@ -581,12 +577,12 @@ async function LargeMonthlyWidget() {
                             fontWeight="medium"
                             foregroundStyle={
                               isToday
-                                ? 'rgba(255,255,255,0.95)'
+                                ? todayText
                                 : date.getDay() === 0 || date.getDay() === 6
-                                  ? 'secondaryLabel'
-                                  : 'label'
+                                  ? labText
+                                  : todayText
                             }
-                            widgetAccentable
+                            widgetAccentable={!isToday}
                             multilineTextAlignment="center"
                           >
                             {date.getDate().toString()}
@@ -595,12 +591,12 @@ async function LargeMonthlyWidget() {
                             font={9}
                             foregroundStyle={
                               isToday
-                                ? 'rgba(255,255,255,0.95)'
+                                ? todayText
                                 : eventTitle
                                   ? colors.systemRed
-                                  : 'secondaryLabel'
+                                  : labText
                             }
-                            widgetAccentable={isToday}
+                            widgetAccentable={false}
                             lineLimit={1}
                             multilineTextAlignment="center"
                           >
@@ -616,16 +612,12 @@ async function LargeMonthlyWidget() {
                           background={{
                             style:
                               holidayType === 'work'
-                                ? widgetRenderingMode === 'accented'
-                                  ? 'rgba(255,0,0,0.3)'
-                                  : colors.systemRed
-                                : widgetRenderingMode === 'accented'
-                                  ? 'rgba(0,255,0,0.3)'
-                                  : colors.systemGreen,
+                                ? colors.systemRed
+                                : colors.systemGreen,
                             shape: 'circle'
                           }}
-                          foregroundStyle="rgba(255,255,255,0.95)"
-                          widgetAccentable
+                          foregroundStyle={todayText}
+                          widgetAccentable={false}
                         >
                           {holidayType === 'work' ? '班' : '休'}
                         </Text>
@@ -645,7 +637,7 @@ async function LargeMonthlyWidget() {
             />
             <Text
               font={14}
-              foregroundStyle="label"
+              foregroundStyle={todayText}
               multilineTextAlignment="leading"
             >
               {dayDesc}
