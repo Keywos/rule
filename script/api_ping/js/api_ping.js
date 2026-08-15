@@ -1,4 +1,4 @@
-// 2026 
+// 2026
 !(async () => {
   let timeouts = 5000;
   try {
@@ -9,27 +9,27 @@
       return "undefined" != typeof Egern
         ? "Egern"
         : "undefined" != typeof $environment && $environment["surge-version"]
-        ? "Surge"
-        : "undefined" != typeof Scripting 
-        ? "Scripting"
-        : "undefined" != typeof $environment && $environment["stash-version"]
-        ? "Stash"
-        : "undefined" != typeof module && module.exports
-        ? "Node.js"
-        : "undefined" != typeof $task
-        ? "Quantumult X"
-        : "undefined" != typeof $loon
-        ? "Loon"
-        : "undefined" != typeof $rocket
-        ? "Shadowrocket"
-        : void 0;
+          ? "Surge"
+          : "undefined" != typeof Scripting
+            ? "Scripting"
+            : "undefined" != typeof $environment && $environment["stash-version"]
+              ? "Stash"
+              : "undefined" != typeof module && module.exports
+                ? "Node.js"
+                : "undefined" != typeof $task
+                  ? "Quantumult X"
+                  : "undefined" != typeof $loon
+                    ? "Loon"
+                    : "undefined" != typeof $rocket
+                      ? "Shadowrocket"
+                      : void 0;
     };
     if (url && url.includes("?")) {
       ins = Object.fromEntries(
         (url.split("?")[1] || "")
           .split("&")
           .map((i) => i.split("="))
-          .map(([k, v]) => [k, decodeURIComponent(v)])
+          .map(([k, v]) => [k, decodeURIComponent(v)]),
       );
       timeouts = Number(ins.timeout) || 5000;
       if (ins.url != "test") {
@@ -76,6 +76,7 @@
     const headers = {
       "Content-Type": "application/json; charset=utf-8",
       "Access-Control-Allow-Origin": "*",
+      "Timing-Allow-Origin": "*"
     };
     if (getEnv() == "Quantumult X") {
       $done({
@@ -96,7 +97,7 @@
           body: JSON.stringify({
             sp: 1,
             ms: ms,
-            app:  getEnv() ? getEnv() : "未知",
+            app: getEnv() ? getEnv() : "未知",
             timeouts: timeouts,
           }),
         },
