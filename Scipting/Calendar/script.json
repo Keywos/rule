@@ -1,0 +1,42 @@
+{
+  "iconImage" : null,
+  "permissions" : null,
+  "color" : "rgba(174, 109, 216,1)",
+  "name" : "Calendar",
+  "localizedDescriptions" : {
+    "de" : "",
+    "it" : "",
+    "fr" : "",
+    "pt" : "",
+    "en" : "",
+    "ja" : "",
+    "zh" : "",
+    "es" : "",
+    "ru" : ""
+  },
+  "version" : "2.0.0",
+  "description" : null,
+  "entry" : "index.tsx",
+  "runInApp" : false,
+  "intentInputTypes" : [
+
+  ],
+  "author" : {
+    "email" : "",
+    "homepage" : "https:\/\/github.com\/Keywos",
+    "name" : "Keywos"
+  },
+  "contributors" : [
+
+  ],
+  "localizedNames" : {
+    "zh" : "日历",
+    "en" : "Calendar"
+  },
+  "remoteResource" : {
+    "url" : "https:\/\/github.com\/Keywos\/rule\/tree\/main\/Scipting\/Calendar",
+    "hash" : "",
+    "autoUpdateInterval" : null
+  },
+  "icon" : "7.calendar"
+}
