@@ -29,7 +29,13 @@ import {
   ChangeMonthIntent
 } from './app_intents'
 import { lunar } from './lunar'
-import { fetchHolidays, getHolidayType } from './holidayUtils'
+import {
+  fetchHolidays,
+  getHolidayType,
+  getFestivalName,
+  getMonthHolidayData,
+  getHolidayCalColor
+} from './holidayUtils'
 import SmallWidget from './widgets/SmallWidget'
 import { color, colors } from './degisn'
 
@@ -63,24 +69,9 @@ async function WeeklyWidget() {
   const firstDayOfWeek = parseInt(Storage.get<string>('firstDayOfWeek') || '0')
   const startOfWeekDate = getStartOfWeek(displayDate, firstDayOfWeek)
 
-  const calendars = await Calendar.forEvents()
-  const holidayCal = calendars.find(
-    (c) => c.title === '中国大陆节假日' || c.title === 'Chinese Holidays'
-  )
-  let eventTitles: Record<number, string> = {}
-
-  if (holidayCal) {
-    const start = startOfWeekDate
-    const end = addDays(startOfWeekDate, 7)
-    const events = await CalendarEvent.getAll(start, end, [holidayCal])
-    for (const event of events) {
-      if (event.title.includes('休') || event.title.includes('班')) {
-        continue
-      }
-      const d = event.startDate.getDate()
-      eventTitles[d] = event.title
-    }
-  }
+  // 从 holidayUtils 缓存读取，避免每次直接 CalendarEvent.getAll
+  // 跨年时（如周一所在周跨 12/31）补拉上一年的缓存
+  await fetchHolidays(startOfWeekDate.getFullYear())
 
   const weekDays = Array.from({ length: 7 }).map((_, i) => {
     const d = addDays(startOfWeekDate, i)
@@ -92,7 +83,7 @@ async function WeeklyWidget() {
       lunarDay: lunarDate.dayName,
       isToday: isSameDay(d, today),
       holidayType: getHolidayType(d),
-      eventTitle: eventTitles[d.getDate()]
+      eventTitle: getFestivalName(d)
     }
   })
 
@@ -268,24 +259,17 @@ async function MonthlyWidget() {
   const year = today.getFullYear()
   const month = today.getMonth()
 
-  const calendars = await Calendar.forEvents()
-  const holidayCal = calendars.find(
-    (c) => c.title === '中国大陆节假日' || c.title === 'Chinese Holidays'
-  )
-  const dots: Record<number, Color> = {}
-  const festivals = new Set<number>()
+  // 优先用 holidayUtils 缓存，避免每次直接 CalendarEvent.getAll
+  await fetchHolidays(year)
 
-  if (holidayCal) {
-    const start = new Date(year, month, 1)
-    const end = new Date(year, month + 1, 1)
-    const events = await CalendarEvent.getAll(start, end, [holidayCal])
-    for (const event of events) {
-      const d = event.startDate.getDate()
-      dots[d] = holidayCal.color
-      // 真正的节日事件（标题不含休/班，如“国庆节”“中秋节”）用红色横线标记
-      if (!event.title.includes('休') && !event.title.includes('班')) {
-        festivals.add(d)
-      }
+  const { dotDays, festivals } = getMonthHolidayData(year, month)
+  const dots: Record<number, Color> = {}
+
+  if (dotDays.size > 0) {
+    // 颜色也来自缓存（fetchHolidays 时已把节假日历颜色写入缓存）
+    const dotColor = getHolidayCalColor(year) ?? colors.systemGreen.light
+    for (const d of dotDays) {
+      dots[d] = dotColor as Color
     }
   }
 
@@ -335,25 +319,6 @@ async function LargeMonthlyWidget() {
   const daysInMonth = lastDay.getDate()
   const firstDayOfWeek = parseInt(Storage.get<string>('firstDayOfWeek') || '0')
   const startDayOfWeek = (firstDay.getDay() - firstDayOfWeek + 7) % 7
-
-  const calendars = await Calendar.forEvents()
-  const holidayCal = calendars.find(
-    (c) => c.title === '中国大陆节假日' || c.title === 'Chinese Holidays'
-  )
-  let eventTitles: Record<number, string> = {}
-
-  if (holidayCal) {
-    const start = new Date(year, month, 1)
-    const end = new Date(year, month + 1, 1)
-    const events = await CalendarEvent.getAll(start, end, [holidayCal])
-    for (const event of events) {
-      if (event.title.includes('休') || event.title.includes('班')) {
-        continue
-      }
-      const d = event.startDate.getDate()
-      eventTitles[d] = event.title
-    }
-  }
 
   // Generate grid cells
   const gridDays: (Date | null)[] = []
@@ -456,7 +421,7 @@ async function LargeMonthlyWidget() {
                     )
                   }
                   const isToday = isSameDay(date, today)
-                  const eventTitle = eventTitles[date.getDate()]
+                  const eventTitle = getFestivalName(date)
                   const lunarDate = lunar(date)
                   const lunarDay = lunarDate.dayName
                   const holidayType = getHolidayType(date)
