@@ -73,8 +73,8 @@ export function SmallWidget({ hrvValue, status, statusIcon, hrvHistory, steps, u
           <HStack spacing={2} alignment="firstTextBaseline"
             padding={{ leading: 6, trailing: 0, top: 0, bottom: 1 }}
             >
-            <Text font={{ name: "system", size: 36 }} fontWeight="bold" fontDesign="rounded" foregroundStyle="white">
-              {hrvValue != null ? Math.round(hrvValue) : "--"}
+            <Text opacity={.9} font={{ name: "system", size: 36 }} fontWeight="bold" fontDesign="rounded" foregroundStyle="white">
+              {hrvValue != null ? Math.round(hrvValue) : "-- "}
             </Text>
             <Text font={{ name: "system", size: 12 }} fontWeight="medium" foregroundStyle="white" opacity={0.6}>
               HRV
