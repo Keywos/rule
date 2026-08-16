@@ -17,3 +17,11 @@ export function setToastListener(fn: ToastListener) {
 export function showToast(msg: string) {
   listener?.(msg);
 }
+
+// ── 软件更新后书签失效的统一提醒 ──
+export const REMOUNT_WARNING_TEXT = "软件更新导致路径变化，无法访问，请重新挂载";
+
+/** 弹 Toast 提醒书签失效需重新挂载；name 可选（收藏名/目录名） */
+export function showRemountWarning(name?: string) {
+  showToast(name ? `⚠ ${name}：${REMOUNT_WARNING_TEXT}` : `⚠ ${REMOUNT_WARNING_TEXT}`);
+}

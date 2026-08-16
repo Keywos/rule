@@ -68,11 +68,11 @@ import { getDefaultOpener, setDefaultOpener, OPENER_OPTIONS } from "../manager/D
 import { AppSettings, saveSettings, readSettings } from "../manager/Settings";
 import { SettingsPage } from "./SettingsPage";
 import { MountDirectoriesPage } from "./MountDirectoriesPage";
-import { Bookmark, getAllBookmarks, addDirectoryBookmark, removeBookmark, renameBookmark } from "../manager/BookmarkManager";
+import { Bookmark, getAllBookmarks, addDirectoryBookmark, removeBookmark, renameBookmark, resolveBookmarkPath } from "../manager/BookmarkManager";
 import { ensureDir, makeTimestamp, importSinglePhotoResult } from "../manager/importHelpers";
 import { DROP_ACCEPTED_TYPES, handleDropToDirectory } from "../manager/dropHandler";
 import { makeDragConfig } from "./FileListItem";
-import { showToast } from "../manager/ToastManager";
+import { showToast, showRemountWarning } from "../manager/ToastManager";
 import { startLocalHttpServer, getActiveServers, stopServer, subscribe } from "../manager/LocalHttpServer";
 import { WebPreviewPage } from "./WebPreviewPage";
 import { EditorPage } from "./EditorPage";
@@ -1407,6 +1407,8 @@ function GeneralBrowser({
           const isRoot = norm(loadingDir) === norm(homeRoot);
           if (isRoot && norm(loadingDir) !== norm(defaultDir)) {
             console.log("首页目录不存在或不可访问，回退到默认目录:", defaultDir);
+            // 软件更新后首页书签失效（无权限/路径变化）：用 ToastOverlay 提醒重新挂载
+            showRemountWarning(settings?.homeDirectoryBookmarkName ? "首页目录" : undefined);
             setHomeCurrentDir(defaultDir);
             if (settings && onSettingsChange) {
               const restored = { ...settings, homeCurrentPath: defaultDir, homeDirectoryBookmarkName: null };
@@ -2622,10 +2624,23 @@ function GeneralBrowser({
   };
 
   const handleNavigateToBookmark = async (bookmark: Bookmark) => {
-    const path = bookmark.path;
-    const exists = await FileManager.exists(path);
-    if (!exists) {
-      await Dialog.alert({ title: "提示", message: "目录不存在：" + path, buttonLabel: "确定" });
+    // 优先通过持久书签解析当前可访问路径（软件更新/容器 UUID 变化后 bookmarkId 仍可能可解析）
+    let path = bookmark.path;
+    if (bookmark.bookmarkId) {
+      const resolved = resolveBookmarkPath(bookmark.bookmarkId);
+      if (resolved) path = resolved;
+    }
+    // 仅 exists 不够：路径存在但失去访问权限（如软件更新后书签失效）时 exists 仍可能返回 true，
+    // 必须真正读一次目录才能确认可访问。
+    let accessible = false;
+    try {
+      accessible = (await FileManager.exists(path)) && (await FileManager.readDirectory(path)) !== null;
+    } catch {
+      accessible = false;
+    }
+    if (!accessible) {
+      // 书签失效（软件更新导致）→ 用 ToastOverlay 弹窗提醒重新挂载
+      showRemountWarning(bookmark.name);
       removeBookmark(bookmark.name);
       setBookmarkRefreshKey((k) => k + 1);
       return;
