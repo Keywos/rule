@@ -2753,6 +2753,81 @@ function GeneralBrowser({
     </Button>
   );
 
+  const titleMenuActionsRef = useRef<{
+    handleInputPath: () => void;
+    handleAddBookmark: () => void;
+    handleManageBookmarks: () => void;
+    handleCopyPath: () => void;
+    handleNavigateToBookmark: (bm: Bookmark) => void;
+    handleSystemDirSelect: (entry: SystemDirEntry) => void;
+  } | null>(null);
+  titleMenuActionsRef.current = {
+    handleInputPath,
+    handleAddBookmark,
+    handleManageBookmarks,
+    handleCopyPath,
+    handleNavigateToBookmark,
+    handleSystemDirSelect: async (entry: SystemDirEntry) => {
+      const exists = await FileManager.exists(entry.path);
+      if (!exists) {
+        await Dialog.alert({ title: "提示", message: "目录不存在：" + entry.path, buttonLabel: "确定" });
+        return;
+      }
+      if (isHomePage && settings && onSettingsChange) {
+        const newSettings = { ...settings, homeCurrentPath: entry.path, homeDirectoryBookmarkName: null };
+        saveSettings(newSettings);
+        onSettingsChange(newSettings);
+      } else if (activeNavPath) {
+        activeNavPath.setValue([...activeNavPath.value, "browser:" + entry.path]);
+      }
+    },
+  };
+  const titleMenu = useMemo(
+    () => (
+      <Menu
+        label={
+          <Text font="headline" lineLimit={1}>
+            {titleDisplayPath}
+          </Text>
+        }
+      >
+        <ControlGroup>
+          <Button title="前往目录" systemImage="pencil.and.outline" action={() => titleMenuActionsRef.current?.handleInputPath()} />
+          <Button title="添加收藏" systemImage="star" action={() => titleMenuActionsRef.current?.handleAddBookmark()} />
+          <Button title="管理收藏" systemImage="folder.badge.gearshape" action={() => titleMenuActionsRef.current?.handleManageBookmarks()} />
+        </ControlGroup>
+        <Button title="复制当前路径" systemImage="doc.on.clipboard" action={() => titleMenuActionsRef.current?.handleCopyPath()} />
+        <Divider />
+        {systemDirEntries.length > 0 ? (
+          <>
+            <Divider />
+            {systemDirEntries.map((entry) => (
+              <Button
+                key={entry.name}
+                title={entry.name}
+                systemImage={entry.icon}
+                action={() => titleMenuActionsRef.current?.handleSystemDirSelect(entry)}
+              />
+            ))}
+          </>
+        ) : (
+          <EmptyView />
+        )}
+        {allBookmarks.length > 0 ? (
+          <>
+            <Divider />
+            {allBookmarks.map((bm) => (
+              <Button key={bm.bookmarkId || bm.path} title={bm.name} systemImage="folder" action={() => titleMenuActionsRef.current?.handleNavigateToBookmark(bm)} />
+            ))}
+          </>
+        ) : (
+          <EmptyView />
+        )}
+      </Menu>
+    ),
+    [titleDisplayPath, systemDirEntries, allBookmarks],
+  );
+
   const mainContent = (
     <ZStack frame={{ maxWidth: "infinity", maxHeight: "infinity" }} onDrop={currentDirectoryDrop}>
       <VStack frame={{ maxWidth: "infinity", maxHeight: "infinity" }}>
@@ -2784,62 +2859,7 @@ function GeneralBrowser({
                 }}
                 toolbar={
                   <Toolbar>
-                    <ToolbarItem placement="principal">
-                      <Menu
-                        onDrop={currentDirectoryDrop}
-                        label={
-                          <Text font="headline" lineLimit={1}>
-                            {titleDisplayPath}
-                          </Text>
-                        }
-                      >
-                        <ControlGroup>
-                          <Button title="前往目录" systemImage="pencil.and.outline" action={handleInputPath} />
-                          <Button title="添加收藏" systemImage="star" action={handleAddBookmark} />
-                          <Button title="管理收藏" systemImage="folder.badge.gearshape" action={handleManageBookmarks} />
-                        </ControlGroup>
-                        <Button title="复制当前路径" systemImage="doc.on.clipboard" action={handleCopyPath} />
-                        <Divider />
-                        {systemDirEntries.length > 0 ? (
-                          <>
-                            <Divider />
-                            {systemDirEntries.map((entry) => (
-                              <Button
-                                key={entry.name}
-                                title={entry.name}
-                                systemImage={entry.icon}
-                                action={async () => {
-                                  const exists = await FileManager.exists(entry.path);
-                                  if (!exists) {
-                                    await Dialog.alert({ title: "提示", message: "目录不存在：" + entry.path, buttonLabel: "确定" });
-                                    return;
-                                  }
-                                  if (isHomePage && settings && onSettingsChange) {
-                                    const newSettings = { ...settings, homeCurrentPath: entry.path, homeDirectoryBookmarkName: null };
-                                    saveSettings(newSettings);
-                                    onSettingsChange(newSettings);
-                                  } else if (activeNavPath) {
-                                    activeNavPath.setValue([...activeNavPath.value, "browser:" + entry.path]);
-                                  }
-                                }}
-                              />
-                            ))}
-                          </>
-                        ) : (
-                          <EmptyView />
-                        )}
-                        {allBookmarks.length > 0 ? (
-                          <>
-                            <Divider />
-                            {allBookmarks.map((bm) => (
-                              <Button title={bm.name} systemImage="folder" action={() => handleNavigateToBookmark(bm)} />
-                            ))}
-                          </>
-                        ) : (
-                          <EmptyView />
-                        )}
-                      </Menu>
-                    </ToolbarItem>
+                    <ToolbarItem placement="principal">{titleMenu}</ToolbarItem>
                     {toolbarLeadingItems ?? <EmptyView />}
                     {toolbarTrailingItems ?? <EmptyView />}
                     <ToolbarItem placement="topBarTrailing">
