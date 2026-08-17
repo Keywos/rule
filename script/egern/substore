@@ -1,0 +1,96 @@
+name: Sub-Store
+description: "同步配置的定时 cronexp: 55 23 * * *"
+icon: https://raw.githubusercontent.com/cc63/ICON/main/Sub-Store.png
+compat_arguments:
+  # ability: http-client-policy
+  cronexp: 55 23 * * *
+  sync: "Sub-Store Sync"
+  # timeout: 900
+  # engine: auto
+  produce: "# Sub-Store Produce"
+  produce_cronexp: 50 */6 * * *
+  sync_success_notify: true
+  produce_sub: "sub1,sub2"
+  produce_col: "col1,col2"
+  cors: "https://sub-store.vercel.app,http://substore.stash,https://substore.stash"
+compat_arguments_desc: |
+  脚本超时(Egern 有问题, 不支持自定义, 本文件中固定为 900 秒)
+
+  1️⃣ cors
+
+  允许浏览器跨域访问 Sub-Store 后端的 origin.
+  默认为 https://sub-store.vercel.app,http://substore.stash,https://substore.stash.
+  多个用 , 连接.
+
+  设为 * 可恢复旧的任意来源访问行为, 存在钓鱼网站读取配置的风险
+
+  2️⃣ cronexp
+
+  同步配置定时任务
+  默认为每天 23 点 55 分
+
+  定时任务指定时将订阅/文件上传到私有 Gist. 在前端, 叫做 "同步" 或 "同步配置"
+
+  3️⃣ sync
+
+  自定义定时任务名
+  便于在脚本编辑器中选择
+  若设为 # 可取消定时任务
+
+  4️⃣ produce
+
+  自定义处理订阅的定时任务名
+  一般用于定时处理耗时较长的订阅, 以更新缓存
+  这样 Surge 中拉取的时候就能用到缓存, 不至于总是超时
+  若设为 # 可取消此定时任务
+  默认不开启
+
+  5️⃣ produce_cronexp
+
+  配置处理订阅的定时任务
+
+  默认为每 6 小时
+
+  6️⃣ sync_success_notify
+
+  同步配置全部成功时是否发送完成通知
+  默认为 true, 填 false/0/no/off 可关闭
+
+  7️⃣ produce_sub
+
+  自定义需定时处理的单条订阅名
+  多个用 , 连接
+
+  8️⃣ produce_col
+
+  自定义需定时处理的组合订阅名
+  多个用 , 连接
+
+  ⚠️ 注意: 是 名称(name) 不是 显示名称(displayName)
+
+  如果名称需要编码, 请编码后再用 , 连接
+
+  顺序: 并发执行单条订阅, 然后并发执行组合订阅
+scriptings:
+  - http_request:
+      name: Sub-Store Core
+      match: ^https?:\/\/sub\.store\/((download)|api\/(preview|sync|(utils\/node-info)))
+      script_url: https://github.com/sub-store-org/Sub-Store/releases/latest/download/sub-store-1.min.js
+      body_required: true
+      max_size: 999999999
+      timeout: 900
+      arguments:
+        _compat.$argument: "cors={{{cors}}}"
+  - http_request:
+      name: Sub-Store Simple
+      match: ^https?:\/\/sub\.store
+      script_url: https://github.com/sub-store-org/Sub-Store/releases/latest/download/sub-store-0.min.js
+      body_required: true
+      max_size: 999999999
+      timeout: 900
+      arguments:
+        _compat.$argument: "cors={{{cors}}}"
+mitm:
+  hostnames:
+    includes:
+      - sub.store
