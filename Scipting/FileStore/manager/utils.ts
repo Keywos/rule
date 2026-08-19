@@ -1012,6 +1012,37 @@ export async function extractSevenZ(archivePath: string, destDir: string): Promi
 }
 
 /**
+ * 为压缩包查看器解压 7z，并返回本次使用的密码。
+ * 返回 null 表示原归档无需密码；返回字符串表示保存修改时应继续使用该密码。
+ */
+export async function extractSevenZForEditing(archivePath: string, destDir: string): Promise<string | null | false> {
+  let password: string | undefined
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      const task = Archive.extract7z({
+        sourcePath: archivePath,
+        destinationPath: destDir,
+        ...(password !== undefined ? { password } : {}),
+      })
+      await task.result
+      return password ?? null
+    } catch (error) {
+      if (!isSevenZPasswordError(error)) throw error
+      try { await FileManager.remove(destDir) } catch { }
+      const input = await promptSevenZPassword(
+        attempt === 0 ? "输入 7z 解压密码" : "密码错误，请重试",
+        Path.basename(archivePath),
+        "查看并保存修改需要使用原密码",
+      )
+      if (input == null) return false
+      password = input
+    }
+  }
+  try { await FileManager.remove(destDir) } catch { }
+  throw new Error("解压失败：密码错误次数过多")
+}
+
+/**
  * 为 7z 引擎准备源条目。空目录与符号链接不受 create7z 支持，
  * 因此目录会展开为普通文件，并保留与 ZIP（shouldKeepParent=false）一致的相对路径结构。
  */
@@ -1032,6 +1063,25 @@ async function buildSevenZSources(sourcePath: string): Promise<Array<{ path: str
     sources.push({ path: fullPath, archivePath: relativePath })
   }
   return sources
+}
+
+/** 使用已有密码创建真正的 AES-256 7z 归档，供查看器保存修改后的 7z。 */
+export async function createSevenZArchiveWithPassword(
+  sourcePath: string,
+  destPath: string,
+  password: string,
+): Promise<void> {
+  const sources = await buildSevenZSources(sourcePath)
+  if (sources.length === 0) {
+    throw new Error("7z 加密引擎不支持保存空文件夹")
+  }
+  const task = Archive.create7z({
+    sources,
+    destinationPath: destPath,
+    password,
+    encryptHeader: true,
+  })
+  await task.result
 }
 
 /**
@@ -1060,23 +1110,7 @@ export async function createSevenZArchive(sourcePath: string, destPath: string):
     try { await Dialog.alert({ title: "两次输入的密码不一致", message: "请重新发起压缩。" }) } catch { }
     return false
   }
-  const sources = await buildSevenZSources(sourcePath)
-  if (sources.length === 0) {
-    try {
-      await Dialog.alert({
-        title: "无法压缩空文件夹",
-        message: "7z 加密引擎不支持保存空文件夹。请先在文件夹中放入至少一个普通文件。",
-      })
-    } catch { }
-    return false
-  }
-  const task = Archive.create7z({
-    sources,
-    destinationPath: destPath,
-    password,
-    encryptHeader: true,
-  })
-  await task.result
+  await createSevenZArchiveWithPassword(sourcePath, destPath, password)
   return true
 }
 
@@ -1133,20 +1167,16 @@ async function tryExtractZipPlain(archivePath: string, destDir: string): Promise
   }
 }
 
-/**
- * 解压 ZIP：普通 ZIP 使用可指定编码的逐条解压；加密 ZIP 使用 Archive.extractZip。
- * Archive.extractZip 要求目标目录不存在，且会对整个归档原子写入。
- */
-async function extractZipWithPassword(archivePath: string, destDir: string): Promise<boolean> {
-  const plainOk = await tryExtractZipPlain(archivePath, destDir)
-  if (plainOk) return true
+/** 解压 ZIP 并返回保存时应继续使用的密码：null=无密码，false=用户取消。 */
+export async function extractZipForEditing(archivePath: string, destDir: string): Promise<string | null | false> {
+  if (await tryExtractZipPlain(archivePath, destDir)) return null
   try { await FileManager.remove(destDir) } catch { }
 
   for (let attempt = 0; attempt < 3; attempt++) {
     const password = await promptSevenZPassword(
-      attempt === 0 ? "输入解压密码" : "密码错误，请重试",
+      attempt === 0 ? "输入 ZIP 解压密码" : "密码错误，请重试",
       Path.basename(archivePath),
-      "该 ZIP 归档需要密码",
+      "查看并保存修改需要使用原密码",
     )
     if (password == null) return false
     try {
@@ -1157,13 +1187,22 @@ async function extractZipWithPassword(archivePath: string, destDir: string): Pro
       })
       await verifyZipExtractedFiles(archivePath, destDir, result.entryCount)
       await fixMojibakeZipNames(archivePath, destDir)
-      return true
+      return password
     } catch (error) {
       try { await FileManager.remove(destDir) } catch { }
       if (!isZipPasswordError(error)) throw error
     }
   }
   throw new Error("解压失败：密码错误次数过多")
+}
+
+/**
+ * 解压 ZIP：普通 ZIP 使用可指定编码的逐条解压；加密 ZIP 使用 Archive.extractZip。
+ * Archive.extractZip 要求目标目录不存在，且会对整个归档原子写入。
+ */
+async function extractZipWithPassword(archivePath: string, destDir: string): Promise<boolean> {
+  const result = await extractZipForEditing(archivePath, destDir)
+  return result !== false
 }
 
 /**

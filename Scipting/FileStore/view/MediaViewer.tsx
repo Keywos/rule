@@ -12,7 +12,7 @@ import {
 import { unpackLivePhoto } from '../manager/LivePhotoPacker'
 import { FilePreviewView } from './FilePreview'
 import { EditorPage } from './EditorPage'
-import { FileInfo, getFileCategory, ensureLocalFile, readTextFile, safeUnzip, invalidateDirectoryCache } from '../manager/utils'
+import { FileInfo, getFileCategory, ensureLocalFile, readTextFile, invalidateDirectoryCache, isSevenZFile, extractSevenZForEditing, createSevenZArchiveWithPassword, extractZipForEditing } from '../manager/utils'
 import { DROP_ACCEPTED_TYPES, handleDropToDirectory } from '../manager/dropHandler'
 import { FileInfoPage } from './FileListItem'
 import { GeneralBrowser } from './GeneralBrowser'
@@ -344,6 +344,8 @@ function ArchiveBrowserDirectory({ dirPath, rootPath, rootName, navPath, onSaveA
 
 export function ArchiveBrowserPage({ filePath, navigationPath }: { filePath: string; navigationPath?: any }) {
   const [extractDir, setExtractDir] = useState<string | null>(null)
+  const [sevenZPassword, setSevenZPassword] = useState<string | null>(null)
+  const [zipPassword, setZipPassword] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [isSaving, setIsSaving] = useState(false)
   const dismiss = Navigation.useDismiss()
@@ -357,8 +359,17 @@ export function ArchiveBrowserPage({ filePath, navigationPath }: { filePath: str
     ;(async () => {
       try {
         await ensureLocalFile(filePath)
-        await FileManager.createDirectory(tempDir, true)
-        await safeUnzip(filePath, tempDir)
+        const archiveIsSevenZ = isSevenZFile(filePath)
+        if (!archiveIsSevenZ) await FileManager.createDirectory(tempDir, true)
+        if (archiveIsSevenZ) {
+          const password = await extractSevenZForEditing(filePath, tempDir)
+          if (password === false) return
+          if (!disposed) setSevenZPassword(password)
+        } else {
+          const password = await extractZipForEditing(filePath, tempDir)
+          if (password === false) return
+          if (!disposed) setZipPassword(password)
+        }
         if (!disposed) setExtractDir(tempDir)
       } catch (e) {
         console.log("准备压缩文件目录失败:", e)
@@ -377,9 +388,21 @@ export function ArchiveBrowserPage({ filePath, navigationPath }: { filePath: str
     setIsSaving(true)
     try {
       const ts = Date.now()
-      const savePath = `${filePath}.saving-${ts}.zip`
-      // 1. 先把新压缩包写出到临时路径；失败时原文件保持不变。
-      await FileManager.zip(extractDir, savePath, false)
+      const savePath = `${filePath}.saving-${ts}${isSevenZFile(filePath) ? ".7z" : ".zip"}`
+      // 1. 7z 必须重新生成真正的 7z，并沿用原密码；ZIP 保持原有保存流程。
+      if (isSevenZFile(filePath)) {
+        if (!sevenZPassword) throw new Error("缺少 7z 密码，无法保存修改")
+        await createSevenZArchiveWithPassword(extractDir, savePath, sevenZPassword)
+      } else if (zipPassword) {
+        await Archive.createZip({
+          sourcePath: extractDir,
+          destinationPath: savePath,
+          password: zipPassword,
+          compressionMethod: "deflate",
+        })
+      } else {
+        await FileManager.zip(extractDir, savePath, false)
+      }
 
       // 2. 把原文件改名为备份（而不是直接删除），为新包腾出原名位置。
       //    若后续 rename 失败，可把备份改回原名，避免原文件丢失。
