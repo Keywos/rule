@@ -171,6 +171,12 @@ export function SettingsTabPage({ settings, onSettingsChange, bookmarks, onSwitc
             title="9. 桌面模式"
             caption="主屏双栏浏览 UI，左上角可以切换单、双栏模式，一键打开 FileStore"
           />
+          <FeatureRow
+            icon="square.grid.2x2"
+            iconColor="systemIndigo"
+            title="10. 压缩文件/查看/解压缩"
+            caption="查看 / 修改 / 解压缩 加密 ZIP / 7z AES256"
+          />
         {/* </Section> */}
 
         {/* ── 显示模式（原 SettingsPage） ── */}
