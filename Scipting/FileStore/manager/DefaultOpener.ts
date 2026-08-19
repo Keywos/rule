@@ -13,9 +13,7 @@ export const OPENER_OPTIONS: { label: string; prefix: OpenerPrefix }[] = [
   { label: '网页预览', prefix: 'webpage:' },
   { label: 'Markdown 预览', prefix: 'markdown:' },
   { label: '查看压缩文件', prefix: 'archive:' },
-  { label: '解压文件', prefix: 'extract:' },
   { label: '解压到文件夹内', prefix: 'extractfolder:' },
-  { label: '7z 解压', prefix: 'extract7z:' },
   { label: '分享', prefix: 'share:' },
 ]
 

@@ -71,9 +71,9 @@ function openerIcon(prefix: OpenerPrefix): string {
     case 'markdown:': return 'doc.text.magnifyingglass'
     case 'archive:': return 'archivebox.fill'
     case 'livephoto:': return 'livephoto'
-    case 'extract:': return 'archivebox'
     case 'extractfolder:': return 'folder.badge.gearshape'
-    case 'extract7z:': return 'lock.open'
+    case 'extract:': return 'archivebox'
+    case 'extract7z:': return 'folder.badge.gearshape'
     case 'share:': return 'square.and.arrow.up'
   }
 }
@@ -89,9 +89,9 @@ function openerDescription(prefix: OpenerPrefix): string {
     case 'markdown:': return '使用系统预览渲染 Markdown 文档'
     case 'archive:': return '在内存中查看压缩文件目录，不解压到磁盘'
     case 'livephoto:': return '使用 Live Photo 查看器打开'
-    case 'extract:': return '解压归档文件到当前目录'
-    case 'extractfolder:': return '解压到以文件名命名的子文件夹'
-    case 'extract7z:': return '解压到以文件名命名的子文件夹（含 7z 加密归档，自动弹密码框）'
+    case 'extractfolder:': return '解压到以文件名命名的子文件夹（自动识别 ZIP/7z，支持密码）'
+    case 'extract:': return '兼容旧设置：解压到当前目录'
+    case 'extract7z:': return '兼容旧设置：自动识别 ZIP/7z，支持密码'
     case 'share:': return '使用系统分享菜单打开'
   }
 }

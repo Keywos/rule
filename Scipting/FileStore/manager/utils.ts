@@ -993,12 +993,10 @@ export async function extractSevenZ(archivePath: string, destDir: string): Promi
         console.log("[extractSevenZ] 非密码错误:", JSON.stringify({ name: (e as any)?.name, code: (e as any)?.code, message: (e as any)?.message || String(e) }))
         throw e
       }
-      // 打印 7z 引擎的原始错误，便于判断它是否支持当前文件格式
+      // extract7z 在密码错误、密码缺失或损坏归档时都可能已经创建目标目录；
+      // 每一次准备重试前都清理，确保带密码重试使用全新目标目录。
+      try { await FileManager.remove(destDir) } catch { }
       console.log("[extractSevenZ] 尝试", attempt, "失败:", JSON.stringify({ name: (e as any)?.name, code: (e as any)?.code, message: (e as any)?.message || String(e) }))
-      if (attempt > 0) {
-        // 密码错误：extract7z 可能已创建目标目录并写入了部分内容，先清理再重试
-        try { await FileManager.remove(destDir) } catch { }
-      }
       const input = await promptSevenZPassword(
         attempt === 0 ? "输入解压密码" : "密码错误，请重试",
         Path.basename(archivePath),
@@ -1011,6 +1009,29 @@ export async function extractSevenZ(archivePath: string, destDir: string): Promi
   // 多次密码错误：清理最后一次可能残留的半成品目录
   try { await FileManager.remove(destDir) } catch { }
   throw new Error("解压失败：密码错误次数过多")
+}
+
+/**
+ * 为 7z 引擎准备源条目。空目录与符号链接不受 create7z 支持，
+ * 因此目录会展开为普通文件，并保留与 ZIP（shouldKeepParent=false）一致的相对路径结构。
+ */
+async function buildSevenZSources(sourcePath: string): Promise<Array<{ path: string; archivePath?: string }>> {
+  if (!(await FileManager.isDirectory(sourcePath))) return [{ path: sourcePath }]
+
+  const entries = await FileManager.readDirectory(sourcePath, true)
+  const sources: Array<{ path: string; archivePath?: string }> = []
+  for (const entry of entries) {
+    const fullPath = entry === sourcePath || entry.startsWith(sourcePath + "/")
+      ? entry
+      : Path.join(sourcePath, entry)
+    if (await FileManager.isLink(fullPath)) continue
+    if (!(await FileManager.isFile(fullPath))) continue
+    const relativePath = fullPath.startsWith(sourcePath + "/")
+      ? fullPath.slice(sourcePath.length + 1)
+      : entry
+    sources.push({ path: fullPath, archivePath: relativePath })
+  }
+  return sources
 }
 
 /**
@@ -1039,13 +1060,350 @@ export async function createSevenZArchive(sourcePath: string, destPath: string):
     try { await Dialog.alert({ title: "两次输入的密码不一致", message: "请重新发起压缩。" }) } catch { }
     return false
   }
+  const sources = await buildSevenZSources(sourcePath)
+  if (sources.length === 0) {
+    try {
+      await Dialog.alert({
+        title: "无法压缩空文件夹",
+        message: "7z 加密引擎不支持保存空文件夹。请先在文件夹中放入至少一个普通文件。",
+      })
+    } catch { }
+    return false
+  }
   const task = Archive.create7z({
-    sources: [{ path: sourcePath }],
+    sources,
     destinationPath: destPath,
     password,
     encryptHeader: true,
   })
   await task.result
+  return true
+}
+
+/** 判断 Archive ZIP 解压错误是否为密码错误/归档损坏。 */
+function isZipPasswordError(err: unknown): boolean {
+  return !!err && (err as any).name === "ArchiveError" && (err as any).code === "invalidPasswordOrCorruptArchive"
+}
+
+/** 检测 ZIP 内文件名编码：UTF-8 有替换符时按 GB18030 读取。 */
+function detectZipPathEncoding(archive: Archive): "utf-8" | "gb18030" {
+  try {
+    if (archive.getEntryPaths("utf-8").some((path) => path.includes("\uFFFD"))) return "gb18030"
+  } catch { }
+  return "utf-8"
+}
+
+/**
+ * 逐条解压普通 ZIP，从一开始就使用正确的路径编码。
+ * 返回 false 表示可能是加密 ZIP，交给 Archive.extractZip 的密码流程处理。
+ */
+async function tryExtractZipPlain(archivePath: string, destDir: string): Promise<boolean> {
+  try {
+    let archive = Archive.openForMode(archivePath, "read")
+    const encoding = detectZipPathEncoding(archive)
+    archive = Archive.openForMode(archivePath, "read", { pathEncoding: encoding })
+    const entries = archive.entries(encoding)
+    if (entries.length === 0 || entries.some((entry) => entry.isEncrypted)) return false
+
+    // 关键：部分加密 ZIP 在无密码打开时只暴露目录条目，
+    // 如果不对照中央目录，下面只创建目录后会被误判为解压成功。
+    const centralEntries = parseZipCentralNameBytes(await FileManager.readAsBytes(archivePath))
+    const expectedFileCount = centralEntries.filter((entry) => !entry.isDir).length
+    const visibleFileCount = entries.filter((entry) => entry.type !== "directory").length
+    if (expectedFileCount > 0 && visibleFileCount === 0) {
+      console.log("[extractZip] 无密码只读到目录条目，转密码流程:", { expectedFileCount, visibleFileCount })
+      return false
+    }
+
+    for (const entry of entries) {
+      const destination = Path.join(destDir, entry.path)
+      if (entry.type === "directory") {
+        await FileManager.createDirectory(destination, true)
+        continue
+      }
+      await FileManager.createDirectory(Path.dirname(destination), true)
+      await archive.extractTo(entry.path, destination)
+      // 某些加密 ZIP 会被实例 API 静默跳过；立刻转密码解压，不能把半成品视为成功。
+      if (!(await FileManager.exists(destination))) return false
+    }
+    return true
+  } catch (error) {
+    console.log("[extractZip] 常规解压失败，转密码流程:", JSON.stringify({ name: (error as any)?.name, code: (error as any)?.code, message: (error as any)?.message || String(error) }))
+    return false
+  }
+}
+
+/**
+ * 解压 ZIP：普通 ZIP 使用可指定编码的逐条解压；加密 ZIP 使用 Archive.extractZip。
+ * Archive.extractZip 要求目标目录不存在，且会对整个归档原子写入。
+ */
+async function extractZipWithPassword(archivePath: string, destDir: string): Promise<boolean> {
+  const plainOk = await tryExtractZipPlain(archivePath, destDir)
+  if (plainOk) return true
+  try { await FileManager.remove(destDir) } catch { }
+
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const password = await promptSevenZPassword(
+      attempt === 0 ? "输入解压密码" : "密码错误，请重试",
+      Path.basename(archivePath),
+      "该 ZIP 归档需要密码",
+    )
+    if (password == null) return false
+    try {
+      const result = await Archive.extractZip({
+        sourcePath: archivePath,
+        destinationPath: destDir,
+        password,
+      })
+      await verifyZipExtractedFiles(archivePath, destDir, result.entryCount)
+      await fixMojibakeZipNames(archivePath, destDir)
+      return true
+    } catch (error) {
+      try { await FileManager.remove(destDir) } catch { }
+      if (!isZipPasswordError(error)) throw error
+    }
+  }
+  throw new Error("解压失败：密码错误次数过多")
+}
+
+/**
+ * 防止 Archive.extractZip 只建立目录却漏写加密文件时仍被误报为成功。
+ * 仅做一次递归目录读取，避免逐文件 exists 调用。
+ */
+async function verifyZipExtractedFiles(archivePath: string, destDir: string, reportedEntryCount: number): Promise<void> {
+  const expected = parseZipCentralNameBytes(await FileManager.readAsBytes(archivePath))
+  const expectedFiles = expected.filter((entry) => !entry.isDir).length
+  if (expectedFiles === 0) return
+
+  const diskEntries = await FileManager.readDirectory(destDir, true)
+  let fileCount = 0
+  for (const entry of diskEntries) {
+    const fullPath = entry === destDir || entry.startsWith(destDir + "/") ? entry : Path.join(destDir, entry)
+    if (await FileManager.isFile(fullPath)) fileCount++
+  }
+  if (fileCount < expectedFiles) {
+    throw new Error(`ZIP 解压不完整：归档应有 ${expectedFiles} 个文件，实际只解出 ${fileCount} 个（引擎报告 ${reportedEntryCount} 个条目）`)
+  }
+}
+
+/**
+ * 修复 Archive.extractZip 解出的 GBK/GB18030 中文文件名。
+ * 中央目录只解析一次；目标目录也只递归读取一次建索引。之后仅在实际需要时重命名，
+ * 不再对每个归档条目和每个候选名称反复访问文件系统。
+ */
+async function fixMojibakeZipNames(archivePath: string, destDir: string): Promise<void> {
+  try {
+    const parsed = parseZipCentralNameBytes(await FileManager.readAsBytes(archivePath))
+    if (parsed.length === 0 || parsed.every((entry) => !decodeUtf8Lossy(entry.raw).includes("\uFFFD"))) return
+
+    const blobLength = parsed.reduce((total, entry) => total + entry.raw.length + 1, 0)
+    const blob = new Uint8Array(blobLength)
+    let offset = 0
+    for (const entry of parsed) {
+      blob.set(entry.raw, offset)
+      offset += entry.raw.length
+      blob[offset++] = 0
+    }
+
+    const tempPath = Path.join(FileManager.temporaryDirectory, `_zip_names_${Date.now()}_${Math.floor(Math.random() * 100000)}.bin`)
+    const decodedLists: string[][] = []
+    try {
+      await FileManager.writeAsBytes(tempPath, blob)
+      for (const encoding of ["gb18030", "macOSRoman", "isoLatin1"] as const) {
+        try {
+          decodedLists.push((await FileManager.readAsString(tempPath, encoding)).split("\0").slice(0, parsed.length))
+        } catch { }
+      }
+    } finally {
+      try { await FileManager.remove(tempPath) } catch { }
+    }
+    if (decodedLists.length === 0) return
+
+    const correctNames = decodedLists[0]
+    const renameEntries = parsed.map((entry, index) => {
+      const correct = (correctNames[index] ?? "").replace(/\/+$/, "")
+      const candidates = Array.from(new Set([
+        decodeUtf8Lossy(entry.raw),
+        decodeWin1252(entry.raw),
+        decodeCp437(entry.raw),
+        ...decodedLists.slice(1).map((list) => list[index] ?? ""),
+      ].map((name) => name.replace(/\/+$/, "")).filter(Boolean)))
+      return { correct, candidates, isDir: entry.isDir }
+    }).filter((entry) => entry.correct && isSafeArchiveRelativePath(entry.correct))
+    if (renameEntries.length === 0) return
+
+    // 单次扫描生成“物理父目录 → 名称 → 路径”的索引；目录重命名后只移动对应索引桶。
+    const diskEntries = await FileManager.readDirectory(destDir, true)
+    const children = new Map<string, Map<string, string>>()
+    for (const entry of diskEntries) {
+      const fullPath = entry === destDir || entry.startsWith(destDir + "/") ? entry : Path.join(destDir, entry)
+      const parent = Path.dirname(fullPath)
+      let bucket = children.get(parent)
+      if (!bucket) children.set(parent, bucket = new Map())
+      bucket.set(Path.basename(fullPath), fullPath)
+    }
+
+    const renamedDirs = new Map<string, string>()
+    const sorted = [...renameEntries].sort((a, b) => a.correct.split("/").length - b.correct.split("/").length)
+    for (const entry of sorted) {
+      const base = entry.correct.split("/").pop() ?? entry.correct
+      const parentName = entry.correct.slice(0, entry.correct.length - base.length).replace(/\/+$/, "")
+      const physicalParent = parentName ? (renamedDirs.get(parentName) ?? Path.join(destDir, parentName)) : destDir
+      const bucket = children.get(physicalParent)
+      if (!bucket) continue
+
+      // 文件已是正确名称时不做 I/O；目录还要记录它的物理位置，供子项使用。
+      const existing = bucket.get(base)
+      if (existing) {
+        if (entry.isDir) renamedDirs.set(entry.correct, existing)
+        continue
+      }
+
+      let source: string | undefined
+      for (const candidate of entry.candidates) {
+        const candidateBase = candidate.split("/").pop() ?? candidate
+        if (candidateBase !== base && bucket.has(candidateBase)) {
+          source = bucket.get(candidateBase)
+          break
+        }
+      }
+      if (!source) continue
+
+      const target = Path.join(physicalParent, base)
+      try {
+        await FileManager.rename(source, target)
+      } catch {
+        continue
+      }
+      bucket.delete(Path.basename(source))
+      bucket.set(base, target)
+      if (entry.isDir) {
+        const childBucket = children.get(source)
+        if (childBucket) {
+          children.delete(source)
+          children.set(target, childBucket)
+        }
+        renamedDirs.set(entry.correct, target)
+      }
+    }
+  } catch (error) {
+    console.log("[fixMojibakeZipNames] 跳过:", String(error))
+  }
+}
+
+/** ZIP 内路径必须是相对路径且不含 . / .. 组件。 */
+function isSafeArchiveRelativePath(path: string): boolean {
+  return !!path && !path.startsWith("/") && path.split("/").every((part) => part && part !== "." && part !== "..")
+}
+
+/** 解析 ZIP 中央目录，返回每个条目的原始文件名字节（加密 ZIP 也可读取）。 */
+function parseZipCentralNameBytes(fileBytes: Uint8Array): { raw: Uint8Array; isDir: boolean }[] {
+  let eocd = -1
+  const start = Math.max(0, fileBytes.length - 22 - 65536)
+  for (let index = fileBytes.length - 22; index >= start; index--) {
+    if (fileBytes[index] === 0x50 && fileBytes[index + 1] === 0x4b && fileBytes[index + 2] === 0x05 && fileBytes[index + 3] === 0x06) {
+      eocd = index
+      break
+    }
+  }
+  if (eocd < 0) return []
+  const count = fileBytes[eocd + 10] | (fileBytes[eocd + 11] << 8)
+  const centralOffset = (fileBytes[eocd + 16] | (fileBytes[eocd + 17] << 8) | (fileBytes[eocd + 18] << 16) | (fileBytes[eocd + 19] << 24)) >>> 0
+  const entries: { raw: Uint8Array; isDir: boolean }[] = []
+  let offset = centralOffset
+  for (let index = 0; index < count; index++) {
+    if (fileBytes[offset] !== 0x50 || fileBytes[offset + 1] !== 0x4b || fileBytes[offset + 2] !== 0x01 || fileBytes[offset + 3] !== 0x02) break
+    const nameLength = fileBytes[offset + 28] | (fileBytes[offset + 29] << 8)
+    const extraLength = fileBytes[offset + 30] | (fileBytes[offset + 31] << 8)
+    const commentLength = fileBytes[offset + 32] | (fileBytes[offset + 33] << 8)
+    const raw = fileBytes.slice(offset + 46, offset + 46 + nameLength)
+    entries.push({ raw, isDir: raw.length > 0 && raw[raw.length - 1] === 0x2f })
+    offset += 46 + nameLength + extraLength + commentLength
+  }
+  return entries
+}
+
+/** UTF-8 容错解码，用于匹配 extractZip 可能写出的乱码名称。 */
+function decodeUtf8Lossy(bytes: Uint8Array): string {
+  let output = ""
+  let index = 0
+  while (index < bytes.length) {
+    const byte = bytes[index]
+    if (byte < 0x80) {
+      output += String.fromCharCode(byte)
+      index++
+      continue
+    }
+    let length = 0
+    let codePoint = 0
+    if ((byte & 0xe0) === 0xc0) { length = 2; codePoint = byte & 0x1f }
+    else if ((byte & 0xf0) === 0xe0) { length = 3; codePoint = byte & 0x0f }
+    else if ((byte & 0xf8) === 0xf0) { length = 4; codePoint = byte & 0x07 }
+    let valid = length > 0
+    if (valid) {
+      for (let next = 1; next < length; next++) {
+        const continuation = bytes[index + next]
+        if (continuation === undefined || (continuation & 0xc0) !== 0x80) { valid = false; break }
+        codePoint = (codePoint << 6) | (continuation & 0x3f)
+      }
+      if (valid && (codePoint > 0x10ffff || (codePoint >= 0xd800 && codePoint <= 0xdfff))) valid = false
+      if (valid && length === 2 && codePoint < 0x80) valid = false
+      if (valid && length === 3 && codePoint < 0x800) valid = false
+      if (valid && length === 4 && codePoint < 0x10000) valid = false
+    }
+    if (valid) {
+      output += String.fromCodePoint(codePoint)
+      index += length
+    } else {
+      output += "\uFFFD"
+      index++
+    }
+  }
+  return output
+}
+
+function decodeWin1252(bytes: Uint8Array): string {
+  const special: Record<number, number> = { 0x80: 0x20ac, 0x82: 0x201a, 0x83: 0x0192, 0x84: 0x201e, 0x85: 0x2026, 0x86: 0x2020, 0x87: 0x2021, 0x88: 0x02c6, 0x89: 0x2030, 0x8a: 0x0160, 0x8b: 0x2039, 0x8c: 0x0152, 0x8e: 0x017d, 0x91: 0x2018, 0x92: 0x2019, 0x93: 0x201c, 0x94: 0x201d, 0x95: 0x2022, 0x96: 0x2013, 0x97: 0x2014, 0x98: 0x02dc, 0x99: 0x2122, 0x9a: 0x0161, 0x9b: 0x203a, 0x9c: 0x0153, 0x9e: 0x017e, 0x9f: 0x0178 }
+  let output = ""
+  for (const byte of bytes) output += String.fromCharCode(byte < 0x80 ? byte : (special[byte] ?? byte))
+  return output
+}
+
+function decodeCp437(bytes: Uint8Array): string {
+  const table = [0x00c7, 0x00fc, 0x00e9, 0x00e2, 0x00e4, 0x00e0, 0x00e5, 0x00e7, 0x00ea, 0x00eb, 0x00e8, 0x00ef, 0x00ee, 0x00ec, 0x00c4, 0x00c5, 0x00c9, 0x00e6, 0x00c6, 0x00f4, 0x00f6, 0x00f2, 0x00fb, 0x00f9, 0x00ff, 0x00d6, 0x00dc, 0x00a2, 0x00a3, 0x00a5, 0x20a7, 0x0192, 0x00e1, 0x00ed, 0x00f3, 0x00fa, 0x00f1, 0x00d1, 0x00aa, 0x00ba, 0x00bf, 0x2310, 0x00ac, 0x00bd, 0x00bc, 0x00a1, 0x00ab, 0x00bb, 0x2591, 0x2592, 0x2593, 0x2502, 0x2524, 0x2561, 0x2562, 0x2556, 0x2555, 0x2563, 0x2551, 0x2557, 0x255d, 0x255c, 0x255b, 0x2510, 0x2514, 0x2534, 0x252c, 0x251c, 0x2500, 0x253c, 0x255e, 0x255f, 0x255a, 0x2554, 0x2569, 0x2566, 0x2560, 0x2550, 0x256c, 0x2567, 0x2568, 0x2564, 0x2565, 0x2559, 0x2558, 0x2552, 0x2553, 0x256b, 0x256a, 0x2518, 0x250c, 0x2588, 0x2584, 0x258c, 0x2590, 0x2580, 0x03b1, 0x00df, 0x0393, 0x03c0, 0x03a3, 0x03c3, 0x00b5, 0x03c4, 0x03a6, 0x0398, 0x03a9, 0x03b4, 0x221e, 0x03c6, 0x03b5, 0x2229, 0x2261, 0x00b1, 0x2265, 0x2264, 0x2320, 0x2321, 0x00f7, 0x2248, 0x00b0, 0x2219, 0x00b7, 0x221a, 0x207f, 0x00b2, 0x25a0, 0x00a0]
+  let output = ""
+  for (const byte of bytes) output += String.fromCharCode(byte < 0x80 ? byte : (table[byte - 0x80] ?? byte))
+  return output
+}
+
+/** 创建 WinZip AES-256 加密 ZIP，压缩前二次确认密码。 */
+export async function createZipArchive(sourcePath: string, destPath: string): Promise<boolean> {
+  const password = await promptSevenZPassword(
+    "ZIP 加密压缩 (AES-256)",
+    Path.basename(sourcePath),
+    "输入加密密码",
+  )
+  if (password == null) return false
+  if (!password) {
+    try { await Dialog.alert({ title: "密码不能为空", message: "加密压缩必须设置密码。" }) } catch { }
+    return false
+  }
+  const confirm = await promptSevenZPassword(
+    "确认密码",
+    Path.basename(sourcePath),
+    "再次输入加密密码",
+  )
+  if (confirm == null) return false
+  if (confirm !== password) {
+    try { await Dialog.alert({ title: "两次输入的密码不一致", message: "请重新发起压缩。" }) } catch { }
+    return false
+  }
+  await Archive.createZip({
+    sourcePath,
+    destinationPath: destPath,
+    password,
+    compressionMethod: "deflate",
+  })
   return true
 }
 
@@ -1062,7 +1420,7 @@ async function extractArchiveInto(archivePath: string, destDir: string): Promise
   const isTar = ext === ".tar" || isTarGz || isTarBz2 || isTarXz || isTgz
 
   if (ext === ".zip") {
-    await FileManager.unzip(archivePath, destDir)
+    return await extractZipWithPassword(archivePath, destDir)
   } else if (isSevenZFile(archivePath)) {
     // 7z：使用 Archive API（支持 AES-256 加密归档，需要密码时自动弹出输入框）
     return await extractSevenZ(archivePath, destDir)
@@ -1113,41 +1471,22 @@ export async function extractArchiveToNewDir(archivePath: string, destDir: strin
 }
 
 /**
- * 智能解压到新目录（不依赖扩展名，只看文件真实内容）。长按「7z 解压」入口专用：
- * - 7z 内容（无论后缀）：走 7z 引擎（Archive.extract7z），加密自动弹居中的密码输入框；
- * - zip 内容：先原生无密码解压（普通 zip 直接成功）；若解出来是空（iOS 原生 unzip 会静默跳过加密条目），
- *   说明是加密 zip —— 原生 API（FileManager.unzip / Archive.extract7z）均不支持解密码 zip，给出明确提示。
- * @returns true 解压成功；false 用户取消了密码输入
+ * 统一智能解压 ZIP / 7z 到新目录：按真实魔数识别，支持有密码和无密码归档。
+ * ZIP 统一走 extractZipWithPassword，7z 统一走 extractSevenZ。
  */
-export async function extractSevenZToNewDir(archivePath: string, destDir: string): Promise<boolean> {
+export async function extractArchiveSmartToNewDir(archivePath: string, destDir: string): Promise<boolean> {
   const kind = await detectArchiveKind(archivePath)
-  console.log("[7z解压] 真实类型:", kind)
-  if (kind === "7z") {
-    return await extractSevenZ(archivePath, destDir)
-  }
+  console.log("[智能解压] 真实类型:", kind)
+  if (kind === "7z") return await extractSevenZ(archivePath, destDir)
   if (kind === "zip") {
     await FileManager.createDirectory(destDir, true)
-    let unzipError: unknown = null
-    try {
-      await FileManager.unzip(archivePath, destDir)
-    } catch (e) {
-      unzipError = e
-    }
-    if (unzipError) {
-      console.log("[7z解压] unzip 失败:", JSON.stringify({ name: (unzipError as any)?.name, code: (unzipError as any)?.code, message: (unzipError as any)?.message }))
-    } else {
-      // iOS 原生 unzip 遇到加密条目不报错，而是静默跳过 → 解出来是空目录/空文件夹
-      const extracted = await countFilesRecursive(destDir)
-      console.log("[7z解压] unzip 后文件数:", extracted)
-      if (extracted > 0) return true
-      console.log("[7z解压] unzip 结果为空 → 加密 zip，原生不支持解密码 zip")
-    }
-    // 清理空结果目录
-    try { await FileManager.remove(destDir) } catch { }
-    throw new Error("加密 zip 无法直接解压（iOS 原生不支持加密 zip），请在电脑或支持密码解压的应用中解压")
+    return await extractZipWithPassword(archivePath, destDir)
   }
-  throw new Error(`不是有效的压缩文件: ${Path.basename(archivePath)}`)
+  throw new Error(`不是有效的 ZIP/7z 文件: ${Path.basename(archivePath)}`)
 }
+
+/** 兼容旧调用名：统一入口现在同时支持 ZIP 与 7z。 */
+export const extractSevenZToNewDir = extractArchiveSmartToNewDir
 
 /** 递归统计目录下所有文件（不含目录本身）的数量 */
 async function countFilesRecursive(dirPath: string): Promise<number> {
