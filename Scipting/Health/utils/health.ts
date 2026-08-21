@@ -73,7 +73,7 @@ export async function fetchTodayHRVHourly(): Promise<{
 
     const avgList = Array.from({ length: 12 }, (_, i) => (count[i] ? Math.round(sum[i] / count[i]) : 0))
 
-    console.log(avgList)
+    // console.log(avgList)
     return {
       hasData: sampleCount > 0,
       avg: sampleCount ? Math.round(total / sampleCount) : null,
@@ -86,19 +86,27 @@ export async function fetchTodayHRVHourly(): Promise<{
   todayStart.setHours(0, 0, 0, 0)
   const tomorrow = new Date(todayStart)
   tomorrow.setDate(tomorrow.getDate() + 1)
-  let result = await queryDay(todayStart, tomorrow)
-  // 今天没数据 → 昨天
-  if (!result.hasData) {
-    console.log("没有新数据, 显示昨天的数据")
-    const yesterdayStart = new Date(todayStart)
-    yesterdayStart.setDate(yesterdayStart.getDate() - 1)
-    result = await queryDay(yesterdayStart, todayStart)
+
+  const start = new Date()
+  start.setHours(0, 0, 0, 0)
+  for (let day = 0; day < 3; day++) {
+    const end = new Date(start)
+    end.setDate(end.getDate() + 1)
+    const result = await queryDay(start, end)
+    if (result.hasData) {
+      return {
+        avg: result.avg,
+        first: result.first,
+        list: result.list,
+      }
+    }
+    start.setDate(start.getDate() - 1)
   }
 
   return {
-    avg: result.avg,
-    first: result.first,
-    list: result.list,
+    avg: null,
+    first: null,
+    list: new Array(12).fill(0),
   }
 }
 
@@ -178,10 +186,10 @@ export async function fetchHeartRateBaseline24h(): Promise<{
     //     `${String(startHour).padStart(2, "0")}:00-` +
     //     `${String(endHour).padStart(2, "0")}:00`
 
-    //   console.log(`[HeartRate ${timeLabel}]`, value)
+    // console.log(`[HeartRate ${timeLabel}]`, value)
     // })
 
-    console.log("[心率]", result)
+    // console.log("[心率]", result)
 
     return result
   }
@@ -190,7 +198,7 @@ export async function fetchHeartRateBaseline24h(): Promise<{
 
   // 今天完全没数据 → 使用昨天
   if (!todayData.some(v => v > 0)) {
-    console.log("[HeartRate] today no data, use yesterday")
+    // console.log("[HeartRate] today no data, use yesterday")
 
     const yesterdayStart = new Date(todayStart)
     yesterdayStart.setDate(yesterdayStart.getDate() - 1)
@@ -204,9 +212,9 @@ export async function fetchHeartRateBaseline24h(): Promise<{
 
   const avg = validValues.length
     ? Math.round(
-        validValues.reduce((sum, value) => sum + value, 0) /
-        validValues.length
-      )
+      validValues.reduce((sum, value) => sum + value, 0) /
+      validValues.length
+    )
     : null
 
   return {
