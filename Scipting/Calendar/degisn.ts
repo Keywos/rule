@@ -10,6 +10,10 @@ export const colors = {
     systemGreen: {
         light: 'rgba(52,199,89,1)',
         dark: 'rgba(48,209,88,1)',
+    },
+    systemBlue: {
+        light: 'rgba(0,122,255,1)',
+        dark: 'rgba(10,132,255,1)',
     }
 } satisfies Record<string, ColorRGBA>
 

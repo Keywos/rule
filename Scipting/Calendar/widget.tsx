@@ -36,7 +36,8 @@ import {
   getFestivalName,
   getMonthHolidayData,
   getHolidayCalColor,
-  getUpcomingHolidayRanges
+  getUpcomingHolidayRanges,
+  getUpcomingAllRanges
 } from './holidayUtils'
 import SmallWidget from './widgets/SmallWidget'
 import { color, colors, todayText,labText } from './degisn'
@@ -289,7 +290,7 @@ function lunarMonthNum(date: Date): string {
     正: '一', 冬: '11', 腊: '12'
   }
   const n = map[ld.monthName] ?? ld.monthName
-  return `${n} / ${ld.dayName}`
+  return `${n}/${ld.dayName}`
 }
 
 async function MediumWidget() {
@@ -315,7 +316,9 @@ async function MediumWidget() {
 
 
   // 从今天起往后延续的最近 5 条节假日（可跨月）
-  const shown = await getUpcomingHolidayRanges(5, today)
+  const shown = Storage.get<string>('dateSource') === 'all'
+    ? await getUpcomingAllRanges(5, today)
+    : await getUpcomingHolidayRanges(5, today)
 
   return (
     <EnvironmentValuesReader keys={['widgetRenderingMode']}>
@@ -357,7 +360,7 @@ async function MediumWidget() {
               </Text>
             ) : (
               shown.map((item) => (
-                <HStack key={`${item.year}-${item.month}-${item.start}`} spacing={1} alignment="top">
+                <HStack key={`${item.year}-${item.month}-${item.start}-${item.type}-${item.name}`} spacing={1} alignment="top">
                   {item.start === item.end ? (
                     <Text
                       font={10}
@@ -381,19 +384,21 @@ async function MediumWidget() {
                       </Text>
                     </VStack>
                   )}
-                  <Text
-                    font={12}
-                    lineLimit={1}
-                    fontWeight="medium"
-                    foregroundStyle={
-                      item.type === 'holiday'
-                        ? colors.systemGreen
-                        : colors.systemRed
-                    }
-                    frame={{ maxWidth: 'infinity' }}
-                    widgetAccentable
-                  >
-                    {item.name}
+                    <Text
+                      font={12}
+                      lineLimit={1}
+                      fontWeight="medium"
+                      foregroundStyle={
+                        item.type === 'holiday'
+                          ? colors.systemGreen
+                          : item.type === 'reminder'
+                            ? colors.systemBlue
+                            : colors.systemRed
+                      }
+                      frame={{ maxWidth: 'infinity' }}
+                      widgetAccentable
+                    >
+                      {item.name}
                   </Text>
                 </HStack>
               ))

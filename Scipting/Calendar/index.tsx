@@ -103,12 +103,12 @@ function WeekCalculator() {
   return (
     <NavigationStack>
       <List
-        navigationTitle='Week Calculator'
+        navigationTitle='周计算器'
         toolbar={{
-          topBarTrailing: <Button title='This Week' action={resetToCurrent} />,
+          topBarTrailing: <Button title='本周' action={resetToCurrent} />,
         }}
       >
-        <Section header={<Text>INPUT</Text>}>
+        <Section header={<Text>输入</Text>}>
           <HStack>
             <Image
               systemName='calendar'
@@ -116,7 +116,7 @@ function WeekCalculator() {
               imageScale='large'
             />
             <TextField
-              title='Year'
+              title='年份'
               value={year}
               onChanged={setYear}
               keyboardType='numberPad'
@@ -128,7 +128,7 @@ function WeekCalculator() {
               imageScale='large'
             />
             <TextField
-              title='Week'
+              title='周数'
               value={week}
               onChanged={setWeek}
               keyboardType='numberPad'
@@ -138,7 +138,7 @@ function WeekCalculator() {
         </Section>
 
         {result && (
-          <Section header={<Text>RESULT</Text>}>
+          <Section header={<Text>结果</Text>}>
             <HStack>
               <VStack alignment='leading'>
                 <Text font='caption' foregroundStyle={labText}>
@@ -164,13 +164,13 @@ function WeekCalculator() {
                 systemName='clock'
                 foregroundStyle={result.diff >= 0 ? 'green' : 'orange'}
               />
-              <Text>Days from Today</Text>
+              <Text>距离今天</Text>
               <Spacer />
               <Text
                 font='headline'
                 foregroundStyle={result.diff >= 0 ? 'green' : 'orange'}
               >
-                {result.diff} {Math.abs(result.diff) === 1 ? 'day' : 'days'}
+                {result.diff} {Math.abs(result.diff) === 1 ? '天' : '天'}
               </Text>
             </HStack>
           </Section>
@@ -181,14 +181,28 @@ function WeekCalculator() {
 }
 function App() {
   const [firstDayOfWeek, setFirstDayOfWeek] = useState(Storage.get<string>('firstDayOfWeek') || '0')
+  const [dateSource, setDateSource] = useState(Storage.get<string>('dateSource') || 'holiday')
 
   return (
     <NavigationStack>
-      <List navigationTitle='Calendar'>
+      <List navigationTitle='日历'>
         <Section>
-          <NavigationLink title='Week Calculator' destination={<WeekCalculator />} />
+          <NavigationLink title='周计算器' destination={<WeekCalculator />} />
         </Section>
-        <Section header={<Text>Settings</Text>}>
+        <Section header={<Text>设置</Text>}>
+          <Picker
+            value={dateSource}
+            onChanged={(val: string) => {
+              setDateSource(val)
+              Storage.set('dateSource', val)
+              Widget.reloadAll()
+            }}
+            pickerStyle="menu"
+            label={<Text>获取日期</Text>}
+          >
+            <Text tag="holiday">仅节假日</Text>
+            <Text tag="all">所有提醒事项</Text>
+          </Picker>
           <Picker
             value={firstDayOfWeek}
             onChanged={(val: string) => {
@@ -197,14 +211,14 @@ function App() {
               Widget.reloadAll()
             }}
             pickerStyle="menu"
-            label={<Text>Start Week on</Text>}
+            label={<Text>每周开始日</Text>}
           >
-            <Text tag='0'>Sunday</Text>
-            <Text tag='1'>Monday</Text>
+            <Text tag='0'>周日</Text>
+            <Text tag='1'>周一</Text>
           </Picker>
         </Section>
         <Section>
-          <Button title='Preview Widget' action={() => Widget.preview()}></Button>
+          <Button title='预览小组件' action={() => Widget.preview()}></Button>
         </Section>
       </List>
     </NavigationStack>

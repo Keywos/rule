@@ -287,3 +287,84 @@ export async function getUpcomingHolidayRanges(
   }
   return result.slice(0, count)
 }
+
+// “所有提醒事项”模式使用的日历事件
+export interface UpcomingReminderRange {
+  start: number
+  end: number
+  name: string
+  type: 'reminder'
+  year: number
+  month: number // 0-based
+  identifier: string
+}
+
+// 实时读取所有非节假日日历中的事件，不写入 Storage 缓存。
+// 日历中手动添加的事件通过 CalendarEvent.getAll 获取。
+export async function getUpcomingReminderRanges(
+  count = 5,
+  from = new Date()
+): Promise<UpcomingReminderRange[]> {
+  const fromDay = new Date(from)
+  fromDay.setHours(0, 0, 0, 0)
+  const queryEnd = new Date(fromDay)
+  queryEnd.setMonth(queryEnd.getMonth() + 24)
+  queryEnd.setHours(23, 59, 59, 999)
+
+  try {
+    const calendars = await Calendar.forEvents()
+    const eventCalendars = calendars.filter(
+      calendar => calendar.title !== '中国大陆节假日' && calendar.title !== 'Chinese Holidays'
+    )
+    if (eventCalendars.length === 0) return []
+
+    const events = await CalendarEvent.getAll(fromDay, queryEnd, eventCalendars)
+    return events
+      .map((event): UpcomingReminderRange | null => {
+        const startDate = new Date(event.startDate)
+        startDate.setHours(0, 0, 0, 0)
+        if (startDate < fromDay) startDate.setTime(fromDay.getTime())
+
+        const endDate = new Date(event.endDate)
+        endDate.setHours(0, 0, 0, 0)
+        // 全天事件的 endDate 是“结束日的次日零点”，需要减回一天。
+        if (event.isAllDay && endDate > startDate) {
+          endDate.setDate(endDate.getDate() - 1)
+        }
+        if (endDate < fromDay) return null
+
+        // 当前列表只在同一月份显示日期范围；跨月事件从起始日显示，避免月份被错误复用。
+        const sameMonth = startDate.getFullYear() === endDate.getFullYear() && startDate.getMonth() === endDate.getMonth()
+        return {
+          start: startDate.getDate(),
+          end: sameMonth ? endDate.getDate() : startDate.getDate(),
+          name: event.title,
+          type: 'reminder',
+          year: startDate.getFullYear(),
+          month: startDate.getMonth(),
+          identifier: `${event.identifier}-${startDate.getTime()}`
+        }
+      })
+      .filter((item): item is UpcomingReminderRange => item !== null)
+      .sort((a, b) => new Date(a.year, a.month, a.start).getTime() - new Date(b.year, b.month, b.start).getTime())
+      .slice(0, count)
+  } catch (e) {
+    console.error(`Fetch calendar events error: ${e}`)
+    return []
+  }
+}
+
+// “所有提醒事项”模式：保留节假日，同时追加系统提醒事项，并按日期合并排序
+export async function getUpcomingAllRanges(
+  count = 5,
+  from = new Date()
+): Promise<Array<UpcomingHolidayRange | UpcomingReminderRange>> {
+  const [holidayRanges, reminderRanges] = await Promise.all([
+    getUpcomingHolidayRanges(count, from),
+    getUpcomingReminderRanges(count, from)
+  ])
+
+  return [...holidayRanges, ...reminderRanges]
+    .sort((a, b) => new Date(a.year, a.month, a.start).getTime() - new Date(b.year, b.month, b.start).getTime())
+    .slice(0, count)
+}
