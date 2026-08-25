@@ -357,18 +357,30 @@ async function MediumWidget() {
               </Text>
             ) : (
               shown.map((item) => (
-                <HStack key={`${item.year}-${item.month}-${item.start}`} spacing={1} alignment="center">
-                  <Text
-                    font={10}
-                    foregroundStyle={todayText}
-                    frame={{ width: 80, alignment: 'leading' }}
-                    multilineTextAlignment="leading"
-                  >
-
-                    {lunarMonthNum(new Date(item.year, item.month, item.start))} / {item.start === item.end
-                      ? `${item.month + 1}.${item.start}`
-                      : `${item.month + 1}.${item.start}-${item.end}`}
-                  </Text>
+                <HStack key={`${item.year}-${item.month}-${item.start}`} spacing={1} alignment="top">
+                  {item.start === item.end ? (
+                    <Text
+                      font={10}
+                      foregroundStyle={todayText}
+                      frame={{ width: 80, alignment: 'leading' }}
+                      lineLimit={1}
+                    >
+                      {lunarMonthNum(new Date(item.year, item.month, item.start))} / {item.month + 1}.{item.start}
+                    </Text>
+                  ) : (
+                    <VStack
+                      alignment="leading"
+                      spacing={0}
+                      frame={{ width: 80, alignment: 'leading' }}
+                    >
+                      <Text font={10} foregroundStyle={todayText} lineLimit={1}>
+                        {lunarMonthNum(new Date(item.year, item.month, item.start))}
+                      </Text>
+                      <Text font={10} foregroundStyle={todayText} lineLimit={1}>
+                        {item.month + 1}.{item.start} - {item.month + 1}.{item.end}
+                      </Text>
+                    </VStack>
+                  )}
                   <Text
                     font={12}
                     lineLimit={1}
