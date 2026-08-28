@@ -2,6 +2,10 @@
  * 基于 Prettier 的统一格式化工具。
  * 支持 HTML / CSS / SCSS / Less / JS / TS / JSX / TSX / JSON / YAML / Markdown / GraphQL 等。
  * 遇到不规范 HTML（如标签未正确闭合）时自动降级到旧的自定义格式化。
+ *
+ * 实测：本环境 Thread.runInBackground 里的 JS 计算不走 JIT，比主线程直接调用慢 ~7 倍
+ * （128KB 格式化：后台 7.5s vs 主线程 1.1s），因此这里保持直接调用（主线程、最快）。
+ * 大文件卡死问题改由 EditorPage 的尺寸守卫 + 编辑器增量写回解决。
  */
 
 import { formatHTML } from "./htmlFormatter"

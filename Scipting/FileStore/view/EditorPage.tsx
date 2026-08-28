@@ -100,6 +100,8 @@ export function EditorPage(props: EditorPageProps) {
   // 切换编码成功重新加载后自动恢复。
   const [decodeFailed, setDecodeFailed] = useState(false)
   const [loadTrigger, setLoadTrigger] = useState(0)
+  // 格式化/压缩进行中标记（用于展示“正在格式化”提示，并防止重入）
+  const [formatting, setFormatting] = useState(false)
 
   const handleEncodingChange = async (newEncoding: string) => {
     if (newEncoding === encoding) return
@@ -120,52 +122,85 @@ export function EditorPage(props: EditorPageProps) {
     setLoadTrigger(t => t + 1)
   }
 
+  /**
+   * 统一执行格式化/压缩：结果通过编辑器的 selectAll + replaceSelection 写回
+   * （避免直接赋值 content 触发整份文档重载卡顿），完成后排队保存。
+   *
+   * 说明：terser/prettier 解析大文件非常消耗 CPU，且本环境 Thread.runInBackground 里的
+   * JS 计算不走 JIT（实测慢 ~7 倍），也没有 Worker，因此只能保持主线程直接调用。
+   * 大文件先弹窗确认并展示提示条、超大文件直接拒绝，避免界面长时间无响应甚至崩溃。
+   */
+  const FORMAT_WARN_LIMIT = 256 * 1024 // 超过该字符数先弹窗确认 + 展示提示条
+  const FORMAT_HARD_LIMIT = 3 * 1024 * 1024 // 超过该字符数直接拒绝（防止卡死/崩溃）
+
+  const runFormatting = async (compute: (current: string) => Promise<string> | string) => {
+    const controller = controllerRef.current
+    if (!controller || formattingRef.current) return
+
+    const size = controller.content.length
+    if (size > FORMAT_HARD_LIMIT) {
+      showToast(`文件过大（${fmtSize(size)}），为避免卡顿/崩溃已取消格式化`)
+      return
+    }
+    if (size > FORMAT_WARN_LIMIT) {
+      const ok = await Dialog.confirm({
+        title: "继续格式化？",
+        message: `文件较大（${fmtSize(size)}），处理可能需要较长时间，期间界面可能暂时无响应。是否继续？`,
+        cancelLabel: "取消",
+        confirmLabel: "继续",
+      })
+      if (!ok) return
+    }
+
+    const showBanner = size > FORMAT_WARN_LIMIT
+    formattingRef.current = true
+    if (showBanner) {
+      setFormatting(true)
+      // 让出一次事件循环，使提示条先渲染出来，再开始阻塞主线程的重计算
+      await new Promise((resolve) => setTimeout(resolve, 50))
+    }
+    try {
+      const formatted = await compute(controller.content)
+      const target = controllerRef.current
+      if (!target) return
+      target.selectAll()
+      target.replaceSelection(formatted)
+      void enqueueSave(formatted, actualEncodingRef.current)
+    } catch (e) {
+      console.log("格式化失败:", e)
+    } finally {
+      formattingRef.current = false
+      if (showBanner) setFormatting(false)
+    }
+  }
+
   const handleFormat = async () => {
     if (!controllerRef.current) return
-    const current = controllerRef.current.content
-    try {
-      if (isJSONFile) {
+    if (isJSONFile) {
+      const current = controllerRef.current.content
+      try {
         const parsed = JSON.parse(current.replace(/^\uFEFF/, ""))
         const formatted = `${JSON.stringify(parsed, null, 2)}\n`
         controllerRef.current.selectAll()
         controllerRef.current.replaceSelection(formatted)
         await enqueueSave(formatted, actualEncodingRef.current)
         return
-      }
-      controllerRef.current.content = await formatWithPrettier(current, fileName)
-    } catch (e) {
-      console.log("格式化失败:", e)
-      if (isJSONFile) {
+      } catch (e) {
+        console.log("格式化失败:", e)
         showToast("JSON格式化失败：文件中存在无效语法")
       }
+      return
     }
+    await runFormatting((current) => formatWithPrettier(current, fileName))
   }
   const handleJSPreserveMinify = async () => {
-    if (!controllerRef.current) return
-    const current = controllerRef.current.content
-    try {
-      controllerRef.current.content = await minifyJSPreserveNames(current)
-    } catch (e) {
-      console.log("JS压缩(保留变量名)失败:", e)
-    }
+    await runFormatting((current) => minifyJSPreserveNames(current))
   }
   const handleJSAggressiveMinify = async () => {
-    if (!controllerRef.current) return
-    const current = controllerRef.current.content
-    try {
-      controllerRef.current.content = await minifyJSAggressive(current)
-    } catch (e) {
-      console.log("JS压缩(不保留变量名)失败:", e)
-    }
+    await runFormatting((current) => minifyJSAggressive(current))
   }
   const handleJSPreserveNamesAndComments = async () => {
-    if (!controllerRef.current) return
-    const current = controllerRef.current.content
-    try {
-      controllerRef.current.content = await minifyJSPreserveNamesAndComments(current)
-    } catch (e) {
-      console.log("JS压缩(保留注释/变量名)失败:", e)
-    }
+    await runFormatting((current) => minifyJSPreserveNamesAndComments(current))
   }
   const handleJSONMinify = async () => {
     if (!controllerRef.current) return
@@ -180,29 +215,14 @@ export function EditorPage(props: EditorPageProps) {
       showToast("JSON压缩失败：文件中存在无效语法")
     }
   }
-  const handleHTMLMinify = () => {
-    if (!controllerRef.current) return
-    try {
-      controllerRef.current.content = minifyHTML(controllerRef.current.content)
-    } catch (e) {
-      console.log("HTML压缩失败:", e)
-    }
+  const handleHTMLMinify = async () => {
+    await runFormatting((current) => minifyHTML(current))
   }
-  const handleHTMLCSSMinify = () => {
-    if (!controllerRef.current) return
-    try {
-      controllerRef.current.content = minifyHTML(controllerRef.current.content, true)
-    } catch (e) {
-      console.log("HTML及CSS压缩失败:", e)
-    }
+  const handleHTMLCSSMinify = async () => {
+    await runFormatting((current) => minifyHTML(current, true))
   }
   const handleHTMLFormat = async () => {
-    if (!controllerRef.current) return
-    try {
-      controllerRef.current.content = await formatWithPrettier(controllerRef.current.content, ".html")
-    } catch (e) {
-      console.log("HTML格式化失败:", e)
-    }
+    await runFormatting((current) => formatWithPrettier(current, ".html"))
   }
   const handleHTMLPreview = async () => {
     if (!controllerRef.current) return
@@ -243,12 +263,7 @@ export function EditorPage(props: EditorPageProps) {
     }
   }
   const handleMarkdownFormat = async () => {
-    if (!controllerRef.current) return
-    try {
-      controllerRef.current.content = await formatWithPrettier(controllerRef.current.content, ".md")
-    } catch (e) {
-      console.log("Markdown格式化失败:", e)
-    }
+    await runFormatting((current) => formatWithPrettier(current, ".md"))
   }
   const handleMarkdownPreview = async () => {
     if (!controllerRef.current) return
@@ -403,6 +418,7 @@ export function EditorPage(props: EditorPageProps) {
   const actualEncodingRef = useRef(actualEncoding)
   const decodeFailedRef = useRef(decodeFailed)
   const closingRef = useRef(false)
+  const formattingRef = useRef(false)
   controllerRef.current = controller
   saveEnabledRef.current = saveEnabled
   actualEncodingRef.current = actualEncoding
@@ -579,6 +595,17 @@ export function EditorPage(props: EditorPageProps) {
     )
   }
 
+  // ─── 格式化进行中提示条 ───
+  const renderFormattingBanner = () => {
+    if (!formatting) return <EmptyView />
+    return (
+      <HStack spacing={6} alignment="center" padding={{ vertical: 8, horizontal: 12 }}>
+        <Image systemName="hourglass" foregroundStyle="secondaryLabel" frame={{ width: 16, height: 16 }} />
+        <Text font="footnote" foregroundStyle="secondaryLabel">正在格式化大文件，请稍候…</Text>
+      </HStack>
+    )
+  }
+
   // ─── 解码失败提示条（二进制/未知编码时禁用保存） ───
   const renderDecodeFailedBanner = () => {
     if (!decodeFailed) return <EmptyView />
@@ -657,6 +684,7 @@ export function EditorPage(props: EditorPageProps) {
           }}
         >
           {renderDecodeFailedBanner()}
+          {renderFormattingBanner()}
           <Divider />
           <Editor
             background={bgColor}
@@ -733,6 +761,7 @@ export function EditorPage(props: EditorPageProps) {
         }}
       >
         {renderDecodeFailedBanner()}
+        {renderFormattingBanner()}
         <Divider />
 
         <Editor
