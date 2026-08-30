@@ -1,0 +1,40 @@
+name: Sub-Store-Egern_Dev
+description: "同步配置的定时 cronexp: 55 23 * * *"
+icon: https://raw.githubusercontent.com/cc63/ICON/main/Sub-Store.png
+compat_arguments:
+  # ability: http-client-policy
+  cronexp: 55 23 * * *
+  sync: "Sub-Store Sync"
+  # timeout: 900
+  # engine: auto
+  produce: "# Sub-Store Produce"
+  produce_cronexp: 50 */6 * * *
+  sync_success_notify: true
+  produce_sub: "sub1,sub2"
+  produce_col: "col1,col2"
+  cors: "https://sub-store.vercel.app,http://substore.stash,https://substore.stash"
+compat_arguments_desc: |
+  Egern Dev
+scriptings:
+  - http_request:
+      name: Sub-Store Core Egern_Dev
+      match: ^https?:\/\/sub\.store\/((download)|api\/(preview|sync|(utils\/node-info)))
+      script_url: https://raw.githubusercontent.com/Keywos/rule/refs/heads/main/script/egern/sub-store-1.min_dev.js
+      body_required: true
+      max_size: 999999999
+      timeout: 900
+      arguments:
+        _compat.$argument: "cors={{{cors}}}"
+  - http_request:
+      name: Sub-Store Simple Egern_Dev
+      match: ^https?:\/\/sub\.store
+      script_url: https://raw.githubusercontent.com/Keywos/rule/refs/heads/main/script/egern/sub-store-0.min_dev.js
+      body_required: true
+      max_size: 999999999
+      timeout: 900
+      arguments:
+        _compat.$argument: "cors={{{cors}}}"
+mitm:
+  hostnames:
+    includes:
+      - sub.store
