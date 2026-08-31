@@ -1,0 +1,51 @@
+{
+  "intentInputTypes" : [
+    "fileURLs",
+    "Text",
+    "FileURLs"
+  ],
+  "icon" : "wrench.and.screwdriver",
+  "version" : "1.0.0",
+  "entry" : "index.tsx",
+  "color" : "rgba(102, 196, 235,1)",
+  "contributors" : [
+
+  ],
+  "description" : null,
+  "name" : "JetsamEvent",
+  "localizedNames" : {
+    "it" : "",
+    "ru" : "",
+    "pt" : "",
+    "ja" : "",
+    "de" : "",
+    "en" : "",
+    "es" : "",
+    "zh" : "",
+    "fr" : ""
+  },
+  "permissions" : null,
+    "remoteResource": {
+    "autoUpdateInterval": null,
+    "url": "https://github.com/Keywos/rule/tree/main/Scipting/JetsamEvent",
+    "hash": ""
+  },
+  "localizedDescriptions" : {
+    "es" : "",
+    "en" : "Analyze battery health from synced diagnostic files",
+    "ru" : "",
+    "fr" : "",
+    "ja" : "",
+    "de" : "",
+    "pt" : "",
+    "zh" : "",
+    "it" : ""
+  },
+  "runInApp" : false,
+  "iconImage" : null,
+  "author" : {
+    "homepage" : "https:\/\/github.com\/Keywos",
+    "name" : "Keywos",
+    "email" : null
+  }
+}
