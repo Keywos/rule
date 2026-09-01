@@ -481,6 +481,7 @@ try {
           .trim()
           .toUpperCase();
 
+        // linkeytimeout
         const method = linkeyMethod || (requestBody != null ? "POST" : "GET");
 
         sendRequest(target, 0, method);
