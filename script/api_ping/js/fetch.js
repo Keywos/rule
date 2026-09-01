@@ -1,12 +1,8 @@
-// fetch.js 1.0.1
+// fetch.js 1.0.2
 
 const DEFAULT_HEADERS = {
-  "User-Agent":
-    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) " +
-    "AppleWebKit/537.36 (KHTML, like Gecko) " +
-    "Chrome/149.0.0.0 Safari/537.36 Edg/149.0.0.0",
-  Accept:
-    "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+  "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) " + "AppleWebKit/537.36 (KHTML, like Gecko) " + "Chrome/149.0.0.0 Safari/537.36 Edg/149.0.0.0",
+  Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
   "Sec-Fetch-Site": "none",
   "Sec-Fetch-Mode": "navigate",
   "Sec-Fetch-Dest": "document",
@@ -14,8 +10,7 @@ const DEFAULT_HEADERS = {
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods":
-    "GET, POST, PUT, DELETE, OPTIONS",
+  "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
   "Access-Control-Allow-Headers": "*",
   "Access-Control-Expose-Headers": "*",
   "Access-Control-Max-Age": "86400",
@@ -35,28 +30,20 @@ function createCorsHeaders(origin) {
   if (!origin || origin === "*") {
     return {
       "Access-Control-Allow-Origin": "*",
-      "Access-Control-Allow-Methods":
-        CORS_HEADERS["Access-Control-Allow-Methods"],
-      "Access-Control-Allow-Headers":
-        CORS_HEADERS["Access-Control-Allow-Headers"],
-      "Access-Control-Expose-Headers":
-        CORS_HEADERS["Access-Control-Expose-Headers"],
-      "Access-Control-Max-Age":
-        CORS_HEADERS["Access-Control-Max-Age"],
+      "Access-Control-Allow-Methods": CORS_HEADERS["Access-Control-Allow-Methods"],
+      "Access-Control-Allow-Headers": CORS_HEADERS["Access-Control-Allow-Headers"],
+      "Access-Control-Expose-Headers": CORS_HEADERS["Access-Control-Expose-Headers"],
+      "Access-Control-Max-Age": CORS_HEADERS["Access-Control-Max-Age"],
       linkey: CORS_HEADERS.linkey,
     };
   }
 
   return {
     "Access-Control-Allow-Origin": origin,
-    "Access-Control-Allow-Methods":
-      CORS_HEADERS["Access-Control-Allow-Methods"],
-    "Access-Control-Allow-Headers":
-      CORS_HEADERS["Access-Control-Allow-Headers"],
-    "Access-Control-Expose-Headers":
-      CORS_HEADERS["Access-Control-Expose-Headers"],
-    "Access-Control-Max-Age":
-      CORS_HEADERS["Access-Control-Max-Age"],
+    "Access-Control-Allow-Methods": CORS_HEADERS["Access-Control-Allow-Methods"],
+    "Access-Control-Allow-Headers": CORS_HEADERS["Access-Control-Allow-Headers"],
+    "Access-Control-Expose-Headers": CORS_HEADERS["Access-Control-Expose-Headers"],
+    "Access-Control-Max-Age": CORS_HEADERS["Access-Control-Max-Age"],
     linkey: CORS_HEADERS.linkey,
   };
 }
@@ -70,9 +57,7 @@ function cleanResponseHeaders(headers, origin) {
   if (headers && typeof headers === "object") {
     try {
       for (const key in headers) {
-        if (
-          !Object.prototype.hasOwnProperty.call(headers, key)
-        ) {
+        if (!Object.prototype.hasOwnProperty.call(headers, key)) {
           continue;
         }
 
@@ -101,16 +86,11 @@ function cleanResponseHeaders(headers, origin) {
     }
   }
 
-  result["Access-Control-Allow-Origin"] =
-    origin || "*";
-  result["Access-Control-Allow-Methods"] =
-    CORS_HEADERS["Access-Control-Allow-Methods"];
-  result["Access-Control-Allow-Headers"] =
-    CORS_HEADERS["Access-Control-Allow-Headers"];
-  result["Access-Control-Expose-Headers"] =
-    CORS_HEADERS["Access-Control-Expose-Headers"];
-  result["Access-Control-Max-Age"] =
-    CORS_HEADERS["Access-Control-Max-Age"];
+  result["Access-Control-Allow-Origin"] = origin || "*";
+  result["Access-Control-Allow-Methods"] = CORS_HEADERS["Access-Control-Allow-Methods"];
+  result["Access-Control-Allow-Headers"] = CORS_HEADERS["Access-Control-Allow-Headers"];
+  result["Access-Control-Expose-Headers"] = CORS_HEADERS["Access-Control-Expose-Headers"];
+  result["Access-Control-Max-Age"] = CORS_HEADERS["Access-Control-Max-Age"];
   result.linkey = CORS_HEADERS.linkey;
 
   return result;
@@ -121,11 +101,7 @@ function cleanResponseHeaders(headers, origin) {
  */
 function getQueryParam(name) {
   try {
-    if (
-      typeof $request === "undefined" ||
-      !$request ||
-      !$request.url
-    ) {
+    if (typeof $request === "undefined" || !$request || !$request.url) {
       return null;
     }
 
@@ -147,14 +123,9 @@ function getQueryParam(name) {
         const value = part.substring(prefix.length);
 
         try {
-          return decodeURIComponent(
-            value.replace(/\+/g, " ")
-          );
+          return decodeURIComponent(value.replace(/\+/g, " "));
         } catch (decodeError) {
-          console.log(
-            "decodeURIComponent: " +
-            decodeError
-          );
+          console.log("decodeURIComponent: " + decodeError);
 
           return value;
         }
@@ -201,10 +172,7 @@ function finish(status, headers, body) {
   let outputBody = "";
 
   if (body != null) {
-    outputBody =
-      typeof body === "string"
-        ? body
-        : String(body);
+    outputBody = typeof body === "string" ? body : String(body);
   }
 
   try {
@@ -230,13 +198,7 @@ function finish(status, headers, body) {
  * 判断是否为重定向状态码。
  */
 function isRedirectStatus(status) {
-  return (
-    status === 301 ||
-    status === 302 ||
-    status === 303 ||
-    status === 307 ||
-    status === 308
-  );
+  return status === 301 || status === 302 || status === 303 || status === 307 || status === 308;
 }
 
 /**
@@ -254,10 +216,7 @@ function getHeader(headers, targetName) {
   const lowerTarget = targetName.toLowerCase();
 
   for (const key in headers) {
-    if (
-      Object.prototype.hasOwnProperty.call(headers, key) &&
-      String(key).toLowerCase() === lowerTarget
-    ) {
+    if (Object.prototype.hasOwnProperty.call(headers, key) && String(key).toLowerCase() === lowerTarget) {
       return headers[key];
     }
   }
@@ -283,9 +242,7 @@ function resolveRedirect(location, base) {
     }
   }
 
-  const originMatch = String(base).match(
-    /^(https?:\/\/[^/]+)/i
-  );
+  const originMatch = String(base).match(/^(https?:\/\/[^/]+)/i);
 
   if (!originMatch) {
     return location;
@@ -294,17 +251,9 @@ function resolveRedirect(location, base) {
   const origin = originMatch[1];
 
   if (location.indexOf("//") === 0) {
-    const protocolMatch = String(base).match(
-      /^(https?):/i
-    );
+    const protocolMatch = String(base).match(/^(https?):/i);
 
-    return (
-      (protocolMatch
-        ? protocolMatch[1]
-        : "https") +
-      ":" +
-      location
-    );
+    return (protocolMatch ? protocolMatch[1] : "https") + ":" + location;
   }
 
   if (location.charAt(0) === "/") {
@@ -315,26 +264,17 @@ function resolveRedirect(location, base) {
     const cleanBase = String(base).split("#")[0];
     const queryIndex = cleanBase.indexOf("?");
 
-    return (
-      (queryIndex >= 0
-        ? cleanBase.substring(0, queryIndex)
-        : cleanBase) + location
-    );
+    return (queryIndex >= 0 ? cleanBase.substring(0, queryIndex) : cleanBase) + location;
   }
 
   if (location.charAt(0) === "#") {
     return String(base).split("#")[0] + location;
   }
 
-  const cleanBase = String(base)
-    .split("#")[0]
-    .split("?")[0];
+  const cleanBase = String(base).split("#")[0].split("?")[0];
 
   const lastSlash = cleanBase.lastIndexOf("/");
-  const directory =
-    lastSlash >= 0
-      ? cleanBase.substring(0, lastSlash + 1)
-      : cleanBase + "/";
+  const directory = lastSlash >= 0 ? cleanBase.substring(0, lastSlash + 1) : cleanBase + "/";
 
   return directory + location;
 }
@@ -348,30 +288,17 @@ function buildRequestHeaders(extraHeaders) {
   let key;
 
   for (key in DEFAULT_HEADERS) {
-    if (
-      Object.prototype.hasOwnProperty.call(
-        DEFAULT_HEADERS,
-        key
-      )
-    ) {
+    if (Object.prototype.hasOwnProperty.call(DEFAULT_HEADERS, key)) {
       result[key] = DEFAULT_HEADERS[key];
     }
   }
 
-  if (
-    !extraHeaders ||
-    typeof extraHeaders !== "object"
-  ) {
+  if (!extraHeaders || typeof extraHeaders !== "object") {
     return result;
   }
 
   for (key in extraHeaders) {
-    if (
-      !Object.prototype.hasOwnProperty.call(
-        extraHeaders,
-        key
-      )
-    ) {
+    if (!Object.prototype.hasOwnProperty.call(extraHeaders, key)) {
       continue;
     }
 
@@ -380,12 +307,7 @@ function buildRequestHeaders(extraHeaders) {
     /*
      * 这些请求头应交给 HTTP 客户端自动管理。
      */
-    if (
-      lower === "host" ||
-      lower === "content-length" ||
-      lower === "transfer-encoding" ||
-      lower === "connection"
-    ) {
+    if (lower === "host" || lower === "content-length" || lower === "transfer-encoding" || lower === "connection") {
       continue;
     }
 
@@ -414,65 +336,37 @@ function buildRequestHeaders(extraHeaders) {
 /**
  * 处理 HTTP 响应。
  */
-function handleResponse(
-  url,
-  redirectCount,
-  method,
-  err,
-  resp,
-  body
-) {
+function handleResponse(url, redirectCount, method, err, resp, body) {
   try {
     if (err) {
       console.log("HTTP Error: " + err);
 
-      finish(
-        502,
-        createCorsHeaders("*"),
-        String(err)
-      );
+      finish(502, createCorsHeaders("*"), String(err));
 
       return;
     }
 
     if (!resp) {
-      finish(
-        502,
-        createCorsHeaders("*"),
-        "No response"
-      );
+      finish(502, createCorsHeaders("*"), "No response");
 
       return;
     }
 
-    let status =
-      resp.statusCode != null
-        ? Number(resp.statusCode)
-        : Number(resp.status);
+    let status = resp.statusCode != null ? Number(resp.statusCode) : Number(resp.status);
 
     if (!status || status < 100) {
       status = 200;
     }
 
-    const responseHeaders =
-      resp.headers &&
-      typeof resp.headers === "object"
-        ? resp.headers
-        : {};
+    const responseHeaders = resp.headers && typeof resp.headers === "object" ? resp.headers : {};
 
     console.log("Status: " + status);
 
     if (isRedirectStatus(status)) {
-      const location = getHeader(
-        responseHeaders,
-        "location"
-      );
+      const location = getHeader(responseHeaders, "location");
 
       if (location) {
-        const nextURL = resolveRedirect(
-          location,
-          url
-        );
+        const nextURL = resolveRedirect(location, url);
 
         console.log("Redirect: " + nextURL);
 
@@ -483,32 +377,17 @@ function handleResponse(
          */
         let nextMethod = method;
 
-        if (
-          status === 303 ||
-          ((status === 301 || status === 302) &&
-            method === "POST")
-        ) {
+        if (status === 303 || ((status === 301 || status === 302) && method === "POST")) {
           nextMethod = "GET";
         }
 
-        sendRequest(
-          nextURL,
-          redirectCount + 1,
-          nextMethod
-        );
+        sendRequest(nextURL, redirectCount + 1, nextMethod);
 
         return;
       }
     }
 
-    finish(
-      status,
-      cleanResponseHeaders(
-        responseHeaders,
-        "*"
-      ),
-      body
-    );
+    finish(status, cleanResponseHeaders(responseHeaders, "*"), body);
   } catch (e) {
     console.log("Callback Exception: " + e);
 
@@ -516,11 +395,7 @@ function handleResponse(
       console.log(e.stack);
     }
 
-    finish(
-      500,
-      createCorsHeaders("*"),
-      (e && e.stack) || String(e)
-    );
+    finish(500, createCorsHeaders("*"), (e && e.stack) || String(e));
   }
 }
 
@@ -533,24 +408,13 @@ function sendRequest(url, redirectCount, method) {
   }
 
   if (redirectCount >= MAX_REDIRECTS) {
-    finish(
-      508,
-      createCorsHeaders("*"),
-      "Too many redirects"
-    );
+    finish(508, createCorsHeaders("*"), "Too many redirects");
 
     return;
   }
 
-  if (
-    typeof $httpClient === "undefined" ||
-    !$httpClient
-  ) {
-    finish(
-      500,
-      createCorsHeaders("*"),
-      "$httpClient unavailable"
-    );
+  if (typeof $httpClient === "undefined" || !$httpClient) {
+    finish(500, createCorsHeaders("*"), "$httpClient unavailable");
 
     return;
   }
@@ -560,50 +424,25 @@ function sendRequest(url, redirectCount, method) {
     headers: requestHeaders,
   };
 
-  if (method === "POST" && requestBody != null) {
+  if (requestBody != null) {
     options.body = requestBody;
   }
 
   console.log("Request: " + method + " " + url);
 
   const callback = function (err, resp, body) {
-    handleResponse(
-      url,
-      redirectCount,
-      method,
-      err,
-      resp,
-      body
-    );
+    handleResponse(url, redirectCount, method, err, resp, body);
   };
 
   try {
-    if (method === "POST") {
-      if (typeof $httpClient.post !== "function") {
-        finish(
-          500,
-          createCorsHeaders("*"),
-          "$httpClient.post unavailable"
-        );
+    const methodName = method.toLowerCase();
 
-        return;
-      }
-
-      $httpClient.post(options, callback);
+    if (typeof $httpClient[methodName] !== "function") {
+      finish(500, createCorsHeaders("*"), "$httpClient." + methodName + " unavailable");
       return;
     }
 
-    if (typeof $httpClient.get !== "function") {
-      finish(
-        500,
-        createCorsHeaders("*"),
-        "$httpClient.get unavailable"
-      );
-
-      return;
-    }
-
-    $httpClient.get(options, callback);
+    $httpClient[methodName](options, callback);
   } catch (e) {
     console.log("HTTP Client Exception: " + e);
 
@@ -611,11 +450,7 @@ function sendRequest(url, redirectCount, method) {
       console.log(e.stack);
     }
 
-    finish(
-      500,
-      createCorsHeaders("*"),
-      (e && e.stack) || String(e)
-    );
+    finish(500, createCorsHeaders("*"), (e && e.stack) || String(e));
   }
 }
 
@@ -624,48 +459,39 @@ function sendRequest(url, redirectCount, method) {
  */
 try {
   if (typeof $request === "undefined" || !$request) {
-    finish(
-      500,
-      createCorsHeaders("*"),
-      "$request unavailable"
-    );
+    finish(500, createCorsHeaders("*"), "$request unavailable");
   } else {
-    const incomingMethod = String(
-      $request.method || "GET"
-    ).toUpperCase();
+    const incomingMethod = String($request.method || "GET").toUpperCase();
 
     if (incomingMethod === "OPTIONS") {
-      finish(
-        204,
-        createCorsHeaders("*"),
-        ""
-      );
+      finish(204, createCorsHeaders("*"), "");
     } else {
       const target = getQueryParam("url");
 
       if (!target) {
-        finish(
-          400,
-          createCorsHeaders("*"),
-          "missing url parameter"
-        );
+        finish(400, createCorsHeaders("*"), "missing url parameter");
       } else {
-        const extraHeaders =
-          parseJSON(
-            getQueryParam("linkeyheaders")
-          ) || {};
+        const extraHeaders = parseJSON(getQueryParam("linkeyheaders")) || {};
 
-        requestHeaders =
-          buildRequestHeaders(extraHeaders);
+        requestHeaders = buildRequestHeaders(extraHeaders);
 
-        requestBody =
-          getQueryParam("linkeybody");
+        requestBody = getQueryParam("linkeybody");
 
-        sendRequest(
-          target,
-          0,
-          requestBody != null ? "POST" : "GET"
-        );
+        const linkeyMethod = String(getQueryParam("linkeymethod") || "")
+          .trim()
+          .toUpperCase();
+
+        const method = linkeyMethod || (requestBody != null ? "POST" : "GET");
+
+        sendRequest(target, 0, method);
+        // requestBody =
+        //   getQueryParam("linkeybody");
+
+        // sendRequest(
+        //   target,
+        //   0,
+        //   requestBody != null ? "POST" : "GET"
+        // );
       }
     }
   }
@@ -676,9 +502,5 @@ try {
     console.log(e.stack);
   }
 
-  finish(
-    500,
-    createCorsHeaders("*"),
-    (e && e.stack) || String(e)
-  );
+  finish(500, createCorsHeaders("*"), (e && e.stack) || String(e));
 }
