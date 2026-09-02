@@ -344,6 +344,7 @@ export function EditorPage(props: EditorPageProps) {
             if (isUsableText(alt)) {
               if (!cancelled) {
                 setContent(alt)
+                baseContentRef.current = alt
                 setActualEncoding(enc)
                 setEncoding(enc)
                 setSaveEnabled(true)
@@ -366,6 +367,7 @@ export function EditorPage(props: EditorPageProps) {
               if (alt != null && (alt.length > 0 || dataSize === 0) && isPlausibleText(alt)) {
                 if (!cancelled) {
                   setContent(alt)
+                  baseContentRef.current = alt
                   setActualEncoding(enc)
                   setEncoding(enc)
                   setSaveEnabled(true)
@@ -384,6 +386,7 @@ export function EditorPage(props: EditorPageProps) {
               if (decoded != null && isPlausibleText(decoded)) {
                 if (!cancelled) {
                   setContent(decoded)
+                  baseContentRef.current = decoded
                   setEncoding("utf-8")
                   setSaveEnabled(true)
                   setDecodeFailed(false)
@@ -402,6 +405,7 @@ export function EditorPage(props: EditorPageProps) {
           // - 否则以空内容打开并标记 decodeFailed：编辑器禁用保存，避免把乱码/空白覆盖回原文件。
           const fallbackContent = initialContent && initialContent.length > 0 && isPlausibleText(initialContent) ? initialContent : ""
           setContent(fallbackContent)
+          baseContentRef.current = fallbackContent
           setEncoding("utf-8")
           setSaveEnabled(fallbackContent.length > 0)
           setDecodeFailed(fallbackContent.length === 0)
@@ -414,6 +418,7 @@ export function EditorPage(props: EditorPageProps) {
           // 兜底内容不是合法文本时禁用保存，避免把乱码/空白覆盖原文件。
           const fallbackContent = initialContent && initialContent.length > 0 && isPlausibleText(initialContent) ? initialContent : ""
           setContent(fallbackContent)
+          baseContentRef.current = fallbackContent
           setEncoding("utf-8")
           setSaveEnabled(fallbackContent.length > 0)
           setDecodeFailed(fallbackContent.length === 0)
@@ -444,6 +449,9 @@ export function EditorPage(props: EditorPageProps) {
   const disposedRef = useRef(false)
   const saveQueueRef = useRef<Promise<void>>(Promise.resolve())
   const latestContentRef = useRef(initialContent ?? "")
+  // 上次成功从磁盘加载的内容：用于判断编辑器内容是否有改动。
+  // 未改动时关闭/退出不必写回，避免只读/安全域位置误报保存失败。
+  const baseContentRef = useRef<string | null>(null)
   const saveEnabledRef = useRef(saveEnabled)
   const actualEncodingRef = useRef(actualEncoding)
   const decodeFailedRef = useRef(decodeFailed)
@@ -463,6 +471,8 @@ export function EditorPage(props: EditorPageProps) {
     }
     const write = async () => {
       await FileManager.writeAsString(path, contentToSave, encodingToSave as any)
+      // 已成功写盘：把它作为新的基线，后续关闭/退出时无需重复写回。
+      baseContentRef.current = contentToSave
     }
     const pending = saveQueueRef.current.then(write, write)
     saveQueueRef.current = pending.catch((error) => {
@@ -478,7 +488,10 @@ export function EditorPage(props: EditorPageProps) {
       saveTimerRef.current = null
     }
     const finalContent = controllerRef.current?.content ?? latestContentRef.current
-    if (saveEnabledRef.current || finalContent.length > 0) {
+    // 内容与磁盘加载结果一致时无需写回：避免只读/安全域位置在关闭时误报保存失败，
+    // 也避免“仅查看未编辑”的会话产生不必要的写入。
+    const unchanged = baseContentRef.current !== null && finalContent === baseContentRef.current
+    if (!unchanged && (saveEnabledRef.current || finalContent.length > 0)) {
       latestContentRef.current = finalContent
       await enqueueSave(finalContent, actualEncodingRef.current)
     } else {
@@ -570,8 +583,26 @@ export function EditorPage(props: EditorPageProps) {
       await flushFinalSave()
     } catch (e) {
       console.log("关闭前保存失败:", e)
-      showToast("保存失败，编辑器保持打开")
-      closingRef.current = false
+      // 保存失败时不要无路可走（分享进来的文件常位于只读/安全域位置）：
+      // 询问用户是否放弃更改直接退出，确认后仍然 dismiss，避免被困在页面上。
+      const discard = await Dialog.confirm({
+        title: "保存失败",
+        message: "无法写回该文件（可能位置只读或已被移动）。放弃更改并退出？",
+        cancelLabel: "取消",
+        confirmLabel: "放弃更改退出",
+      })
+      if (!discard) {
+        closingRef.current = false
+        return
+      }
+      if (saveTimerRef.current) {
+        clearTimeout(saveTimerRef.current)
+        saveTimerRef.current = null
+      }
+      controllerRef.current?.dispose()
+      disposedRef.current = true
+      dismiss()
+      onClose?.()
       return
     }
     controllerRef.current?.dispose()
