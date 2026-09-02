@@ -1,10 +1,11 @@
 // 通用文件列表项组件 — 支持左滑右滑、上下文菜单、选择模式
 
-import { Navigation, NavigationStack, List, Section, HStack, VStack, Spacer, Text, Button, Image, Group, EmptyView, useState, useEffect, Path, type VirtualNode } from "scripting";
+import { Navigation, NavigationStack, List, Section, HStack, VStack, ZStack, Spacer, Text, Button, Image, Group, EmptyView, useState, useEffect, Path, type VirtualNode } from "scripting";
 import { fmtSize, fmtDate, FileInfo, getFileInfo } from "../manager/utils";
 import { unpackLivePhoto } from "../manager/LivePhotoPacker";
 import { setDragSourcePath } from "../manager/dropHandler";
 import { showToast } from "../manager/ToastManager";
+import { ToastOverlay } from "./ToastOverlay";
 
 /* ─── 上下文菜单项配置 ─── */
 export interface ContextMenuItem {
@@ -477,9 +478,10 @@ export function FileInfoDialog({ file, nested }: { file: FileInfo; nested?: bool
 
   const Wrapper = nested ? (props: any) => <>{props.children}</> : NavigationStack;
   return (
-    <Wrapper>
-      <List
-        navigationTitle="简介"
+    <ZStack frame={{ maxWidth: "infinity", maxHeight: "infinity" }}>
+      <Wrapper>
+        <List
+          navigationTitle="简介"
         navigationBarTitleDisplayMode="inline"
         toolbar={{
           topBarLeading: nested ? undefined : [<Button title="关闭" systemImage="xmark" action={dismiss} />],
@@ -638,8 +640,10 @@ export function FileInfoDialog({ file, nested }: { file: FileInfo; nested?: bool
         ) : (
           <EmptyView />
         )}
-      </List>
-    </Wrapper>
+        </List>
+      </Wrapper>
+      <ToastOverlay />
+    </ZStack>
   );
 }
 

@@ -13,9 +13,14 @@ import { getServerCount, hasActiveServers, stopHttpBackgroundIfIdle } from "../m
 import { ensureNpmDependencies } from "../manager/npmDeps";
 
 /* ───── 主页视图 ───── */
-export function HomeView({ initialToast }: { initialToast?: string }) {
+export function HomeView({ initialToast, initialLeftPath }: { initialToast?: string; initialLeftPath?: string }) {
   const dismiss = Navigation.useDismiss();
-  const initialSettings = readSettings();
+  const loadedSettings = readSettings();
+  // 指定初始左栏目录时（如导入非文本文件后回到 File Store），覆盖启动页设置：
+  // 跳转到“双栏浏览”Tab(0)，并让左栏进入 initialLeftPath 目录。仅影响本次会话起始状态。
+  const initialSettings = initialLeftPath
+    ? { ...loadedSettings, defaultTab: 0, dualLeftPath: initialLeftPath, dualLeftBookmarkName: null, homeCurrentPath: initialLeftPath, homeDirectoryBookmarkName: null }
+    : loadedSettings;
   const [bookmarks, setBookmarks] = useState<Bookmark[]>(() => getAllBookmarks());
   const [refreshKey, setRefreshKey] = useState(0);
   const [clipboardSyncTrigger, setClipboardSyncTrigger] = useState(0);

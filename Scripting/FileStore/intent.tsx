@@ -1,6 +1,7 @@
 import { Intent, Navigation, Script, Path } from "scripting";
 import { resolveOpenerForFile } from "./view/DefaultOpenerPicker";
-import { getFileCategory, sanitizeExtractDirName, safeUnzip, ensureLocalFile, copyFileToFileStore } from "./manager/utils";
+import { getFileCategory, sanitizeExtractDirName, safeUnzip, ensureLocalFile, copyFileToFileStore, uniquePath } from "./manager/utils";
+import { packLivePhoto } from "./manager/LivePhotoPacker";
 import { EditorPage } from "./view/EditorPage";
 import { ArchiveBrowserPage, ImageViewer, VideoViewerPage, LivePhotoPreviewPage } from "./view/MediaViewer";
 
@@ -30,10 +31,32 @@ async function copyToAppGroupTransfer(src: string): Promise<string | null> {
 async function run() {
   try {
   // ── 1. 获取文件路径：支持 Intent 入口 和 URL Scheme 回调两种来源 ──
-  const intentFiles = Intent.fileURLsParameter;
+  const intentFiles = Intent.fileURLsParameter ?? [];
+  const imageFiles = Intent.imagePathsParameter ?? [];
   const queryFileURL = Script.queryParameters?.fileURL as string | undefined;
-  const path = intentFiles?.[0] ?? queryFileURL;
+  // 实况照片分享可能同时传入图片和 MOV；交给主 App 打包，避免扩展进程写入/读取资源失败。
+  if (!queryFileURL) {
+    const allFiles = [...intentFiles, ...imageFiles];
+    const imagePath = allFiles.find((p) => /\.(heic|heif|jpg|jpeg|png|dng)$/i.test(p));
+    const videoPath = allFiles.find((p) => /\.(mov|mp4|m4v)$/i.test(p));
+    if (imagePath && videoPath) {
+      await Safari.openURL(Script.createRunURLScheme(Script.name, {
+        action: "importLivePhoto",
+        imagePath,
+        videoPath,
+      }));
+      Script.exit();
+      return;
+    }
+  }
+  // 已打包的 .live 文件优先；普通照片再使用 image/file URL。
+  const liveFile = intentFiles.find((p) => /\.live$/i.test(p)) ?? imageFiles.find((p) => /\.live$/i.test(p));
+  const shortcutValue = (Intent.shortcutParameter as any)?.value;
+  const shortcutPath = typeof shortcutValue === "string" ? shortcutValue : undefined;
+  const path = liveFile ?? intentFiles[0] ?? imageFiles[0] ?? queryFileURL ?? shortcutPath;
   if (!path) {
+    console.log("intent.tsx: 未收到可用文件路径", { intentFiles, imageFiles, queryFileURL, shortcutValue });
+    Script.exit();
     return;
   }
 
@@ -45,7 +68,29 @@ async function run() {
     fileSize = (await FileManager.stat(path)).size;
   } catch {}
 
-  // ── 3. 大文件：拷贝到 App Group 共享目录，通过 URL Scheme 跳转主 App ──
+  // ── 3. 非文本文件：直接打开主 App 保存到 File Store ──
+  // 扩展进程复制到临时目录的文件在 File Store 里不可见，改为直接跳转主 App 通过书签解析保存到 File Store。
+  // 仅在直接来自分享面板（无 fileURL 回调参数）时跳转，避免 URL 回调再次触发造成循环。
+  if (!queryFileURL) {
+    const ext0 = Path.extname(path);
+    const category0 = getFileCategory(ext0);
+    if (category0 !== "text" && category0 !== "code" && category0 !== "data") {
+      // 扩展不能可靠地写入主 App 的 documentsDirectory：先把原文件放入 App Group 中转，
+      // 主 App 再立即移动到 File Store。中转目录不是最终保存位置。
+      const transferPath = await copyToAppGroupTransfer(path);
+      if (transferPath) {
+        await Safari.openURL(Script.createRunURLScheme(Script.name, { fileURL: transferPath, action: "importNonText" }));
+        Script.exit();
+        return;
+      }
+      // 中转失败时再尝试直接传原路径，让主 App 通过 bookmark 解析。
+      await Safari.openURL(Script.createRunURLScheme(Script.name, { fileURL: path, action: "importNonText" }));
+      Script.exit();
+      return;
+    }
+  }
+
+  // ── 4. 大文件：拷贝到 App Group 共享目录，通过 URL Scheme 跳转主 App ──
   // 扩展进程内存有限，大文件直接处理会触发系统终止。中转后主 App 通过 copyFileToFileStore 保存到 File Store。
   if (fileSize > INTENT_MAX_SIZE) {
     const transferPath = await copyToAppGroupTransfer(path);
