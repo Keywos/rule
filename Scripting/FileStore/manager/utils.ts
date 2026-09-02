@@ -1608,3 +1608,150 @@ export async function renameWithPrompt(oldName: string): Promise<string | null> 
   }
   return null
 }
+
+/**
+ * 将文件的修改时间刷新为当前时间。
+ * copyFile 会保留源文件的修改时间，这里通过读回内容再写回，使 mtime 变为当前时间。
+ * 仅对小于 50MB 的文件执行（避免大文件占用大量内存）。
+ */
+export async function refreshFileModificationTime(path: string): Promise<void> {
+  try {
+    const stat = await FileManager.stat(path);
+    if (!stat || stat.size > 50 * 1024 * 1024) return;
+    const data = await FileManager.readAsData(path);
+    await FileManager.writeAsData(path, data);
+  } catch (e) {
+    console.log("refreshFileModificationTime 失败:", e);
+  }
+}
+
+/**
+ * 将外部文件复制到 File Store 目录（持久化保存），返回副本路径。
+ * 如果文件已在 File Store 中，则返回原始路径（saved=false）。
+ * 如果文件不可直接读取，通过书签解析（分享自动创建的书签）取得可读路径再复制。
+ */
+export async function copyFileToFileStore(src: string): Promise<{ path: string; saved: boolean }> {
+  const fileStoreDir = Path.join(FileManager.documentsDirectory, "File Store");
+
+  // 已在 File Store 中 → 无需复制
+  if (src === fileStoreDir || src.startsWith(fileStoreDir + "/")) {
+    return { path: src, saved: false };
+  }
+
+  // 清理路径前缀（file://）
+  const normalizePath = (p: string) => p.replace(/^file:\/\//i, "").replace(/\\/g, "/");
+  const srcClean = normalizePath(src);
+
+  // 尝试获取可读的源文件路径
+  async function resolveReadablePath(): Promise<string | null> {
+    // 0. 获取源文件大小（用于验证候选是否是对应文件）
+    let srcSize = -1;
+    try {
+      srcSize = (await FileManager.stat(srcClean)).size;
+    } catch {}
+
+    // 1. 直接探测可读性
+    try {
+      const probe = await FileManager.readAsData(srcClean);
+      if (probe && probe.size > 0) {
+        console.log("copyFileToFileStore: 直接可读, src=", srcClean);
+        return srcClean;
+      }
+    } catch (e) {
+      console.log("copyFileToFileStore: 直接不可读, 尝试书签解析:", String(e).slice(0, 120));
+    }
+
+    // 2. 遍历所有书签，只接受“文件名与源文件相同”的可读候选
+    try {
+      const bookmarks = FileManager.getAllFileBookmarks();
+      console.log(`copyFileToFileStore: 共有 ${bookmarks.length} 个书签`);
+
+      const srcName = Path.basename(srcClean);
+      const srcSegments = srcClean.split("/");
+      const srcTail = srcSegments.slice(-2).join("/");
+
+      const candidates: Array<{ name: string; path: string; score: number; size: number }> = [];
+
+      for (const b of bookmarks) {
+        try {
+          // 书签原始路径的文件名必须与源文件一致（分享自动创建的书签 b.path 即分享文件路径）
+          const bPathNorm = normalizePath(b.path || "");
+          const bPathName = Path.basename(bPathNorm);
+          if (bPathName !== srcName) continue;
+
+          // 尝试 bookmarkedPath（解析安全作用域路径）
+          let resolved = FileManager.bookmarkedPath(b.name);
+          if (!resolved || !resolved.trim()) {
+            // 回退到 b.path（原始路径）
+            resolved = b.path;
+          }
+          if (!resolved || !resolved.trim()) continue;
+
+          const resolvedClean = normalizePath(resolved);
+          const resolvedName = Path.basename(resolvedClean);
+          // 解析出的可读路径文件名也必须与源文件一致
+          if (resolvedName !== srcName) continue;
+
+          const resolvedSegments = resolvedClean.split("/");
+          const resolvedTail = resolvedSegments.slice(-2).join("/");
+
+          // 计算匹配分数（越高越可能是正确的分享文件）
+          let score = 0;
+          if (resolvedClean === srcClean) score += 20;
+          if (bPathNorm === srcClean) score += 15;
+          if (resolvedTail === srcTail && srcTail.length > 0) score += 5;
+          if ((b.name || "").includes(srcName)) score += 3;
+
+          // 探测候选大小
+          let candSize = -1;
+          try {
+            candSize = (await FileManager.stat(resolvedClean)).size;
+          } catch {}
+          // 大小一致是强信号（src 可 stat 时才使用）
+          if (srcSize >= 0 && candSize === srcSize) score += 8;
+
+          candidates.push({ name: b.name, path: resolvedClean, score, size: candSize });
+        } catch {}
+      }
+
+      // 3. 按分数降序，取第一个可读的候选（已保证文件名一致）
+      candidates.sort((a, b) => b.score - a.score);
+      for (const c of candidates) {
+        try {
+          const probe = await FileManager.readAsData(c.path);
+          if (probe && probe.size > 0) {
+            console.log(`copyFileToFileStore: 书签匹配成功, name=${c.name}, score=${c.score}, path=${c.path}`);
+            return c.path;
+          }
+        } catch {}
+      }
+    } catch (e) {
+      console.log("copyFileToFileStore: 书签遍历失败:", e);
+    }
+
+    return null;
+  }
+
+  const resolvedSrc = await resolveReadablePath();
+
+  // 复制到 File Store 目录
+  if (resolvedSrc) {
+    try {
+      await FileManager.createDirectory(fileStoreDir, true);
+      const srcName = Path.basename(srcClean);
+      let dest = Path.join(fileStoreDir, srcName);
+      dest = await uniquePath(dest);
+      await FileManager.copyFile(resolvedSrc, dest);
+      console.log(`copyFileToFileStore: 复制成功 ${dest}`);
+      // copyFile 会保留源文件的修改时间，这里读回重写一次让修改时间更新为当前时间
+      await refreshFileModificationTime(dest);
+      return { path: dest, saved: true };
+    } catch (e) {
+      console.log("copyFileToFileStore: 复制失败:", e);
+    }
+  }
+
+  // 全部失败，返回原始路径
+  console.log("copyFileToFileStore: 全部失败, src=", srcClean);
+  return { path: src, saved: false };
+}

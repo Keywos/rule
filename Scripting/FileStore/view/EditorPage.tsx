@@ -5,14 +5,15 @@
 //   present    — 导航栈弹出编辑器（NavigationStack + 关闭按钮 + 工具栏更多按钮 + 原生搜索 + 自动保存）
 //   preview    — 分享预览编辑器（NavigationStack + 文件头部 + 原生搜索 + 无自动保存）
 
-import { useColorScheme, Navigation, NavigationStack, VStack, HStack, Text, Button, Divider, Image, useState, useEffect, useMemo, useRef, Editor, Path, EmptyView, Menu, ScrollView, Markdown } from "scripting"
+import { useColorScheme, Navigation, NavigationStack, VStack, HStack, Text, Button, Divider, Image, useState, useEffect, useMemo, useRef, Editor, Path, EmptyView, Menu, ScrollView, Markdown, Script, ZStack } from "scripting"
 import { getEditorExt } from "../manager/editorConfig"
-import { getFileIcon, fmtSize, langMap, ensureLocalFile, isPlausibleText } from "../manager/utils"
+import { getFileIcon, fmtSize, langMap, ensureLocalFile, isPlausibleText, uniquePath } from "../manager/utils"
 import { minifyJSPreserveNames, minifyJSPreserveNamesAndComments, minifyJSAggressive } from "../manager/jsFormatter"
 import { minifyHTML } from "../manager/htmlFormatter"
 import { formatWithPrettier } from "../manager/prettierFormatter"
 import { showToast } from "../manager/ToastManager"
 import { HexPreviewPage } from "./HexPreviewPage"
+import { ToastOverlay } from "./ToastOverlay"
 
 function MarkdownPreview({ content, fileName }: { content: string; fileName: string }) {
   const dismiss = Navigation.useDismiss()
@@ -85,10 +86,13 @@ export interface EditorPageProps {
 
   /** 深度搜索结果跳转：打开后自动滚动到指定行（1-based） */
   scrollToLine?: number
+
+  /** 挂载后弹 Toast 通知消息（如“已保存到 File Store”） */
+  savedMessage?: string
 }
 
 export function EditorPage(props: EditorPageProps) {
-  const { path, content: initialContent, fileName: propFileName, fileSize: propFileSize, mode = "fullscreen", onClose, scrollToLine } = props
+  const { path, content: initialContent, fileName: propFileName, fileSize: propFileSize, mode = "fullscreen", onClose, scrollToLine, savedMessage } = props
 
   const fileName = propFileName || Path.basename(path)
   const ext = Path.extname(fileName)
@@ -305,6 +309,13 @@ export function EditorPage(props: EditorPageProps) {
       showToast("二进制预览失败")
     }
   }
+
+  // ── 挂载后弹 Toast（如“已保存到 File Store”） ──
+  useEffect(() => {
+    if (!savedMessage) return
+    const t = setTimeout(() => showToast(savedMessage), 350)
+    return () => clearTimeout(t)
+  }, [savedMessage])
 
   useEffect(() => {
     // preview 模式使用传进来的内容，不从文件读；其它模式必须从文件重新读取，避免 initialContent 为空导致空白。
@@ -576,6 +587,33 @@ export function EditorPage(props: EditorPageProps) {
 
   // ============ 以下可以是条件逻辑和渲染 ============
 
+  const handleSaveToFileStore = async () => {
+    // 通过 App Group 共享目录 + URL scheme 跳转主 App 保存
+    // 这样即使在扩展进程（分享进来编辑），也能正确保存到主 App 的 Documents/File Store
+    if (!controllerRef.current) return
+    const content = controllerRef.current.content
+    if (!content) return
+    const appGroupDir = FileManager.appGroupDocumentsDirectory
+    if (!appGroupDir) {
+      showToast("无法访问共享目录")
+      return
+    }
+    const saveDir = Path.join(appGroupDir, "_editor_save")
+    try {
+      await FileManager.createDirectory(saveDir, true)
+      const tmpPath = Path.join(saveDir, fileName)
+      await FileManager.writeAsString(tmpPath, content, actualEncodingRef.current as any)
+      const runURL = Script.createRunURLScheme(Script.name, {
+        fileURL: tmpPath,
+        action: "saveToFileStore",
+      })
+      await Safari.openURL(runURL)
+    } catch (e) {
+      console.log("保存到 File Store 失败:", e)
+      showToast("保存失败")
+    }
+  }
+
   const handleClose = async () => {
     if (closingRef.current) return
     closingRef.current = true
@@ -686,6 +724,7 @@ export function EditorPage(props: EditorPageProps) {
   // ─── 各模式渲染 ───
   if (mode === "present") {
     return (
+      <ZStack frame={{ maxWidth: "infinity", maxHeight: "infinity" }}>
       <NavigationStack>
         <VStack spacing={0} frame={{ maxWidth: "infinity", maxHeight: "infinity" }} tabBarVisibility="hidden"
           navigationTitle={fileName}
@@ -696,6 +735,12 @@ export function EditorPage(props: EditorPageProps) {
             ],
             topBarTrailing: [
               <Menu key="more-menu" title="" systemImage="ellipsis">
+                <Button
+                  title="保存到 File Store"
+                  systemImage="folder.badge.plus"
+                  action={handleSaveToFileStore}
+                />
+                <Divider />
                 <Menu title="编码">
                   {ENCODING_OPTIONS.map((enc) => (
                     <Button
@@ -757,12 +802,15 @@ export function EditorPage(props: EditorPageProps) {
           />
         </VStack>
       </NavigationStack>
+      <ToastOverlay />
+      </ZStack>
     )
   }
 
 
   if (mode === "fullscreen") {
     return (
+      <ZStack frame={{ maxWidth: "infinity", maxHeight: "infinity" }}>
       <VStack spacing={1} frame={{ maxWidth: "infinity", maxHeight: "infinity" }} tabBarVisibility="hidden"
         onDisappear={() => {
           if (!closingRef.current) void flushFinalSave()
@@ -835,11 +883,14 @@ export function EditorPage(props: EditorPageProps) {
           frame={{ maxWidth: "infinity", maxHeight: "infinity" }}
         />
       </VStack>
+      <ToastOverlay />
+      </ZStack>
     )
   }
 
   // preview 模式
   return (
+    <ZStack frame={{ maxWidth: "infinity", maxHeight: "infinity" }}>
     <NavigationStack>
       <VStack ignoresSafeArea={{ regions: "container", edges: ["bottom"] }} alignment="leading" spacing={0}>
         {renderFileHeader()}
@@ -848,5 +899,7 @@ export function EditorPage(props: EditorPageProps) {
           background={bgColor} controller={controller!} searchEnabled showAccessoryView={true} scriptName={fileName} frame={{ maxWidth: "infinity", maxHeight: "infinity" }} />
       </VStack>
     </NavigationStack>
+    <ToastOverlay />
+    </ZStack>
   )
 }

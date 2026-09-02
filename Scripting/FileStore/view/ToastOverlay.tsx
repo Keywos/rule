@@ -1,4 +1,4 @@
-// 自定义 Toast 弹窗
+// 自定义 Toast 弹窗 ToastOverlay
 
 import { VStack, HStack, ZStack, Text, Spacer, useRef, EmptyView, useState, useEffect } from "scripting";
 import { setToastListener } from "../manager/ToastManager";
