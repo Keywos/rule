@@ -107,7 +107,6 @@ export async function readTextFile(filePath: string, maxBytes?: number): Promise
     for (const enc of encodings) {
       try {
         const text = await FileManager.readAsString(filePath, enc)
-        console.log(enc)
 
         if (isUsableText(text) && isPlausibleText(text)) return text
       } catch { }
@@ -153,9 +152,13 @@ export async function shareFilePath(filePath: string, fileName: string) {
   }
 }
 
+/** 已解析的已知根目录缓存：路径在运行期间基本不变，避免每个文件重复调用 FileManager getter */
+let _resolvedRoots: Array<[string, string]> | null = null
+
 /** 用 FileManager 已知根目录做前缀替换（比纯正则更准确） */
 function replaceKnownRoots(filePath: string): string | null {
-  const roots: Array<[() => string | null, string]> = [
+  if (!_resolvedRoots) {
+    const roots: Array<[() => string | null, string]> = [
     [
       () => {
         try {
@@ -256,14 +259,20 @@ function replaceKnownRoots(filePath: string): string | null {
       },
       "Temp/",
     ],
-  ]
+    ]
 
-  for (const [getRoot, label] of roots) {
-    const root = getRoot()
-    if (!root) continue
-    const normalized = root.replace(/\/$/, "")
-    if (filePath === normalized || filePath.startsWith(normalized + "/")) {
-      return label + filePath.slice(normalized.length).replace(/^\//, "")
+    // 首次调用时解析并缓存所有可用根目录
+    _resolvedRoots = []
+    for (const [getRoot, label] of roots) {
+      const root = getRoot()
+      if (!root) continue
+      _resolvedRoots.push([root.replace(/\/$/, ""), label])
+    }
+  }
+
+  for (const [root, label] of _resolvedRoots) {
+    if (filePath === root || filePath.startsWith(root + "/")) {
+      return label + filePath.slice(root.length).replace(/^\//, "")
     }
   }
   return null

@@ -102,28 +102,11 @@ async function openDatabase(dirPath: string): Promise<SQLite.Database> {
     ifNotExists: true
   })
   
-  // 创建索引
-  await db.createIndex('idx_name', {
-    table: 'files',
-    columns: ['name'],
-    ifNotExists: true
-  })
-  
+  // 创建索引：仅保留 parent_path（目录查询用）。
+  // name/content 用于 LIKE '%…%'（前导通配符），B-tree 索引无法命中，建了反而拖慢写入。
   await db.createIndex('idx_parent', {
     table: 'files',
     columns: ['parent_path'],
-    ifNotExists: true
-  })
-  
-  await db.createIndex('idx_category', {
-    table: 'files',
-    columns: ['category'],
-    ifNotExists: true
-  })
-  
-  await db.createIndex('idx_content', {
-    table: 'files',
-    columns: ['content'],
     ifNotExists: true
   })
   
@@ -242,7 +225,38 @@ export async function buildIndex(
   await database.execute('DELETE FROM files')
   
   let count = 0
-  
+
+  // 索引期间最大文件限制固定不变，只读一次 Storage 缓存（避免每个文件读两次设置）
+  const maxIndexBytes = getMaxIndexFileSizeKB() * 1024
+
+  // 批量提交：把最多 BATCH_SIZE 行拼成一条多行 INSERT（单条语句 = 一个隐式事务），
+  // 比逐行 execute 少 N 倍事务开销。该 SQLite 封装不支持裸 BEGIN/COMMIT，
+  // transaction() 也只收单步，因此用 execute 多行 VALUES 实现批量。
+  const BATCH_SIZE = 200
+  const INSERT_COLS = 'path, name, relative_path, size, modification_date, is_directory, category, icon, icon_color, parent_path, content'
+  const INSERT_ROW = '(?,?,?,?,?,?,?,?,?,?,?)'
+  let pendingRows: any[][] = []
+
+  /** 把累积的行拼成一条多行 INSERT 提交；失败打标记并向上抛（终止索引，避免半截索引被标记为有效） */
+  async function flushBatch(): Promise<void> {
+    if (pendingRows.length === 0) return
+    const batch = pendingRows
+    pendingRows = []
+    const placeholders = Array(batch.length).fill(INSERT_ROW).join(',')
+    const flatArgs: any[] = []
+    for (const row of batch) for (const v of row) flatArgs.push(v)
+    try {
+      await database.execute(
+        `INSERT OR REPLACE INTO files (${INSERT_COLS}) VALUES ${placeholders}`,
+        flatArgs
+      )
+    } catch (e) {
+      const wrapped = e instanceof Error ? e : new Error(String(e))
+      ;(wrapped as any).__batchFlushError = true
+      throw wrapped
+    }
+  }
+
   /** 是否是可读取内容的文本文件 */
   function isTextLikeFile(cat: string): boolean {
     return cat === 'text' || cat === 'code' || cat === 'data'
@@ -272,7 +286,7 @@ export async function buildIndex(
           if (task.cancelled) break
           const info = await getFileInfo(fullPath)
           // 跳过超过最大文件限制的文件
-          if (!info.isDirectory && info.size > getMaxIndexFileSizeKB() * 1024) {
+          if (!info.isDirectory && info.size > maxIndexBytes) {
             continue
           }
           const ext = Path.extname(entry)
@@ -281,50 +295,59 @@ export async function buildIndex(
           // 对文本类文件读取内容
           let content = ''
           if (!info.isDirectory && isTextLikeFile(category)) {
-            content = await readTextContent(fullPath, getMaxIndexFileSizeKB() * 1024)
+            content = await readTextContent(fullPath, maxIndexBytes)
           }
           
-          // 插入索引
-          await database.execute(
-            `INSERT OR REPLACE INTO files (path, name, relative_path, size, modification_date, is_directory, category, icon, icon_color, parent_path, content) 
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-            [
-              fullPath,
-              entry,
-              relPath,
-              info.size,
-              info.modificationDate,
-              info.isDirectory ? 1 : 0,
-              category,
-              info.icon,
-              info.iconColor,
-              currentDir,
-              content
-            ]
-          )
-          
+          // 累积行参数，满批后拼多行 INSERT 一次提交（避免逐行自动提交）
+          pendingRows.push([
+            fullPath,
+            entry,
+            relPath,
+            info.size,
+            info.modificationDate,
+            info.isDirectory ? 1 : 0,
+            category,
+            info.icon,
+            info.iconColor,
+            currentDir,
+            content
+          ])
+
           count++
           onProgress?.(count, fullPath)
-          
+          if (pendingRows.length >= BATCH_SIZE) {
+            await flushBatch()
+          }
+
           if (info.isDirectory && !task.cancelled) {
             await traverse(fullPath, relPath)
           }
         } catch (e) {
-          // 跳过无法访问的文件
+          // 跳过无法访问的文件；批次提交失败必须终止整个索引，不能吞
+          if (e && (e as any).__batchFlushError) throw e
         }
       }
     } catch (e) {
+      if (e && (e as any).__batchFlushError) throw e
       console.log(`无法读取目录 ${currentDir}:`, e)
     }
   }
   
-  await traverse(dirPath, '')
-  
-  // 更新元数据
-  await database.execute(
-    "INSERT OR REPLACE INTO metadata (key, value) VALUES ('last_updated', ?)",
-    [String(Date.now())]
-  )
+  try {
+    await traverse(dirPath, '')
+
+    // 剩余行最后统一提交；last_updated 只在全部文件写入后落库，
+    // 中途失败也不会把半截索引误判为有效缓存（isIndexValid 只认 last_updated）。
+    await flushBatch()
+    await database.execute(
+      "INSERT OR REPLACE INTO metadata (key, value) VALUES ('last_updated', ?)",
+      [String(Date.now())]
+    )
+  } catch (e) {
+    console.log('建立索引失败:', e)
+    if (_activeIndexTask === task) _activeIndexTask = null
+    throw e
+  }
   
   // 更新缓存
   indexStatsCache.set(dirPath, {
@@ -358,7 +381,7 @@ export async function searchFromIndex(
     `SELECT path, name, relative_path as relativePath, size, modification_date as modificationDate, 
             is_directory as isDirectory, category, icon, icon_color as iconColor, content
      FROM files 
-     WHERE LOWER(name) LIKE ? ESCAPE '\\' OR LOWER(content) LIKE ? ESCAPE '\\'
+     WHERE name LIKE ? ESCAPE '\\' OR LOWER(content) LIKE ? ESCAPE '\\'
      ORDER BY 
        CASE WHEN LOWER(name) = ? THEN 0
             WHEN LOWER(name) LIKE ? ESCAPE '\\' THEN 1

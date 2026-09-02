@@ -33,6 +33,25 @@ function MarkdownPreview({ content, fileName }: { content: string; fileName: str
   )
 }
 
+/** 单遍扫描统计行数与字数，避免 split 创建大数组 */
+function countLinesAndWords(text: string): { lineCount: number; wordCount: number } {
+  if (text.length === 0) return { lineCount: 0, wordCount: 0 }
+  let lineCount = 1
+  let wordCount = 0
+  let inWord = false
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i]
+    if (ch === '\n') lineCount++
+    if (ch === ' ' || ch === '\n' || ch === '\t' || ch === '\r') {
+      inWord = false
+    } else if (!inWord) {
+      inWord = true
+      wordCount++
+    }
+  }
+  return { lineCount, wordCount }
+}
+
 const ENCODING_OPTIONS = [
   { value: "utf-8", label: "UTF-8" },
   { value: "utf-16", label: "UTF-16" },
@@ -157,7 +176,7 @@ export function EditorPage(props: EditorPageProps) {
     if (showBanner) {
       setFormatting(true)
       // 让出一次事件循环，使提示条先渲染出来，再开始阻塞主线程的重计算
-      await new Promise((resolve) => setTimeout(resolve, 50))
+      await new Promise<void>((resolve) => { setTimeout(() => resolve(), 50) })
     }
     try {
       const formatted = await compute(controller.content)
@@ -300,6 +319,18 @@ export function EditorPage(props: EditorPageProps) {
           const stat = await FileManager.stat(path)
           fileSize = typeof stat.size === "number" ? stat.size : -1
         } catch { }
+
+        // 大文件保护：编辑器不适合超大文本（整份读入内存 + EditorController 副本会卡死/崩溃）。
+        // 与格式化硬限制同一思路，超过即拒绝并用提示引导使用 Hex 预览。
+        const EDITOR_OPEN_HARD_LIMIT = 30 * 1024 * 1024 // 30MB
+        if (fileSize > EDITOR_OPEN_HARD_LIMIT) {
+          if (!cancelled) {
+            setLoadError(true)
+            showToast(`文件过大（${fmtSize(fileSize)}），请在编辑器中查看二进制预览或换用其它查看器`)
+          }
+          return
+        }
+
         const isUsableText = (value: string | null | undefined) => {
           // 只有明确知道文件大小为 0 时才接受空字符串；stat 失败/未知大小不能把空字符串当成功。
           // 同时用 isPlausibleText 拦截二进制/解码失败产生的乱码（替换字符、NUL、控制字符）。
@@ -310,7 +341,6 @@ export function EditorPage(props: EditorPageProps) {
         for (const enc of fallbackEncodings) {
           try {
             const alt = await FileManager.readAsString(path, enc as any)
-            console.log(enc)
             if (isUsableText(alt)) {
               if (!cancelled) {
                 setContent(alt)
@@ -578,8 +608,8 @@ export function EditorPage(props: EditorPageProps) {
   const renderFileHeader = () => {
     if (mode !== "preview") return <EmptyView />
     const c = content ?? ""
-    const initLines = c.split("\n")
-    const initWords = c.split(/\s+/).filter((w) => w.length > 0).length
+    // 单遍扫描统计行数/字数，避免对大内容做 split 产生两份大数组（大文件会卡 UI）
+    const stats = countLinesAndWords(c)
     return (
       <VStack spacing={4} padding={16} alignment="leading">
         <HStack spacing={10} alignment="center">
@@ -587,7 +617,7 @@ export function EditorPage(props: EditorPageProps) {
           <Text font="headline">{fileName}</Text>
         </HStack>
         <Text font="caption" foregroundStyle="secondaryLabel">
-          {fmtSize(propFileSize ?? 0)} · {initLines.length} 行 · {initWords} 字 · {c.length} 字符
+          {fmtSize(propFileSize ?? 0)} · {stats.lineCount} 行 · {stats.wordCount} 字 · {c.length} 字符
           {langMap[ext.toLowerCase()] ? ` · ${langMap[ext.toLowerCase()]}` : ""}
           {ext ? ` · ${ext}` : ""}
         </Text>

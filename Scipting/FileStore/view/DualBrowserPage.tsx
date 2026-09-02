@@ -207,8 +207,8 @@ export function DualBrowserPage({ settings, refreshKey, bookmarks, onSettingsCha
     [leftDir],
   );
 
-  // ── 左右比例 (0~1)，0.5 = 各占一半 ──
-  const [ratio, setRatio] = useState(0.5);
+  // ── 左右比例 (0~1)，0.5 = 各占一半；从持久化设置恢复，退出后记住拖动条位置 ──
+  const [ratio, setRatio] = useState(typeof settings.dualRatio === "number" ? settings.dualRatio : 0.5);
 
   // ── 布局方向：horizontal（左右分栏）或 vertical（上下分栏） ──
   const [layoutDir, setLayoutDir] = useState(settings.dualLayoutDir as "horizontal" | "vertical");
@@ -260,6 +260,12 @@ export function DualBrowserPage({ settings, refreshKey, bookmarks, onSettingsCha
   useEffect(() => {
     saveSettings({ ...settings, dualLayoutDir: layoutDir });
   }, [layoutDir]);
+
+  // ── ratio 变化时持久化保存（拖动结束才更新，避免拖动过程中频繁写入） ──
+  useEffect(() => {
+    const rounded = Math.round(ratio * 1000) / 1000;
+    saveSettings({ ...settings, dualRatio: rounded });
+  }, [ratio]);
 
   return (
     <VStack
