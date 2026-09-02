@@ -1,9 +1,9 @@
 // 统一 EditorController+Editor 通用组件
 
 // 三种模式：
-//   fullscreen — 全屏 inline 编辑器（NavigationStack + 系统导航栏 + 工具栏更多按钮 + 原生搜索 + 自动保存）
-//   present    — 导航栈弹出编辑器（NavigationStack + 关闭按钮 + 工具栏更多按钮 + 原生搜索 + 自动保存）
-//   preview    — 分享预览编辑器（NavigationStack + 文件头部 + 原生搜索 + 无自动保存）
+//   fullscreen -- 全屏 inline 编辑器（NavigationStack + 系统导航栏 + 工具栏更多按钮 + 原生搜索 + 自动保存）
+//   present    -- 导航栈弹出编辑器（NavigationStack + 关闭按钮 + 工具栏更多按钮 + 原生搜索 + 自动保存）
+//   preview    -- 分享预览编辑器（NavigationStack + 文件头部 + 原生搜索 + 无自动保存）
 
 import { useColorScheme, Navigation, NavigationStack, VStack, HStack, Text, Button, Divider, Image, useState, useEffect, useMemo, useRef, Editor, Path, EmptyView, Menu, ScrollView, Markdown, Script, ZStack } from "scripting"
 import { getEditorExt } from "../manager/editorConfig"
@@ -17,8 +17,8 @@ import { ToastOverlay } from "./ToastOverlay"
 
 function MarkdownPreview({ content, fileName }: { content: string; fileName: string }) {
   const dismiss = Navigation.useDismiss()
-   const colorSchemeMd = useColorScheme()
-    const bgColor = colorSchemeMd === 'dark' ? '#17181C' : '#FFFFFF'
+  const colorSchemeMd = useColorScheme()
+  const bgColor = colorSchemeMd === 'dark' ? '#17181C' : '#FFFFFF'
   return (
     <NavigationStack>
       <ScrollView
@@ -28,7 +28,7 @@ function MarkdownPreview({ content, fileName }: { content: string; fileName: str
         toolbar={{ topBarTrailing: [<Button key="close" title="关闭" action={() => dismiss()} />] }}
       >
         <Markdown
-        safeAreaPadding={{ top: 20, horizontal: 8 }} content={content} theme="github" useDefaultHighlighterTheme scrollable={false} />
+          safeAreaPadding={{ top: 20, horizontal: 8 }} content={content} theme="github" useDefaultHighlighterTheme scrollable={false} />
       </ScrollView>
     </NavigationStack>
   )
@@ -87,7 +87,7 @@ export interface EditorPageProps {
   /** 深度搜索结果跳转：打开后自动滚动到指定行（1-based） */
   scrollToLine?: number
 
-  /** 挂载后弹 Toast 通知消息（如“已保存到 File Store”） */
+  /** 挂载后弹 Toast 通知消息（如"已保存到 File Store"） */
   savedMessage?: string
 }
 
@@ -123,11 +123,42 @@ export function EditorPage(props: EditorPageProps) {
   // 切换编码成功重新加载后自动恢复。
   const [decodeFailed, setDecodeFailed] = useState(false)
   const [loadTrigger, setLoadTrigger] = useState(0)
-  // 格式化/压缩进行中标记（用于展示“正在格式化”提示，并防止重入）
+  // 用户手动切换的编码（仅当用户在编码菜单主动选择时记录；随 path 变化重置）
+  const userPickedEncodingRef = useRef<string | null>(null)
+  const lastLoadedPathRef = useRef<string>(path)
+  // 格式化/压缩进行中标记（用于展示"正在格式化"提示，并防止重入）
   const [formatting, setFormatting] = useState(false)
 
+
+
+  // ─── 用户切换编码回调（彻底剔除存盘，防止乱码写回） ───
   const handleEncodingChange = async (newEncoding: string) => {
-    if (newEncoding === encoding) return
+    // 允许在解码失败时重试同一编码；正常状态下重复点击同一编码则忽略
+    if (newEncoding === actualEncoding && !decodeFailed) return
+    if (mode === "preview") return
+
+    // 1. 彻底清除排队中的自动保存计时器，防止乱码被延时写入磁盘
+    if (saveTimerRef.current) {
+      clearTimeout(saveTimerRef.current)
+      saveTimerRef.current = null
+    }
+
+    // 2. 切断保存许可并重置界面就绪状态
+    setLoadError(false)
+    setSaveEnabled(false)
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
+    setReady(false)
+    setContent(null)
+    setEncoding(newEncoding)
+    // 锁定用户的主动选择，避免被后续自动嗅探覆盖
+    userPickedEncodingRef.current = newEncoding
+    setLoadTrigger((t) => t + 1)
+  }
+
+  
+  /* const handleEncodingChange = async (newEncoding: string) => {
+    // 解码失败后允许重新选择同一编码重试；正常状态下重复选择直接忽略。
+    if (newEncoding === encoding && !decodeFailed) return
     if (mode === "preview") return
     try {
       await flushFinalSave()
@@ -142,9 +173,10 @@ export function EditorPage(props: EditorPageProps) {
     setReady(false)
     setContent(null)
     setEncoding(newEncoding)
+    userPickedEncodingRef.current = newEncoding
     setLoadTrigger(t => t + 1)
   }
-
+ */
   /**
    * 统一执行格式化/压缩：结果通过编辑器的 selectAll + replaceSelection 写回
    * （避免直接赋值 content 触发整份文档重载卡顿），完成后排队保存。
@@ -310,15 +342,16 @@ export function EditorPage(props: EditorPageProps) {
     }
   }
 
-  // ── 挂载后弹 Toast（如“已保存到 File Store”） ──
+  // ── 挂载后弹 Toast（如"已保存到 File Store"） ──
   useEffect(() => {
     if (!savedMessage) return
     const t = setTimeout(() => showToast(savedMessage), 350)
     return () => clearTimeout(t)
   }, [savedMessage])
 
+ 
   useEffect(() => {
-    // preview 模式使用传进来的内容，不从文件读；其它模式必须从文件重新读取，避免 initialContent 为空导致空白。
+    // preview 模式使用传进来的内容，不从文件读
     if (mode === "preview") return
 
     let cancelled = false
@@ -329,35 +362,53 @@ export function EditorPage(props: EditorPageProps) {
         try {
           const stat = await FileManager.stat(path)
           fileSize = typeof stat.size === "number" ? stat.size : -1
-        } catch { }
+        } catch {}
 
-        // 大文件保护：编辑器不适合超大文本（整份读入内存 + EditorController 副本会卡死/崩溃）。
-        // 与格式化硬限制同一思路，超过即拒绝并用提示引导使用 Hex 预览。
-        const EDITOR_OPEN_HARD_LIMIT = 30 * 1024 * 1024 // 30MB
+        // 大文件保护：超过 50MB 拦截进入编辑器
+        const EDITOR_OPEN_HARD_LIMIT = 50 * 1024 * 1024
         if (fileSize > EDITOR_OPEN_HARD_LIMIT) {
           if (!cancelled) {
             setLoadError(true)
-            showToast(`文件过大（${fmtSize(fileSize)}），请在编辑器中查看二进制预览或换用其它查看器`)
+            showToast(`文件过大 ${fmtSize(fileSize)}`)
           }
           return
         }
 
         const isUsableText = (value: string | null | undefined) => {
-          // 只有明确知道文件大小为 0 时才接受空字符串；stat 失败/未知大小不能把空字符串当成功。
-          // 同时用 isPlausibleText 拦截二进制/解码失败产生的乱码（替换字符、NUL、控制字符）。
           return value != null && isPlausibleText(value) && (value.length > 0 || fileSize === 0)
         }
 
-        const fallbackEncodings = ["utf-8", "utf-16", "gb18030", "gbk", "ascii"] as const
-        for (const enc of fallbackEncodings) {
+        // 切换不同文件时，重置用户手动锁定的编码状态
+        if (lastLoadedPathRef.current !== path) {
+          lastLoadedPathRef.current = path
+          userPickedEncodingRef.current = null
+        }
+
+        // 1. 构建探测候选编码：
+        // - 手动指定模式：仅探测用户选择的编码，并对 GBK/GB18030 做别名兼容，不走全量回退
+        // - 自动嗅探模式：把中文 GB18030/GBK 放在 utf-16 之前，防止双字节汉字被 UTF-16 假阳性误判
+        let candidates: readonly string[] = []
+        if (userPickedEncodingRef.current) {
+          const picked = userPickedEncodingRef.current
+          if (picked === "gbk") candidates = ["gbk", "gb18030"]
+          else if (picked === "gb18030") candidates = ["gb18030", "gbk"]
+          else candidates = [picked]
+        } else {
+          candidates = ["utf-8", "gb18030", "gbk", "utf-16", "ascii"]
+        }
+
+     /*    // 2. 通过 readAsString 尝试候选编码
+        for (const enc of candidates) {
           try {
             const alt = await FileManager.readAsString(path, enc as any)
             if (isUsableText(alt)) {
               if (!cancelled) {
                 setContent(alt)
                 baseContentRef.current = alt
-                setActualEncoding(enc)
-                setEncoding(enc)
+                // 保持勾选与实际选择一致（如果是别名解开的，依然保留用户选的 gbk）
+                const finalEnc = userPickedEncodingRef.current ?? enc
+                setActualEncoding(finalEnc)
+                setEncoding(finalEnc)
                 setSaveEnabled(true)
                 setDecodeFailed(false)
                 setLoadError(false)
@@ -365,22 +416,27 @@ export function EditorPage(props: EditorPageProps) {
               }
               return
             }
-          } catch { }
-        }
+          } catch {}
+        } */
 
-        // readAsString 失败/返回空时，直接从 Data 解码兜底，避免非空文件打开空白。
+        // 读取原始 Data 进行内存解码兜底
+        let data: any = null
         try {
-          const data = await FileManager.readAsData(path)
-          const dataSize = data?.size ?? 0
-          for (const enc of fallbackEncodings) {
+          data = await FileManager.readAsData(path)
+        } catch {}
+
+        const dataSize = data?.size ?? 0
+        if (data) {
+          for (const enc of candidates) {
             try {
               const alt = data.toRawString(enc as any)
               if (alt != null && (alt.length > 0 || dataSize === 0) && isPlausibleText(alt)) {
                 if (!cancelled) {
                   setContent(alt)
                   baseContentRef.current = alt
-                  setActualEncoding(enc)
-                  setEncoding(enc)
+                  const finalEnc = userPickedEncodingRef.current ?? enc
+                  setActualEncoding(finalEnc)
+                  setEncoding(finalEnc)
                   setSaveEnabled(true)
                   setDecodeFailed(false)
                   setLoadError(false)
@@ -388,16 +444,18 @@ export function EditorPage(props: EditorPageProps) {
                 }
                 return
               }
-            } catch { }
+            } catch {}
           }
-          if (dataSize > 0) {
+
+          // 仅在自动探测模式下，才做 UTF-8 容错字符替换兜底
+          if (!userPickedEncodingRef.current && dataSize > 0) {
             try {
-              // toDecodedString 会把坏字节替换成 U+FFFD，二进制文件解码后必然含替换字符 → 拒绝
               const decoded = data.toDecodedString("utf8")
               if (decoded != null && isPlausibleText(decoded)) {
                 if (!cancelled) {
                   setContent(decoded)
                   baseContentRef.current = decoded
+                  setActualEncoding("utf-8")
                   setEncoding("utf-8")
                   setSaveEnabled(true)
                   setDecodeFailed(false)
@@ -406,44 +464,50 @@ export function EditorPage(props: EditorPageProps) {
                 }
                 return
               }
-            } catch { }
+            } catch {}
           }
-        } catch { }
+        }
 
+        // 4. 全部失败（手动指定的编码无法解码，或文件是无法解析的二进制）：
+        // 保留用户的选择，绝不强行跳回 utf-8，并锁定保存防止文件被空内容覆写
         if (!cancelled) {
-          // 所有读取方式都失败（二进制/无法解码）时：
-          // - 入口传入的内容若本身是合法文本才允许作为兜底（readTextFile 已过滤乱码）；
-          // - 否则以空内容打开并标记 decodeFailed：编辑器禁用保存，避免把乱码/空白覆盖回原文件。
-          const fallbackContent = initialContent && initialContent.length > 0 && isPlausibleText(initialContent) ? initialContent : ""
-          setContent(fallbackContent)
-          baseContentRef.current = fallbackContent
-          setEncoding("utf-8")
-          setSaveEnabled(fallbackContent.length > 0)
-          setDecodeFailed(fallbackContent.length === 0)
+          if (userPickedEncodingRef.current) {
+            showToast(`无法以 ${userPickedEncodingRef.current.toUpperCase()} 编码读取`)
+          }
+          setContent("")
+          baseContentRef.current = ""
+          const finalEnc = userPickedEncodingRef.current ?? "utf-8"
+          setEncoding(finalEnc)
+          setActualEncoding(finalEnc)
+          setSaveEnabled(false) // 禁用保存
+          setDecodeFailed(true) // 触发无法解码警告横幅
           setLoadError(false)
           setReady(true)
         }
       } catch {
         if (!cancelled) {
-          // 读取异常也不要阻止打开编辑器，优先使用入口内容兜底。
-          // 兜底内容不是合法文本时禁用保存，避免把乱码/空白覆盖原文件。
-          const fallbackContent = initialContent && initialContent.length > 0 && isPlausibleText(initialContent) ? initialContent : ""
-          setContent(fallbackContent)
-          baseContentRef.current = fallbackContent
-          setEncoding("utf-8")
-          setSaveEnabled(fallbackContent.length > 0)
-          setDecodeFailed(fallbackContent.length === 0)
+          setContent("")
+          baseContentRef.current = ""
+          const finalEnc = userPickedEncodingRef.current ?? "utf-8"
+          setEncoding(finalEnc)
+          setActualEncoding(finalEnc)
+          setSaveEnabled(false)
+          setDecodeFailed(true)
           setLoadError(false)
           setReady(true)
         }
       }
     }
+
     load()
     return () => {
       cancelled = true
     }
   }, [path, initialContent, mode, loadTrigger])
 
+
+
+  
   // ─── 创建 EditorController ───
   const controller = useMemo(() => {
     if (content == null) return null
@@ -500,7 +564,7 @@ export function EditorPage(props: EditorPageProps) {
     }
     const finalContent = controllerRef.current?.content ?? latestContentRef.current
     // 内容与磁盘加载结果一致时无需写回：避免只读/安全域位置在关闭时误报保存失败，
-    // 也避免“仅查看未编辑”的会话产生不必要的写入。
+    // 也避免"仅查看未编辑"的会话产生不必要的写入。
     const unchanged = baseContentRef.current !== null && finalContent === baseContentRef.current
     if (!unchanged && (saveEnabledRef.current || finalContent.length > 0)) {
       latestContentRef.current = finalContent
@@ -517,9 +581,9 @@ export function EditorPage(props: EditorPageProps) {
     controller.onContentChanged = (newContent: string) => {
       latestContentRef.current = newContent
       // 解码失败（二进制/未知编码）：不自动保存，用户输入也不会重新启用保存；
-      // 只能通过“编码”菜单切换编码成功重新加载后恢复。
+      // 只能通过"编码"菜单切换编码成功重新加载后恢复。
       if (decodeFailedRef.current) return
-      // 如果当前内容来自“解码失败后的空白兜底”，不要把空白自动写回原文件。
+      // 如果当前内容来自"解码失败后的空白兜底"，不要把空白自动写回原文件。
       // 用户真正输入了内容后再重新允许保存。
       if (!saveEnabledRef.current && newContent.length === 0) return
       if (!saveEnabledRef.current && newContent.length > 0) setSaveEnabled(true)
@@ -527,7 +591,7 @@ export function EditorPage(props: EditorPageProps) {
       if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
       const encodingToSave = actualEncodingRef.current
       saveTimerRef.current = setTimeout(() => {
-        void enqueueSave(newContent, encodingToSave).catch(() => {})
+        void enqueueSave(newContent, encodingToSave).catch(() => { })
       }, 1000)
     }
 
@@ -715,7 +779,7 @@ export function EditorPage(props: EditorPageProps) {
           <Text font="footnote" fontWeight="semibold">无法解码为文本</Text>
         </HStack>
         <Text font="footnote" foregroundStyle="secondaryLabel">
-          该文件可能是二进制文件或使用了未知编码，已禁用保存（防止乱码覆盖原文件）。可在“编码”菜单切换编码后重新加载。
+          该文件可能是二进制文件或使用了未知编码，已禁用保存（防止乱码覆盖原文件）。可在"编码"菜单切换编码后重新加载。
         </Text>
       </VStack>
     )
@@ -725,22 +789,106 @@ export function EditorPage(props: EditorPageProps) {
   if (mode === "present") {
     return (
       <ZStack frame={{ maxWidth: "infinity", maxHeight: "infinity" }}>
-      <NavigationStack>
-        <VStack spacing={0} frame={{ maxWidth: "infinity", maxHeight: "infinity" }} tabBarVisibility="hidden"
+        <NavigationStack>
+          <VStack spacing={0} frame={{ maxWidth: "infinity", maxHeight: "infinity" }} tabBarVisibility="hidden"
+            navigationTitle={fileName}
+            ignoresSafeArea={{ regions: "container", edges: ["bottom"] }} navigationBarTitleDisplayMode="inline"
+            toolbar={{
+              topBarLeading: [
+                <Button key="close" title="关闭" systemImage="xmark" action={handleClose} />,
+              ],
+              topBarTrailing: [
+                <Menu key="more-menu" title="" systemImage="ellipsis">
+                  <Button
+                    title="保存到 File Store"
+                    systemImage="folder.badge.plus"
+                    action={handleSaveToFileStore}
+                  />
+                  <Divider />
+                  <Menu title="编码">
+                    {ENCODING_OPTIONS.map((enc) => (
+                      <Button
+                        key={enc.value}
+                        title={enc.label}
+                        systemImage={actualEncoding === enc.value ? "checkmark" : undefined}
+                        action={() => handleEncodingChange(enc.value)}
+                      />
+                    ))}
+                    <Divider />
+                    <Button title="二进制预览（Hex）" systemImage="number" action={handleHexPreview} />
+                  </Menu>
+                  <Divider />
+                  <Button
+                    title="格式化"
+                    action={handleFormat}
+                  />
+                  {isMarkdownFile && (
+                    <Button
+                      title="MD预览"
+                      systemImage="eye"
+                      action={handleMarkdownPreview}
+                    />
+                  )}
+                  {isSVGFile && (
+                    <Button title="预览 SVG" systemImage="eye" action={handleSVGPreview} />
+                  )}
+                  {isJavaScriptFile && (
+                    <>
+                      <Button title="保留变量名压缩" action={handleJSPreserveMinify} />
+                      <Button title="保留注释、变量名压缩" action={handleJSPreserveNamesAndComments} />
+                      <Button title="不保留变量名压缩" action={handleJSAggressiveMinify} />
+                    </>
+                  )}
+                  {isJSONFile && (
+                    <Button title="JSON压缩" action={handleJSONMinify} />
+                  )}
+                  {isHTMLFile && (
+                    <>
+                      <Button title="HTML压缩" action={handleHTMLMinify} />
+                      <Button title="HTML压缩（含CSS）" action={handleHTMLCSSMinify} />
+                      <Button title="HTML预览" systemImage="eye" action={handleHTMLPreview} />
+                    </>
+                  )}
+                </Menu>,
+              ],
+            }}
+          >
+            {renderDecodeFailedBanner()}
+            {renderFormattingBanner()}
+            <Divider />
+            <Editor
+              background={bgColor}
+              controller={controller!}
+              searchEnabled
+              showAccessoryView={true}
+              scriptName={fileName}
+              frame={{ maxWidth: "infinity", maxHeight: "infinity" }}
+            />
+          </VStack>
+        </NavigationStack>
+        <ToastOverlay />
+      </ZStack>
+    )
+  }
+
+
+  if (mode === "fullscreen") {
+    return (
+      <ZStack frame={{ maxWidth: "infinity", maxHeight: "infinity" }}>
+        <VStack
+          spacing={0}
+          frame={{ maxWidth: "infinity", maxHeight: "infinity" }}
+          tabBarVisibility="hidden"
           navigationTitle={fileName}
           ignoresSafeArea={{ regions: "container", edges: ["bottom"] }}navigationBarTitleDisplayMode="inline"
+          onDisappear={() => {
+            if (!closingRef.current) {
+              void flushFinalSave()
+            }
+          }}
           toolbar={{
-            topBarLeading: [
-              <Button key="close" title="关闭" systemImage="xmark" action={handleClose} />,
-            ],
             topBarTrailing: [
               <Menu key="more-menu" title="" systemImage="ellipsis">
-                <Button
-                  title="保存到 File Store"
-                  systemImage="folder.badge.plus"
-                  action={handleSaveToFileStore}
-                />
-                <Divider />
                 <Menu title="编码">
                   {ENCODING_OPTIONS.map((enc) => (
                     <Button
@@ -754,34 +902,20 @@ export function EditorPage(props: EditorPageProps) {
                   <Button title="二进制预览（Hex）" systemImage="number" action={handleHexPreview} />
                 </Menu>
                 <Divider />
-                <Button
-                  title="格式化"
-                  action={handleFormat}
-                />
-                {isMarkdownFile && (
-                  <Button
-                    title="MD预览"
-                    systemImage="eye"
-                    action={handleMarkdownPreview}
-                  />
-                )}
-                {isSVGFile && (
-                  <Button title="预览 SVG" systemImage="eye" action={handleSVGPreview} />
-                )}
+                <Button title="格式化" action={handleFormat} />
+                {isMarkdownFile && <Button title="MD预览" systemImage="eye" action={handleMarkdownPreview} />}
+                {isSVGFile && <Button title="预览 SVG" systemImage="eye" action={handleSVGPreview} />}
                 {isJavaScriptFile && (
                   <>
                     <Button title="保留变量名压缩" action={handleJSPreserveMinify} />
-                    <Button title="保留注释、变量名压缩" action={handleJSPreserveNamesAndComments} />
-                    <Button title="不保留变量名压缩" action={handleJSAggressiveMinify} />
+                    <Button title="保留注释/变量名压缩" action={handleJSPreserveNamesAndComments} />
+                    <Button title="激进压缩" action={handleJSAggressiveMinify} />
                   </>
                 )}
-                {isJSONFile && (
-                  <Button title="JSON压缩" action={handleJSONMinify} />
-                )}
+                {isJSONFile && <Button title="JSON压缩" action={handleJSONMinify} />}
                 {isHTMLFile && (
                   <>
                     <Button title="HTML压缩" action={handleHTMLMinify} />
-                    <Button title="HTML压缩（含CSS）" action={handleHTMLCSSMinify} />
                     <Button title="HTML预览" systemImage="eye" action={handleHTMLPreview} />
                   </>
                 )}
@@ -791,7 +925,6 @@ export function EditorPage(props: EditorPageProps) {
         >
           {renderDecodeFailedBanner()}
           {renderFormattingBanner()}
-          <Divider />
           <Editor
             background={bgColor}
             controller={controller!}
@@ -801,80 +934,18 @@ export function EditorPage(props: EditorPageProps) {
             frame={{ maxWidth: "infinity", maxHeight: "infinity" }}
           />
         </VStack>
-      </NavigationStack>
-      <ToastOverlay />
+        <ToastOverlay />
       </ZStack>
     )
   }
 
-
-  if (mode === "fullscreen") {
-    return (
-      <ZStack frame={{ maxWidth: "infinity", maxHeight: "infinity" }}>
-      <VStack spacing={1} frame={{ maxWidth: "infinity", maxHeight: "infinity" }} tabBarVisibility="hidden"
-        onDisappear={() => {
-          if (!closingRef.current) void flushFinalSave()
-        }}
-        ignoresSafeArea={{ regions: "container", edges: ["bottom"] }}
-        navigationTitle={fileName}
-        navigationBarTitleDisplayMode="inline"
-        toolbar={{
-          topBarTrailing: [
-              <Menu key="encoding-menu" title="" systemImage="ellipsis">
-              <Menu title="编码">
-                {ENCODING_OPTIONS.map((enc) => (
-                  <Button
-                    key={enc.value}
-                    title={enc.label}
-                    systemImage={actualEncoding === enc.value ? "checkmark" : undefined}
-                    action={() => handleEncodingChange(enc.value)}
-                  />
-                ))}
-                <Divider />
-                <Button title="二进制预览（Hex）" systemImage="number" action={handleHexPreview} />
-              </Menu>
-              <Divider />
-              <Button
-                title="格式化"
-                action={handleFormat}
-              />
-              {isMarkdownFile && (
-                <Button
-                  title="MD预览"
-                  systemImage="eye"
-                  action={handleMarkdownPreview}
-                />
-              )}
-              {isSVGFile && (
-                <Button title="预览 SVG" systemImage="eye" action={handleSVGPreview} />
-              )}
-              {isJavaScriptFile && (
-                <>
-                  <Button title="保留变量名压缩" action={handleJSPreserveMinify} />
-                  <Button title="保留注释、变量名压缩" action={handleJSPreserveNamesAndComments} />
-                  <Button title="不保留变量名压缩" action={handleJSAggressiveMinify} />
-                </>
-              )}
-              {isJSONFile && (
-                <Button title="JSON压缩" action={handleJSONMinify} />
-              )}
-              {isHTMLFile && (
-                <>
-                  <Button title="HTML压缩" action={handleHTMLMinify} />
-                  <Button title="HTML压缩（含CSS）" action={handleHTMLCSSMinify} />
-                  <Button title="HTML预览" systemImage="eye" action={handleHTMLPreview} />
-                </>
-              )}
-            </Menu>,
-          ],
-        }}
-      >
-        {renderDecodeFailedBanner()}
-        {renderFormattingBanner()}
+  // preview 模式：只读分享展示，不开启自动写回
+  return (
+    <NavigationStack>
+      <VStack spacing={0} frame={{ maxWidth: "infinity", maxHeight: "infinity" }}>
+        {renderFileHeader()}
         <Divider />
-
         <Editor
-
           background={bgColor}
           controller={controller!}
           searchEnabled
@@ -883,23 +954,6 @@ export function EditorPage(props: EditorPageProps) {
           frame={{ maxWidth: "infinity", maxHeight: "infinity" }}
         />
       </VStack>
-      <ToastOverlay />
-      </ZStack>
-    )
-  }
-
-  // preview 模式
-  return (
-    <ZStack frame={{ maxWidth: "infinity", maxHeight: "infinity" }}>
-    <NavigationStack>
-      <VStack ignoresSafeArea={{ regions: "container", edges: ["bottom"] }} alignment="leading" spacing={0}>
-        {renderFileHeader()}
-        <Divider />
-        <Editor
-          background={bgColor} controller={controller!} searchEnabled showAccessoryView={true} scriptName={fileName} frame={{ maxWidth: "infinity", maxHeight: "infinity" }} />
-      </VStack>
     </NavigationStack>
-    <ToastOverlay />
-    </ZStack>
   )
 }

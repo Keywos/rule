@@ -232,7 +232,7 @@ export async function buildIndex(
   // 批量提交：把最多 BATCH_SIZE 行拼成一条多行 INSERT（单条语句 = 一个隐式事务），
   // 比逐行 execute 少 N 倍事务开销。该 SQLite 封装不支持裸 BEGIN/COMMIT，
   // transaction() 也只收单步，因此用 execute 多行 VALUES 实现批量。
-  const BATCH_SIZE = 200
+  const BATCH_SIZE = 80
   const INSERT_COLS = 'path, name, relative_path, size, modification_date, is_directory, category, icon, icon_color, parent_path, content'
   const INSERT_ROW = '(?,?,?,?,?,?,?,?,?,?,?)'
   let pendingRows: any[][] = []

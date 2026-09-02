@@ -66,74 +66,49 @@ export function isPlausibleText(text: string | null | undefined): boolean {
  */
 export async function readTextFile(filePath: string, maxBytes?: number): Promise<string | null> {
   try {
-    await ensureLocalFile(filePath)
+    await ensureLocalFile(filePath);
 
-    let fileSize = -1
+    let fileSize = -1;
     try {
-      const stat = await FileManager.stat(filePath)
-      fileSize = typeof stat.size === "number" ? stat.size : -1
-    } catch { }
+      const stat = await FileManager.stat(filePath);
+      fileSize = typeof stat.size === "number" ? stat.size : -1;
+    } catch {}
 
-    // FileManager 只提供整文件读取 API；必须在首次 readAsString/readAsData 之前拦截，
-    // 否则即使调用方最终只保留前一部分文本，整个大文件仍会进入内存。
-    if (maxBytes != null && maxBytes >= 0 && fileSize > maxBytes) return null
+    if (maxBytes != null && maxBytes >= 0 && fileSize > maxBytes) return null;
 
-    const isUsableText = (text: string | null | undefined) => {
-      // 只有明确知道文件大小为 0 时才接受空字符串；stat 失败/未知大小不能把空字符串当成功。
-      return text != null && (text.length > 0 || fileSize === 0)
-    }
-
-    // 1. 默认编码（通常会自动识别 UTF-8/BOM）
+    // 1. 优先尝试直接以 UTF-8 快速解析
     try {
-      const text = await FileManager.readAsString(filePath)
-      if (isUsableText(text) && isPlausibleText(text)) return text
-    } catch { }
+      const text = await FileManager.readAsString(filePath);
+      if (text != null && (text.length > 0 || fileSize === 0) && isPlausibleText(text)) {
+        return text;
+      }
+    } catch {}
 
-    // 2. 多编码回退，避免 GBK/UTF-16/Shift-JIS 等文件打开为空白
+    // 2. 避免多次磁盘 I/O：只读一次原始 Data，后续全在内存中进行多编码转换
+    const data = await FileManager.readAsData(filePath);
+    if (!data) return null;
+    const dataSize = data.size ?? 0;
+    if (dataSize === 0) return "";
+
     const encodings = [
-      "utf-8",
-      "utf-16",
-      "utf16LittleEndian",
-      "utf16BigEndian",
-      "gb18030",
-      "gbk",
-      "shiftJIS",
-      "japaneseEUC",
-      "windowsCP1252",
-      "isoLatin1",
-      "ascii",
-    ] as const
+      "utf-8", "gb18030", "gbk", "utf-16", "utf16LittleEndian",
+      "utf16BigEndian", "shiftJIS", "japaneseEUC", "windowsCP1252", "isoLatin1"
+    ] as const;
 
     for (const enc of encodings) {
       try {
-        const text = await FileManager.readAsString(filePath, enc)
-
-        if (isUsableText(text) && isPlausibleText(text)) return text
-      } catch { }
+        const text = data.toRawString(enc as any);
+        if (text && isPlausibleText(text)) return text;
+      } catch {}
     }
 
-    // 3. readAsString 可能对部分安全域/iCloud/特殊编码文件返回空字符串。
-    //    直接读 Data 再解码，至少保证非空文件不会空白打开。
     try {
-      const data = await FileManager.readAsData(filePath)
-      const dataSize = data?.size ?? 0
-      for (const enc of encodings) {
-        try {
-          const text = data.toRawString(enc as any)
-          if (text != null && (text.length > 0 || dataSize === 0) && isPlausibleText(text)) return text
-        } catch { }
-      }
-      if (dataSize > 0) {
-        try {
-          // toDecodedString 会把坏字节替换成 U+FFFD，二进制文件解码后必然含替换字符 → 拒绝
-          const decoded = data.toDecodedString("utf8")
-          if (decoded != null && isPlausibleText(decoded)) return decoded
-        } catch { }
-      }
-    } catch { }
-  } catch { }
+      const decoded = data.toDecodedString("utf8");
+      if (decoded && isPlausibleText(decoded)) return decoded;
+    } catch {}
+  } catch {}
 
-  return null
+  return null;
 }
 /** 长按 菜单 使用系统分享 / Open in… 菜单分享文件（DocumentInteraction） */
 export async function shareFilePath(filePath: string, fileName: string) {
