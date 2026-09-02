@@ -12,6 +12,27 @@ export interface Bookmark {
 const BOOKMARKS_KEY = "FileStore_Bookmarks";
 const SHARED_OPTIONS = { shared: true };
 
+// 书签变更订阅：所有增删改最终都经 saveBookmarks 落库，统一在此发通知，
+// 让双栏分屏、单栏、挂载目录页等所有 UI 实时同步（无需重启/重新挂载）。
+type BookmarkListener = () => void;
+const _bookmarkListeners = new Set<BookmarkListener>();
+
+/** 订阅书签变更，返回取消订阅函数 */
+export function onBookmarksChanged(listener: BookmarkListener): () => void {
+  _bookmarkListeners.add(listener);
+  return () => {
+    _bookmarkListeners.delete(listener);
+  };
+}
+
+function notifyBookmarksChanged(): void {
+  for (const fn of _bookmarkListeners) {
+    try {
+      fn();
+    } catch {}
+  }
+}
+
 function getStorage(): any {
   return (globalThis as any).Storage;
 }
@@ -69,6 +90,8 @@ function saveBookmarks(bookmarks: Bookmark[]): void {
   try {
     st?.set?.(BOOKMARKS_KEY, bookmarks);
   } catch {}
+  // 落库成功后通知所有订阅者刷新 UI
+  notifyBookmarksChanged();
 }
 
 /** 获取所有书签 */

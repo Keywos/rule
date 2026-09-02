@@ -68,7 +68,7 @@ import { getDefaultOpener, setDefaultOpener, OPENER_OPTIONS } from "../manager/D
 import { AppSettings, saveSettings, readSettings } from "../manager/Settings";
 import { SettingsPage } from "./SettingsPage";
 import { MountDirectoriesPage } from "./MountDirectoriesPage";
-import { Bookmark, getAllBookmarks, addDirectoryBookmark, removeBookmark, renameBookmark, resolveBookmarkPath } from "../manager/BookmarkManager";
+import { Bookmark, getAllBookmarks, addDirectoryBookmark, removeBookmark, renameBookmark, resolveBookmarkPath, onBookmarksChanged } from "../manager/BookmarkManager";
 import { ensureDir, makeTimestamp, importSinglePhotoResult } from "../manager/importHelpers";
 import { DROP_ACCEPTED_TYPES, handleDropToDirectory } from "../manager/dropHandler";
 import { makeDragConfig } from "./FileListItem";
@@ -2453,6 +2453,13 @@ function GeneralBrowser({
   // ─ 收藏夹状态 ─
   const [bookmarkRefreshKey, setBookmarkRefreshKey] = useState(0);
   const allBookmarks = useMemo(() => getAllBookmarks(), [bookmarkRefreshKey, bookmarks]);
+
+  // 订阅全局书签变更：任意分栏/页面添加删除收藏后，这里都实时刷新
+  useEffect(() => {
+    return onBookmarksChanged(() => {
+      setBookmarkRefreshKey((k) => k + 1);
+    });
+  }, []);
   const handleManageBookmarks = async () => {
     await Navigation.present({
       element: (
