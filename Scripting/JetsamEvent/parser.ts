@@ -42,8 +42,14 @@ export interface JetsamMemory {
   memoryPages: JetsamMemoryPages
 }
 
+// .ips 头部 JSON 的已知字段（其余字段保留任意类型）
+export interface JetsamHeader {
+  timestamp?: string
+  [key: string]: any
+}
+
 export interface JetsamData {
-  header: Record<string, any>
+  header: JetsamHeader
   build: string
   product: string
   kernel: string
@@ -168,9 +174,13 @@ export function resolveEventTimestamp(data: JetsamData): string {
   const raw = data.header?.timestamp ?? data.date ?? ""
   if (!raw) return new Date().toISOString()
   // 把 "2026-08-30 21:28:37.00 +0800" 规范成可解析的 ISO 格式
-  // （时区 +0800 → +08:00）
+  // （时区 +0800 → +08:00；仅 +08 → +08:00；末尾 Z 原样保留）
   const iso = raw
-    .replace(/^(\d{4}-\d{2}-\d{2})[ T](\d{2}:\d{2}:\d{2}(?:\.\d+)?)\s*([+-]\d{2})(\d{2})?$/i, "$1T$2$3:$4")
+    .replace(
+      /^(\d{4}-\d{2}-\d{2})[ T](\d{2}:\d{2}:\d{2}(?:\.\d+)?)\s*([+-]\d{2})(\d{2})?$/i,
+      (_all, date: string, time: string, tzHour: string, tzMin?: string) =>
+        date + "T" + time + tzHour + ":" + (tzMin || "00"),
+    )
     .replace(/^(\d{4}-\d{2}-\d{2})[ T](\d{2}:\d{2}:\d{2}(?:\.\d+)?)\s*Z$/i, "$1T$2Z")
   const t = new Date(iso).getTime()
   if (isNaN(t)) return new Date().toISOString()
@@ -180,7 +190,7 @@ export function resolveEventTimestamp(data: JetsamData): string {
 // ─── 格式化工具 ───
 
 export function fmtBytes(v: number | null | undefined): string | null {
-  if (v == null) return null
+  if (v == null || isNaN(v)) return null
   if (v >= 1e12) return (v / 1e12).toFixed(2) + " TB"
   if (v >= 1e9) return (v / 1e9).toFixed(2) + " GB"
   if (v >= 1e6) return (v / 1e6).toFixed(1) + " MB"
@@ -200,7 +210,7 @@ export function fmtPages(pages: number | null | undefined, pageSize: number): st
 
 // 纳秒 → 可读时长
 export function fmtDuration(ns: number | null | undefined): string | null {
-  if (ns == null) return null
+  if (ns == null || isNaN(ns)) return null
   let s = ns / 1e9
   if (s < 1) return (ns / 1e6).toFixed(0) + " 毫秒"
   if (s < 60) return s.toFixed(0) + " 秒"
@@ -213,4 +223,22 @@ export function fmtDuration(ns: number | null | undefined): string | null {
   const d = Math.floor(h / 24)
   const rh = h % 24
   return d + " 天 " + rh + " 小时"
+}
+
+// ─── 日期格式化 ───
+
+const pad2 = (n: number): string => String(n).padStart(2, "0")
+
+// 短格式："M月D日 HH:MM"（用于历史记录列表）
+export function fmtDateTimeShort(ts: string | number | Date): string {
+  const d = new Date(ts)
+  if (isNaN(d.getTime())) return ""
+  return (d.getMonth() + 1) + "月" + d.getDate() + "日 " + d.getHours() + ":" + pad2(d.getMinutes())
+}
+
+// 完整格式："YYYY/M/D HH:MM"（用于历史详情页）
+export function fmtDateTimeFull(ts: string | number | Date): string {
+  const d = new Date(ts)
+  if (isNaN(d.getTime())) return ""
+  return d.getFullYear() + "/" + (d.getMonth() + 1) + "/" + d.getDate() + " " + d.getHours() + ":" + pad2(d.getMinutes())
 }

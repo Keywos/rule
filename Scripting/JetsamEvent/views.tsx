@@ -1,12 +1,14 @@
 // views.tsx -- 公用 JetsamEvent 进程 & 内存 UI 视图组件
 
-import { Navigation, NavigationStack, List, Section, Text, VStack, HStack, ProgressView, Button, DisclosureGroup, Picker, NavigationLink, TextField, useState } from "scripting"
-import { type JetsamData, type JetsamProcess, type JetsamMemory, fmtPages, fmtDuration } from "./parser"
-import { type HistoryEntry, loadHistory, deleteHistoryEntry } from "./history"
+import { Navigation, NavigationStack, List, Section, Text, VStack, HStack, ProgressView, Button, Picker, NavigationLink, TextField, useState, useMemo } from "scripting"
+import { type JetsamData, type JetsamProcess, type JetsamMemory, fmtPages, fmtDuration, fmtDateTimeFull } from "./parser"
+import { type HistoryEntry } from "./history"
 
 // ─── 基础组件 ───
 
-function Card(props: { cn: string; value: any }) {
+type CardValue = string | number | null | undefined
+
+function Card(props: { cn: string; value: CardValue }) {
   if (props.value === null || props.value === undefined) return null
   let v = String(props.value)
   if (v === "<unknown>" || v === "unknown" || v === "undefined" || v === "null" || v === "NaN") v = "未知"
@@ -30,7 +32,7 @@ export function detectDevice(product: string, fileName: string): string {
   return "未知"
 }
 
-function deviceLabel(type: string): string {
+export function deviceLabel(type: string): string {
   return type === "iPhone" ? "📱 iPhone" : type === "iPad" ? "📱 iPad" : type === "Watch" ? "⌚ Watch" : type === "Apple TV" ? "📺 Apple TV" : "未知"
 }
 
@@ -142,7 +144,7 @@ export function KilledSection(props: { killed: JetsamProcess[]; pageSize: number
     <Section header={<Text>⚠️ 被 Jetsam 终止的进程 ({killed.length})</Text>}>
       {killed.map((p: JetsamProcess, i: number) => (
         <NavigationLink
-          key={i}
+          key={p.pid ? `${p.name}-${p.pid}` : `${p.name}-${i}`}
           destination={<ProcessDetailPage proc={p} pageSize={pageSize} />}
         >
           <HStack>
@@ -172,17 +174,23 @@ export function ProcessListSection(props: { processes: JetsamProcess[]; pageSize
   if (processes.length === 0) return null
 
   const query = searchText.trim().toLowerCase()
-  const filtered = query
-    ? processes.filter((p: JetsamProcess) =>
-        p.name.toLowerCase().includes(query) || String(p.pid).includes(query)
-      )
-    : processes
-  const sorted = [...filtered].sort((a, b) => {
-    if (sortMode === "name") {
-      return a.name.localeCompare(b.name)
-    }
-    return b.rpages - a.rpages
-  })
+  const filtered = useMemo(
+    () => query
+      ? processes.filter((p: JetsamProcess) =>
+          p.name.toLowerCase().includes(query) || String(p.pid).includes(query)
+        )
+      : processes,
+    [processes, query]
+  )
+  const sorted = useMemo(
+    () => [...filtered].sort((a, b) => {
+      if (sortMode === "name") {
+        return a.name.localeCompare(b.name)
+      }
+      return b.rpages - a.rpages
+    }),
+    [filtered, sortMode]
+  )
   const isMem = sortMode === "mem"
   const showCount = query ? filtered.length : processes.length
 
@@ -208,7 +216,7 @@ export function ProcessListSection(props: { processes: JetsamProcess[]; pageSize
       ) : null}
       {sorted.map((p: JetsamProcess, i: number) => (
         <NavigationLink
-          key={i}
+          key={p.pid ? `${p.name}-${p.pid}` : `${p.name}-${i}`}
           destination={<ProcessDetailPage proc={p} pageSize={pageSize} />}
         >
           <HStack>
@@ -295,44 +303,6 @@ export function AnalysisPage(props: { data: JetsamData; fileName: string }) {
   )
 }
 
-// ─── 历史记录列表 ───
-
-export function HistorySection(props: { onSelect: (entry: HistoryEntry) => void }) {
-  const [history, setHistory] = useState(loadHistory())
-  const [expanded, setExpanded] = useState(false)
-
-  if (history.length === 0) return null
-
-  const handleDelete = (index: number) => {
-    setHistory(deleteHistoryEntry(history, index))
-  }
-
-  return (
-    <DisclosureGroup
-      label={<Text font="headline">📋 历史记录 ({history.length})</Text>}
-      isExpanded={expanded}
-      onChanged={setExpanded}
-    >
-      <VStack spacing={4} alignment={A}>
-        {history.map((entry: HistoryEntry, i: number) => {
-          const dt = detectDevice(entry.data.product, entry.fileName)
-          const dlabel = deviceLabel(dt)
-          const date = new Date(entry.timestamp)
-          const dateStr = (date.getMonth() + 1) + "月" + date.getDate() + "日 " + date.getHours() + ":" + String(date.getMinutes()).padStart(2, "0")
-          const killedCount = entry.data.killed.length
-          const largest = entry.data.largestProcess
-          return (
-            <VStack key={i} spacing={2} alignment={A}>
-              <Button title={dlabel + " | " + dateStr + " | " + entry.data.processes.length + "进程" + (killedCount > 0 ? " · 被杀" + killedCount : "") + (largest ? " · 最大:" + largest : "")} action={() => props.onSelect(entry)} />
-              <Button title="删除" foregroundStyle="#FF3B30" action={() => handleDelete(i)} />
-            </VStack>
-          )
-        })}
-      </VStack>
-    </DisclosureGroup>
-  )
-}
-
 // ─── 历史记录详情页 ───
 
 export function HistoryDetailPage(props: { entry: HistoryEntry }) {
@@ -340,8 +310,7 @@ export function HistoryDetailPage(props: { entry: HistoryEntry }) {
   const { entry } = props
   const dtype = detectDevice(entry.data.product, entry.fileName)
   const label = deviceLabel(dtype)
-  const date = new Date(entry.timestamp)
-  const dateStr = date.getFullYear() + "/" + (date.getMonth() + 1) + "/" + date.getDate() + " " + date.getHours() + ":" + String(date.getMinutes()).padStart(2, "0")
+  const dateStr = fmtDateTimeFull(entry.timestamp)
 
   return (
     <NavigationStack>

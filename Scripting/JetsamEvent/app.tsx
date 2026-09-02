@@ -1,8 +1,9 @@
 // app.tsx — 主 App（显示 JetsamEvent 历史记录列表）
 
-import { Script, Navigation, NavigationStack, List, Section, Text, Button, HStack, useState } from "scripting"
-import { HistoryDetailPage, detectDevice } from "./views"
+import { Navigation, NavigationStack, List, Section, Text, Button, HStack, useState } from "scripting"
+import { HistoryDetailPage, detectDevice, deviceLabel } from "./views"
 import { loadHistory, deleteHistoryEntry } from "./history"
+import { fmtDateTimeShort } from "./parser"
 import { type HistoryEntry } from "./history"
 
 // ─── 主 App ───
@@ -19,7 +20,7 @@ export function App() {
   }
 
   const handleDelete = (index: number) => {
-    setHistory(deleteHistoryEntry(history, index))
+    setHistory(prev => deleteHistoryEntry(prev, index))
   }
 
   return (
@@ -39,15 +40,19 @@ export function App() {
           <Section header={<Text>📋 历史记录 ({history.length})</Text>}>
             {history.map((entry: HistoryEntry, i: number) => {
               const dt = detectDevice(entry.data.product, entry.fileName)
-              const dlabel = dt === "iPhone" ? "📱 iPhone" : dt === "iPad" ? "📱 iPad" : dt === "Watch" ? "⌚ Watch" : dt === "Apple TV" ? "📺 Apple TV" : "未知"
-              const date = new Date(entry.timestamp)
-              const dateStr = (date.getMonth() + 1) + "月" + date.getDate() + "日 " + date.getHours() + ":" + String(date.getMinutes()).padStart(2, "0")
               const killedCount = entry.data.killed.length
               const procCount = entry.data.processes.length
               const largest = entry.data.largestProcess
+              const meta = [
+                deviceLabel(dt),
+                fmtDateTimeShort(entry.timestamp),
+                procCount + "进程",
+                killedCount > 0 ? "被杀" + killedCount : null,
+                largest || null,
+              ].filter(Boolean).join(" | ")
               return (
                 <HStack
-                  key={i}
+                  key={entry.fileName}
                   trailingSwipeActions={{
                     allowsFullSwipe: true,
                     actions: [
@@ -56,7 +61,7 @@ export function App() {
                   }}
                 >
                   <Button
-                    title={dlabel + " | " + dateStr + " | " + procCount + "进程" + (killedCount > 0 ? " | 被杀" + killedCount : "") + (largest ? " | " + largest : "")}
+                    title={meta}
                     action={() => handleSelect(entry)}
                   />
                 </HStack>

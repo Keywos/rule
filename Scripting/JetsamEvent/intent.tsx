@@ -3,6 +3,8 @@ import { parseContent, resolveEventTimestamp } from "./parser"
 import { AnalysisPage, detectDevice } from "./views"
 import { addHistoryEntry, loadHistory } from "./history"
 
+// ─── 错误页面 ───
+
 function ErrorPage(props: { title: string; detail: string }) {
   const dismiss = Navigation.useDismiss()
   return (
@@ -22,6 +24,15 @@ function ErrorPage(props: { title: string; detail: string }) {
   )
 }
 
+// ─── 辅助函数 ───
+
+async function showError(title: string, detail: string) {
+  await Navigation.present({
+    element: <ErrorPage title={title} detail={detail} />,
+    modalPresentationStyle: "pageSheet",
+  })
+}
+
 // 处理可能的 file:// 前缀与百分号编码
 function normalizePath(raw: string): string {
   let p = raw
@@ -31,6 +42,11 @@ function normalizePath(raw: string): string {
   }
   return p
 }
+
+// 读取文件内容（同步）
+const readContent = (p: string): string => FileManager.readAsStringSync(p)
+
+// ─── 入口 ───
 
 async function run() {
   try {
@@ -66,10 +82,7 @@ async function run() {
       }
     }
     if (!path) {
-      await Navigation.present({
-        element: <ErrorPage title="未找到文件" detail="没有接收到可分析的文件路径" />,
-        modalPresentationStyle: "pageSheet",
-      })
+      await showError("未找到文件", "没有接收到可分析的文件路径")
       return
     }
 
@@ -77,7 +90,6 @@ async function run() {
 
     // 读取文件（分享的文件为安全作用域，可能需先拷贝）
     let content: string
-    const readContent = (p: string): string => FileManager.readAsStringSync(p)
 
     try {
       content = readContent(path)
@@ -93,30 +105,27 @@ async function run() {
           await FileManager.copyFile(path, tmpPath)
           content = readContent(tmpPath)
         } catch (copyErr) {
-          await Navigation.present({
-            element: <ErrorPage title="文件读取失败" detail={"无法读取文件：" + fileName + "\n" + (copyErr instanceof Error ? copyErr.message : String(copyErr))} />,
-            modalPresentationStyle: "pageSheet",
-          })
+          await showError(
+            "文件读取失败",
+            "无法读取文件：" + fileName + "\n" + (copyErr instanceof Error ? copyErr.message : String(copyErr)),
+          )
           return
         }
       }
     }
 
     if (!content || content.trim().length === 0) {
-      await Navigation.present({
-        element: <ErrorPage title="文件为空" detail={"文件「" + fileName + "」内容为空"} />,
-        modalPresentationStyle: "pageSheet",
-      })
+      await showError("文件为空", "文件「" + fileName + "」内容为空")
       return
     }
 
     // 解析
     const data = parseContent(content)
     if (data.processes.length === 0) {
-      await Navigation.present({
-        element: <ErrorPage title="未找到进程数据" detail={"文件「" + fileName + "」中没有进程信息，请确认分享的是 JetsamEvent .ips 崩溃报告"} />,
-        modalPresentationStyle: "pageSheet",
-      })
+      await showError(
+        "未找到进程数据",
+        "文件「" + fileName + "」中没有进程信息，请确认分享的是 JetsamEvent .ips 崩溃报告",
+      )
       return
     }
 
@@ -133,10 +142,7 @@ async function run() {
   } catch (err) {
     // 显示错误而不是静默失败
     try {
-      await Navigation.present({
-        element: <ErrorPage title="处理失败" detail={err instanceof Error ? err.message : String(err)} />,
-        modalPresentationStyle: "pageSheet",
-      })
+      await showError("处理失败", err instanceof Error ? err.message : String(err))
     } catch {}
   } finally {
     Script.exit()
