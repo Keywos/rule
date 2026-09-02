@@ -103,6 +103,14 @@ export function DualBrowserPage({ settings, refreshKey, bookmarks, onSettingsCha
     setRightDir(dir)
   }, [])
 
+  // ── 布局相关状态（复制提示文案需要根据 layoutDir 区分左右/上下，须先于复制处理函数声明） ──
+  // 左右比例 (0~1)，0.5 = 各占一半；从持久化设置恢复，退出后记住拖动条位置
+  const [ratio, setRatio] = useState(typeof settings.dualRatio === "number" ? settings.dualRatio : 0.5)
+  // 布局方向：horizontal（左右分栏）或 vertical（上下分栏）
+  const [layoutDir, setLayoutDir] = useState(settings.dualLayoutDir as "horizontal" | "vertical")
+  // 双栏显示开关：关闭时保留两侧路径、布局方向和比例
+  const [isDualMode, setIsDualMode] = useState(settings.dualModeEnabled)
+
   // 把文件复制到右侧当前目录
   const handleCopyLeftToRight = useCallback(
     async (filePath: string) => {
@@ -146,13 +154,14 @@ export function DualBrowserPage({ settings, refreshKey, bookmarks, onSettingsCha
         setRightHighlightFile(Path.basename(destPath))
         setRightKey((k) => k + 1)
         setTimeout(() => setRightHighlightFile(undefined), 3000)
-        showCopyToastAction("已复制到右侧目录")
+        // 左右分栏提示右侧，上下分栏提示下方
+        showCopyToastAction(layoutDir === "horizontal" ? "已复制到右侧目录" : "已复制到下方目录")
       } catch (e) {
         console.log("复制到右侧目录失败:", e)
         await Dialog.alert({ title: "错误", message: "复制失败：" + String(e), buttonLabel: "确定" })
       }
     },
-    [rightDir],
+    [rightDir, layoutDir],
   )
 
   // 把文件复制到左侧当前目录
@@ -198,24 +207,17 @@ export function DualBrowserPage({ settings, refreshKey, bookmarks, onSettingsCha
         setLeftHighlightFile(Path.basename(destPath))
         setLeftKey((k) => k + 1)
         setTimeout(() => setLeftHighlightFile(undefined), 3000)
-        showCopyToastAction("已复制到左侧目录")
+        // 左右分栏提示左侧，上下分栏提示上方
+        showCopyToastAction(layoutDir === "horizontal" ? "已复制到左侧目录" : "已复制到上方目录")
       } catch (e) {
         console.log("复制到左侧目录失败:", e)
         await Dialog.alert({ title: "错误", message: "复制失败：" + String(e), buttonLabel: "确定" })
       }
     },
-    [leftDir],
+    [leftDir, layoutDir],
   )
 
-  // ── 左右比例 (0~1)，0.5 = 各占一半；从持久化设置恢复，退出后记住拖动条位置 ──
-  const [ratio, setRatio] = useState(typeof settings.dualRatio === "number" ? settings.dualRatio : 0.5)
-
-  // ── 布局方向：horizontal（左右分栏）或 vertical（上下分栏） ──
-  const [layoutDir, setLayoutDir] = useState(settings.dualLayoutDir as "horizontal" | "vertical")
-  // ── 双栏显示开关：关闭时保留两侧路径、布局方向和比例 ──
-  const [isDualMode, setIsDualMode] = useState(settings.dualModeEnabled)
-
-  // ── 复制到对方目录的顶部提示 ──
+  // 复制到对方目录的顶部提示
   const [showCopyToast, setShowCopyToast] = useState(false)
   const [copyToastMessage, setCopyToastMessage] = useState("")
   const copyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
