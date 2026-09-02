@@ -1,0 +1,50 @@
+// npm 依赖自动安装：检测 prettier / terser 是否可用，缺失时自动执行 npm install，并用 Toast 提示
+import { Script } from "scripting"
+import { showToast } from "./ToastManager"
+
+/** 与 package.json dependencies 保持一致 */
+const REQUIRED_PACKAGES = ["prettier", "terser"]
+
+/** 判断某个 npm 包当前是否可被 require（Scripting 将依赖全局安装到 App Group，不装到脚本目录） */
+function isPackageInstalled(name: string): boolean {
+  try {
+    require(name)
+    return true
+  } catch {
+    return false
+  }
+}
+
+/**
+ * 运行前检查 npm 依赖是否已安装，缺失则执行 `npm install`。
+ * 提示流程（ToastOverlay 需已挂载）：检测到缺失 → 正在安装 → 安装完成。
+ * @returns 依赖已就绪（或安装成功）返回 true；检查或安装失败返回 false
+ */
+export async function ensureNpmDependencies(): Promise<boolean> {
+  try {
+    const missing = REQUIRED_PACKAGES.filter((name) => !isPackageInstalled(name))
+    if (missing.length === 0) return true
+
+    // 等 ToastOverlay 监听就绪后再依次提示
+    await new Promise((resolve) => setTimeout(() => resolve(), 150))
+    showToast("检测到缺少运行环境")
+    await new Promise((resolve) => setTimeout(() => resolve(), 1200))
+    showToast("正在安装运行环境…")
+
+    console.log(`缺少 npm 依赖: ${missing.join(", ")}，执行 npm install …`)
+    const result = await Shell.run(`cd "${Script.directory}" && npm install`, { timeout: 3000 })
+    if (result.exitCode !== 0) {
+      console.error(`npm install 失败 (exitCode=${result.exitCode}):`, result.output)
+      showToast("运行环境安装失败")
+      return false
+    }
+    showToast("运行环境安装完成")
+    return true
+  } catch (e) {
+    console.error("检查 npm 依赖失败:", e)
+    try {
+      showToast("运行环境检查失败")
+    } catch {}
+    return false
+  }
+}

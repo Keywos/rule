@@ -1,0 +1,697 @@
+import {
+  Button,
+  Circle,
+  HStack,
+  Image,
+  Spacer,
+  Text,
+  VStack,
+  ZStack,
+  Widget,
+  Capsule,
+  Grid,
+  GridRow,
+  Color,
+  EnvironmentValuesReader
+} from 'scripting'
+import {
+  getWeekNumber,
+  formatYear,
+  formatMonthDay,
+  getWeekDayName,
+  startOfWeek as getStartOfWeek,
+  addDays,
+  isSameDay
+} from './dateUtils'
+
+import {
+  ChangeWeekIntent,
+  SelectDateIntent,
+  ChangeMonthIntent
+} from './app_intents'
+import { lunar } from './lunar'
+import {
+  fetchHolidays,
+  getHolidayType,
+  getFestivalName,
+  getMonthHolidayData,
+  getHolidayCalColor,
+  getUpcomingHolidayRanges,
+  getUpcomingAllRanges
+} from './holidayUtils'
+import SmallWidget from './widgets/SmallWidget'
+import { color, colors, todayText,labText } from './degisn'
+
+async function WeeklyWidget() {
+  const val = Storage.get<string>('weekOffset') || '0'
+  let offset = 0
+  try {
+    offset = JSON.parse(val)
+  } catch (e) {
+    console.error(e)
+  }
+  const sd = Storage.get<string>('selectedDate')
+  const selectedDate = sd ? new Date(sd) : null
+
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const displayDate = addDays(today, offset * 7)
+
+  const weekNum = getWeekNumber(displayDate)
+
+  const descDate = selectedDate || today
+  const lunarDate = lunar(descDate)
+
+  const dayDesc =
+    `${formatMonthDay(descDate)}` +
+    ` 第${getWeekNumber(descDate)}周` +
+    ` ${lunarDate.yearName}(${lunarDate.yearZodiac})年` +
+    ` ${lunarDate.monthName}月${lunarDate.dayName}`
+
+  // Week Days (Sunday start) - Based on offset
+  const firstDayOfWeek = parseInt(Storage.get<string>('firstDayOfWeek') || '0')
+  const startOfWeekDate = getStartOfWeek(displayDate, firstDayOfWeek)
+
+  // 从 holidayUtils 缓存读取，避免每次直接 CalendarEvent.getAll
+  // 跨年时（如周一所在周跨 12/31）补拉上一年的缓存
+  await fetchHolidays(startOfWeekDate.getFullYear())
+
+  const weekDays = Array.from({ length: 7 }).map((_, i) => {
+    const d = addDays(startOfWeekDate, i)
+    const lunarDate = lunar(d)
+    return {
+      date: d,
+      weekDayName: getWeekDayName(d),
+      dayNum: d.getDate(),
+      lunarDay: lunarDate.dayName,
+      isToday: isSameDay(d, today),
+      holidayType: getHolidayType(d),
+      eventTitle: getFestivalName(d)
+    }
+  })
+
+  return (
+    <EnvironmentValuesReader keys={['widgetRenderingMode']}>
+      {({ widgetRenderingMode }) => (
+        <VStack padding={20} frame={Widget.displaySize}>
+          {/* Header: Year/Month and Week Number */}
+          <HStack>
+            <Button
+              intent={ChangeWeekIntent('prev')}
+              buttonStyle="bordered"
+              tint="systemGray2"
+            >
+              <Image
+                systemName="chevron.left"
+                font={12}
+                foregroundStyle={labText}
+                widgetAccentedRenderingMode="accented"
+              />
+            </Button>
+            <Button intent={ChangeWeekIntent('reset')} buttonStyle="plain">
+              <Text font={24} foregroundStyle={labText}>
+                {formatYear(offset ? startOfWeekDate : today)}
+                {offset ? startOfWeekDate.getMonth() + 1 : today.getMonth() + 1}
+                月
+              </Text>
+            </Button>
+            <Spacer />
+            <VStack alignment="trailing" spacing={2}>
+              <Text font={14} foregroundStyle={labText} widgetAccentable>
+                第{weekNum}周
+              </Text>
+            </VStack>
+            <Button
+              intent={ChangeWeekIntent('next')}
+              buttonStyle="bordered"
+              tint="systemGray2"
+            >
+              <Image
+                systemName="chevron.right"
+                font={12}
+                foregroundStyle={labText}
+                widgetAccentable
+              />
+            </Button>
+          </HStack>
+
+          <Spacer />
+
+          {/* Calendar Week Row */}
+          <HStack spacing={4}>
+            {weekDays.map((item, index) => (
+              <VStack key={index} spacing={4} frame={{ maxWidth: 400 }}>
+                <Text
+                  font={11}
+                  foregroundStyle={
+                    item.isToday ? colors.systemRed : labText
+                  }
+                  fontWeight="medium"
+                  multilineTextAlignment="center"
+                >
+                  {item.weekDayName}
+                </Text>
+                <ZStack
+                  frame={{ width: 40, height: 40 }}
+                  alignment="topTrailing"
+                >
+                  <Button
+                    intent={SelectDateIntent(item.date.toISOString())}
+                    buttonStyle="plain"
+                  >
+                    <VStack
+                      frame={{ width: 40, height: 40 }}
+                      background={
+                        item.isToday ? (
+                          <Circle
+                            fill={colors.systemRed}
+                            opacity={
+                              widgetRenderingMode === 'accented' ? 0.2 : 1
+                            }
+                          />
+                        ) : selectedDate &&
+                          isSameDay(item.date, selectedDate) ? (
+                          <Circle
+                            fill="secondarySystemBackground"
+                            opacity={
+                              widgetRenderingMode === 'accented' ? 0.1 : 0.5
+                            }
+                          />
+                        ) : undefined
+                      }
+                      alignment="center"
+                      spacing={0}
+                    >
+                      <Spacer />
+                      <Text
+                        font={16}
+                        foregroundStyle={
+                          item.isToday
+                            ? todayText
+                            : labText
+                        }
+                        widgetAccentable={!item.isToday}
+                        multilineTextAlignment="center"
+                      >
+                        {item.dayNum.toString()}
+                      </Text>
+                      <Text
+                        font={9}
+                        lineLimit={1}
+                        foregroundStyle={
+                          item.isToday
+                            ? todayText
+                            : item.eventTitle
+                              ? colors.systemRed
+                              : labText
+                        }
+                        widgetAccentable={!item.isToday}
+                        multilineTextAlignment="center"
+                        fontWeight="medium"
+                      >
+                        {item.eventTitle || item.lunarDay}
+                      </Text>
+                      <Spacer />
+                    </VStack>
+                  </Button>
+                  {item.holidayType && (
+                    <Text
+                      frame={{ width: 14, height: 14 }}
+                      background={{
+                        style:
+                          item.holidayType === 'work'
+                            ? colors.systemRed
+                            : colors.systemGreen,
+                        shape: 'circle'
+                      }}
+                      font={10}
+                      foregroundStyle={todayText}
+                      widgetAccentable={false}
+                    >
+                      {item.holidayType === 'work' ? '班' : '休'}
+                    </Text>
+                  )}
+                </ZStack>
+              </VStack>
+            ))}
+          </HStack>
+          <HStack frame={{ maxWidth: 'infinity', alignment: 'leading' }}>
+            <Capsule
+              frame={{ width: 4, height: 16 }}
+              fill={color(colors.systemRed, 0.9)}
+              widgetAccentable
+            />
+            <Text
+              font={14}
+              foregroundStyle={labText}
+              multilineTextAlignment="leading"
+            >
+              {dayDesc}
+            </Text>
+          </HStack>
+        </VStack>
+      )}
+    </EnvironmentValuesReader>
+  )
+}
+
+async function MonthlyWidget() {
+  const today = new Date()
+  const year = today.getFullYear()
+  const month = today.getMonth()
+
+  // 优先用 holidayUtils 缓存，避免每次直接 CalendarEvent.getAll
+  await fetchHolidays(year)
+
+  const { dotDays, festivals } = getMonthHolidayData(year, month)
+  const dots: Record<number, Color> = {}
+
+  if (dotDays.size > 0) {
+    // 颜色也来自缓存（fetchHolidays 时已把节假日历颜色写入缓存）
+    const dotColor = getHolidayCalColor(year) ?? colors.systemGreen.light
+    for (const d of dotDays) {
+      dots[d] = dotColor as Color
+    }
+  }
+
+  return (
+    <EnvironmentValuesReader keys={['widgetRenderingMode']}>
+      {({ widgetRenderingMode }) => (
+        <SmallWidget {...{ widgetRenderingMode, dots, festivals }} />
+      )}
+    </EnvironmentValuesReader>
+  )
+}
+
+// 农历月份数字 + 日名，如 7·初一（正/冬/腊 -> 1/11/12）
+function lunarMonthNum(date: Date): string {
+  const ld = lunar(date)
+  const map: Record<string, string> = {
+    正: '一', 冬: '11', 腊: '12'
+  }
+  const n = map[ld.monthName] ?? ld.monthName
+  return `${n}/${ld.dayName}`
+}
+
+async function MediumWidget() {
+  const today = new Date()
+  const year = today.getFullYear()
+  const month = today.getMonth()
+
+  await fetchHolidays(year)
+
+  const { dotDays, festivals } = getMonthHolidayData(year, month)
+  const dots: Record<number, Color> = {}
+  if (dotDays.size > 0) {
+    const dotColor = getHolidayCalColor(year) ?? colors.systemGreen.light
+    for (const d of dotDays) {
+      dots[d] = dotColor as Color
+    }
+  }
+
+
+  const lunarToday = lunar(today)
+
+
+
+
+  // 从今天起往后延续的最近 5 条节假日（可跨月）
+  const shown = Storage.get<string>('dateSource') === 'all'
+    ? await getUpcomingAllRanges(5, today)
+    : await getUpcomingHolidayRanges(5, today)
+
+  return (
+    <EnvironmentValuesReader keys={['widgetRenderingMode']}>
+      {({ widgetRenderingMode }) => (
+        <HStack spacing={0} frame={Widget.displaySize}>
+          {/* 左半边：今日摘要 + 本月节假日（只显示今天及之后的最近 5 条） */}
+          <VStack
+            alignment="leading"
+            spacing={3}
+            padding={{ leading: 14, trailing: 10, top: 16, bottom: 0 }}
+            frame={{ maxWidth: 'infinity', maxHeight: 'infinity' }}
+          >
+            {/* 今日日期 + 农历 */}
+            <HStack spacing={8} alignment="center">
+              <Text
+                font={24}
+                fontWeight="bold"
+                foregroundStyle={colors.systemRed}
+                widgetAccentable
+              >
+                {today.getDate()}
+              </Text>
+              <VStack alignment="leading" spacing={1}>
+                <Text font={13} fontWeight="bold" foregroundStyle={todayText}>
+                  {month + 1}月{today.getDate()}日 周{getWeekDayName(today)}
+                </Text>
+                <Text font={11} foregroundStyle={labText}>
+                  农历{lunarToday.monthName}月{lunarToday.dayName}
+                </Text>
+              </VStack>
+            </HStack>
+
+            <Spacer frame={{ minHeight: 3 }} />
+
+            {/* 今天及之后最近的 5 条节假日（可跨月） */}
+            {shown.length === 0 ? (
+              <Text font={11} foregroundStyle={labText}>
+                近期暂无节假日
+              </Text>
+            ) : (
+              shown.map((item) => (
+                <HStack key={`${item.year}-${item.month}-${item.start}-${item.type}-${item.name}`} spacing={1} alignment="top">
+                  {item.start === item.end ? (
+                    <Text
+                      font={10}
+                      foregroundStyle={todayText}
+                      frame={{ width: 80, alignment: 'leading' }}
+                      lineLimit={1}
+                    >
+                      {lunarMonthNum(new Date(item.year, item.month, item.start))} / {item.month + 1}.{item.start}
+                    </Text>
+                  ) : (
+                    <VStack
+                      alignment="leading"
+                      spacing={0}
+                      frame={{ width: 80, alignment: 'leading' }}
+                    >
+                      <Text font={10} foregroundStyle={todayText} lineLimit={1}>
+                        {lunarMonthNum(new Date(item.year, item.month, item.start))}
+                      </Text>
+                      <Text font={10} foregroundStyle={todayText} lineLimit={1}>
+                        {item.month + 1}.{item.start} - {item.month + 1}.{item.end}
+                      </Text>
+                    </VStack>
+                  )}
+                    <Text
+                      font={12}
+                      lineLimit={1}
+                      fontWeight="medium"
+                      foregroundStyle={
+                        item.type === 'holiday'
+                          ? colors.systemGreen
+                          : item.type === 'reminder'
+                            ? colors.systemBlue
+                            : colors.systemRed
+                      }
+                      frame={{ maxWidth: 'infinity' }}
+                      widgetAccentable
+                    >
+                      {item.name}
+                  </Text>
+                </HStack>
+              ))
+            )}
+            <HStack frame={{ minHeight: 11 }} />
+          </VStack>
+
+          {/* 右半边：小组件月历布局 */}
+          <SmallWidget {...{ widgetRenderingMode, dots, festivals }} />
+        </HStack>
+      )}
+    </EnvironmentValuesReader>
+  )
+}
+
+async function LargeMonthlyWidget() {
+  const val = Storage.get<string>('monthOffset') || '0'
+  let offset = 0
+  try {
+    offset = JSON.parse(val)
+  } catch (e) {
+    console.error(e)
+  }
+
+  const today = new Date()
+
+  const sd = Storage.get<string>('selectedDate')
+  const selectedDate = sd ? new Date(sd) : null
+
+  const descDate = selectedDate || today
+  const lunarDate = lunar(descDate)
+  const dayDesc =
+    `${formatMonthDay(descDate)}` +
+    ` 第${getWeekNumber(descDate)}周` +
+    ` ${lunarDate.yearName}(${lunarDate.yearZodiac})年` +
+    ` ${lunarDate.monthName}月${lunarDate.dayName}`
+
+  const displayDate = new Date(
+    today.getFullYear(),
+    today.getMonth() + offset,
+    1
+  )
+  const year = displayDate.getFullYear()
+  const month = displayDate.getMonth()
+
+  await fetchHolidays(year)
+
+  const firstDay = new Date(year, month, 1)
+  const lastDay = new Date(year, month + 1, 0)
+  const daysInMonth = lastDay.getDate()
+  const firstDayOfWeek = parseInt(Storage.get<string>('firstDayOfWeek') || '0')
+  const startDayOfWeek = (firstDay.getDay() - firstDayOfWeek + 7) % 7
+
+  // Generate grid cells
+  const gridDays: (Date | null)[] = []
+
+  // Start padding
+  for (let i = 0; i < startDayOfWeek; i++) {
+    gridDays.push(null)
+  }
+  // Dates
+  for (let i = 1; i <= daysInMonth; i++) {
+    gridDays.push(new Date(year, month, i))
+  }
+
+  // Chunk into weeks
+  const weeks: (Date | null)[][] = []
+  for (let i = 0; i < gridDays.length; i += 7) {
+    weeks.push(gridDays.slice(i, i + 7))
+  }
+
+  const weekDayNames =
+    firstDayOfWeek === 1
+      ? ['一', '二', '三', '四', '五', '六', '日']
+      : ['日', '一', '二', '三', '四', '五', '六']
+
+  return (
+    <EnvironmentValuesReader keys={['widgetRenderingMode']}>
+      {({ widgetRenderingMode }) => (
+        <VStack padding={20} frame={Widget.displaySize}>
+          {/* Header */}
+          <HStack alignment="center">
+            <Button
+              intent={ChangeMonthIntent('prev')}
+              buttonStyle="bordered"
+              tint="systemGray2"
+            >
+              <Image
+                systemName="chevron.left"
+                font={12}
+                foregroundStyle={labText}
+              />
+            </Button>
+            <Button intent={ChangeMonthIntent('reset')} buttonStyle="plain">
+              <Text
+                font={16}
+                fontWeight="bold"
+                foregroundStyle={todayText}
+                widgetAccentable
+              >
+                {year}年{month + 1}月
+              </Text>
+            </Button>
+            <Spacer />
+            <Button
+              intent={ChangeMonthIntent('next')}
+              buttonStyle="bordered"
+              tint="systemGray2"
+            >
+              <Image
+                systemName="chevron.right"
+                font={12}
+                foregroundStyle={labText}
+                widgetAccentable
+              />
+            </Button>
+          </HStack>
+
+          <Spacer />
+
+          <Grid verticalSpacing={4} horizontalSpacing={0}>
+            <GridRow>
+              {weekDayNames.map((name, i) => (
+                <Text
+                  key={i}
+                  font={12}
+                  fontWeight="medium"
+                  foregroundStyle={
+                    (firstDayOfWeek === 1
+                      ? i === 5 || i === 6
+                      : i === 0 || i === 6)
+                      ? labText
+                      : todayText
+                  }
+                  frame={{ maxWidth: 'infinity' }}
+                  multilineTextAlignment="center"
+                >
+                  {name}
+                </Text>
+              ))}
+            </GridRow>
+            {weeks.map((week, i) => (
+              <GridRow key={i}>
+                {week.map((date, j) => {
+                  if (!date) {
+                    // Empty cell
+                    return (
+                      <ZStack
+                        key={j}
+                        frame={{ maxWidth: 'infinity', height: 40 }}
+                      />
+                    )
+                  }
+                  const isToday = isSameDay(date, today)
+                  const eventTitle = getFestivalName(date)
+                  const lunarDate = lunar(date)
+                  const lunarDay = lunarDate.dayName
+                  const holidayType = getHolidayType(date)
+
+                  return (
+                    <ZStack
+                      key={j}
+                      frame={{ maxWidth: 'infinity', height: 40 }}
+                      alignment="topTrailing"
+                    >
+                      <Button
+                        intent={SelectDateIntent(date.toISOString())}
+                        buttonStyle="plain"
+                      >
+                        <VStack
+                          frame={{ width: 40, height: 40 }}
+                          background={
+                            isToday
+                              ? {
+                                style: colors.systemRed,
+                                shape: 'circle'
+                              }
+                              : selectedDate && isSameDay(date, selectedDate)
+                                ? {
+                                  style:
+                                    widgetRenderingMode === 'accented'
+                                      ? 'rgba(28,28,30,0.5)'
+                                      : 'rgba(28,28,30,0.3)',
+                                  shape: 'circle'
+                                }
+                                : undefined
+                          }
+                          alignment="center"
+                          spacing={0}
+                        >
+                          <Text
+                            font={14}
+                            fontWeight="medium"
+                            foregroundStyle={
+                              isToday
+                                ? todayText
+                                : date.getDay() === 0 || date.getDay() === 6
+                                  ? labText
+                                  : todayText
+                            }
+                            widgetAccentable={!isToday}
+                            multilineTextAlignment="center"
+                          >
+                            {date.getDate().toString()}
+                          </Text>
+                          <Text
+                            font={9}
+                            foregroundStyle={
+                              isToday
+                                ? todayText
+                                : eventTitle
+                                  ? colors.systemRed
+                                  : labText
+                            }
+                            widgetAccentable={false}
+                            lineLimit={1}
+                            multilineTextAlignment="center"
+                          >
+                            {eventTitle || lunarDay}
+                          </Text>
+                        </VStack>
+                      </Button>
+
+                      {holidayType && (
+                        <Text
+                          frame={{ width: 14, height: 14 }}
+                          font={10}
+                          background={{
+                            style:
+                              holidayType === 'work'
+                                ? colors.systemRed
+                                : colors.systemGreen,
+                            shape: 'circle'
+                          }}
+                          foregroundStyle={todayText}
+                          widgetAccentable={false}
+                        >
+                          {holidayType === 'work' ? '班' : '休'}
+                        </Text>
+                      )}
+                    </ZStack>
+                  )
+                })}
+              </GridRow>
+            ))}
+          </Grid>
+          <Spacer />
+          <HStack frame={{ maxWidth: 'infinity', alignment: 'leading' }}>
+            <Capsule
+              frame={{ width: 4, height: 16 }}
+              fill={color(colors.systemRed, 0.9)}
+              widgetAccentable
+            />
+            <Text
+              font={14}
+              foregroundStyle={todayText}
+              multilineTextAlignment="leading"
+            >
+              {dayDesc}
+            </Text>
+          </HStack>
+        </VStack>
+      )}
+    </EnvironmentValuesReader>
+  )
+}
+
+async function WidgetView() {
+  if (Widget.family === 'systemSmall') {
+    return await MonthlyWidget()
+  }
+  if (Widget.family === 'systemMedium') {
+    return await MediumWidget()
+  }
+  if (Widget.family === 'systemLarge') {
+    return await LargeMonthlyWidget()
+  }
+  return await WeeklyWidget()
+}
+
+// Main execution
+; (async () => {
+  const val = Storage.get<string>('weekOffset') || '0'
+  let offset = 0
+  try {
+    offset = JSON.parse(val)
+  } catch (e) {
+    console.error(e)
+  }
+  const today = new Date()
+  const displayDate = addDays(today, offset * 7)
+
+  await fetchHolidays(displayDate.getFullYear())
+
+  Widget.present(await WidgetView())
+})()
