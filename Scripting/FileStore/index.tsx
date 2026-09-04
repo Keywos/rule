@@ -112,7 +112,7 @@ async function run() {
       console.log("importNonText 保存失败:", e)
     }
     await Navigation.present({
-      element: <HomeView initialLeftPath={Path.join(FileManager.documentsDirectory, "File Store")} initialToast={saved ? "文件已保存到 File Store" : "文件保存失败"} />,
+      element: <HomeView initialLeftPath={Path.join(FileManager.documentsDirectory, "File Store")} initialToast={saved ? "文件已保存到 File Store" : "文件保存失败"} initialHighlightPath={savedPath} />,
       modalPresentationStyle: "overFullScreen",
     })
     Script.exit()
