@@ -61,7 +61,7 @@ import { onSearchStateChange } from "../manager/SearchState";
 import { ArchiveBrowserPage, FileNavigationDest } from "./MediaViewer";
 import { ToolbarMenu } from "./ToolbarMenu";
 import { FileListItem, FileInfoDialog } from "./FileListItem";
-import { filterFiles, sortFilesByOrder, DEFAULT_SORT_ORDER, DEFAULT_FILTER_TYPE } from "../manager/sortFilter";
+import { filterFiles, sortFilesByOrder, normalizeSortOrder, DEFAULT_SORT_ORDER, DEFAULT_FILTER_TYPE } from "../manager/sortFilter";
 import { isLivePhotoFile, unpackLivePhoto } from "../manager/LivePhotoPacker";
 import { resolveOpenerForFile } from "./DefaultOpenerPicker";
 import { getDefaultOpener, setDefaultOpener, OPENER_OPTIONS } from "../manager/DefaultOpener";
@@ -741,7 +741,7 @@ function GeneralBrowser({
 
   // 从 settings 或 props 读取排序/筛选初始值
   const [sortOrder, setSortOrder] = useState<import("../manager/sortFilter").SortOrder>(
-    () => (settings?.defaultSortOrder || readSettings().defaultSortOrder || initialSortOrder || DEFAULT_SORT_ORDER) as any,
+    () => normalizeSortOrder(settings?.defaultSortOrder || readSettings().defaultSortOrder || initialSortOrder || DEFAULT_SORT_ORDER),
   );
   const [filterType, setFilterType] = useState<string>(() => (isHomePage && settings?.defaultFilterType ? settings.defaultFilterType : initialFilterType || DEFAULT_FILTER_TYPE));
 

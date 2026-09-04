@@ -6,6 +6,14 @@ import { searchFiles } from "./searchUtils"
 export { langMap, MIME_FALLBACK } from "./fileTypeData"
 export { uniquePath, writeToUniquePath, sanitizeExtractDirName } from "./pathUtils"
 export { searchFiles } from "./searchUtils"
+
+const importedFileDates = new Map<string, number>()
+
+/** 记录本次运行中导入副本的时间，避免重写大文件来更新 mtime。 */
+export function markFileImported(filePath: string, timestamp: number = Date.now()) {
+  importedFileDates.set(filePath, timestamp)
+}
+
 import {
   countDirectoryItems,
   invalidateDirectoryCount,
@@ -117,7 +125,7 @@ export async function getFileInfo(filePath: string): Promise<FileInfo> {
       isLink: !!isLink,
       size: 0,
       creationDate: stat?.creationDate || 0,
-      modificationDate: stat?.modificationDate || 0,
+      modificationDate: importedFileDates.get(targetPath) || stat?.modificationDate || 0,
       extension: "",
       category: "unknown",
       mimeType: "",
@@ -136,7 +144,7 @@ export async function getFileInfo(filePath: string): Promise<FileInfo> {
     isLink: !!isLink,
     size: stat?.size || 0,
     creationDate: stat?.creationDate || 0,
-    modificationDate: stat?.modificationDate || 0,
+    modificationDate: importedFileDates.get(targetPath) || stat?.modificationDate || 0,
     extension: ext,
     category,
     mimeType: getMimeType(ext),
@@ -1587,6 +1595,7 @@ export async function copyFileToFileStore(src: string): Promise<{ path: string; 
       let dest = Path.join(fileStoreDir, srcName);
       dest = await uniquePath(dest);
       await FileManager.copyFile(resolvedSrc, dest);
+      markFileImported(dest);
       console.log(`copyFileToFileStore: 复制成功 ${dest}`);
       // copyFile 会保留源文件的修改时间，如果源文件有修改时间直接沿用；
       // 注意：不能通过 writeAsBytes(dest, bytes.slice(0, 1)) 刷新时间，因为会截断文件导致只剩 1 字节！

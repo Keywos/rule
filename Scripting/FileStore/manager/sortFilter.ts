@@ -6,7 +6,7 @@ import { Bookmark } from "./BookmarkManager";
 
 /* ─── 类型 ─── */
 
-export type SortOrder = "modified-asc" | "modified-desc" | "added-asc" | "added-desc" | "type-asc";
+export type SortOrder = "modified-asc" | "modified-desc" | "name-asc" | "type-asc";
 
 export interface SortOption {
   key: SortOrder;
@@ -22,7 +22,7 @@ export interface FilterOption {
 /* ─── 排序切换组 ─── */
 
 export interface SortToggleDef {
-  /** 'modified' | 'added' | 'type' */
+  /** 'modified' | 'name' | 'type' */
   key: string;
   title: string;
   systemImage: string;
@@ -32,12 +32,20 @@ export interface SortToggleDef {
 
 export const FILE_SORT_TOGGLES: SortToggleDef[] = [
   { key: "modified", title: "修改日期", systemImage: "calendar.badge.clock", togglable: true },
-  { key: "added", title: "添加日期", systemImage: "calendar.badge.plus", togglable: true },
-  { key: "type", title: "按文件类型排序", systemImage: "doc.text.magnifyingglass", togglable: false },
+  { key: "name", title: "按名称排序", systemImage: "textformat", togglable: false },
+  { key: "type", title: "按类型排序", systemImage: "doc.text.magnifyingglass", togglable: false },
 ];
 
 /** 默认排序：修改日期 ↑ */
 export const DEFAULT_SORT_ORDER: SortOrder = "modified-asc";
+
+/** 将旧版添加日期排序迁移为文件名升序。 */
+export function normalizeSortOrder(order: string): SortOrder {
+  if (order === "added-asc" || order === "added-desc") return "name-asc";
+  if (order === "name-desc") return "name-asc";
+  if (order === "modified-desc" || order === "type-asc") return order;
+  return order === "name-asc" ? order : "modified-asc";
+}
 
 /* ─── 文件筛选选项（单选） ─── */
 
@@ -73,6 +81,7 @@ export function sortOrderToMode(order: SortOrder): { mode: string; dir: "asc" | 
 /** 根据选择的 toggle key 生成新的 SortOrder */
 export function resolveSortOrder(current: SortOrder, toggleKey: string): SortOrder {
   if (toggleKey === "type") return "type-asc";
+  if (toggleKey === "name") return "name-asc";
   const prefix = toggleKey;
   if (current.startsWith(prefix)) {
     // 同组切换方向
@@ -93,10 +102,8 @@ export function sortFilesByOrder(files: FileInfo[], order: SortOrder): FileInfo[
         return a.modificationDate - b.modificationDate;
       case "modified-desc":
         return b.modificationDate - a.modificationDate;
-      case "added-asc":
-        return a.creationDate - b.creationDate;
-      case "added-desc":
-        return b.creationDate - a.creationDate;
+      case "name-asc":
+        return a.name.localeCompare(b.name, "zh-CN", { numeric: true });
       case "type-asc":
         const catCmp = a.category.localeCompare(b.category);
         return catCmp !== 0 ? catCmp : a.name.localeCompare(b.name, "zh-CN", { numeric: true });
@@ -130,13 +137,8 @@ export function filterFiles(files: FileInfo[], type: string): FileInfo[] {
 }
 
 /** 对书签列表排序 */
-export function sortBookmarks(bookmarks: Bookmark[], order: string): Bookmark[] {
+export function sortBookmarks(bookmarks: Bookmark[], _order?: string): Bookmark[] {
   const sorted = [...bookmarks];
-  sorted.sort((a, b) => {
-    if (order === "name-desc") {
-      return b.name.localeCompare(a.name);
-    }
-    return a.name.localeCompare(b.name);
-  });
+  sorted.sort((a, b) => a.name.localeCompare(b.name, "zh-CN", { numeric: true }));
   return sorted;
 }
