@@ -155,7 +155,7 @@ async function run() {
                     ? "文件已保存到 File Store"
                     : "文件保存失败"
                 }
-                initialHighlightPath={savedPath}
+                initialHighlightPath={accessiblePath}
               />
             ),
             modalPresentationStyle: "overFullScreen",

@@ -48,6 +48,7 @@ interface MountDirectoriesPageProps {
   showFolderItemCounts: boolean;
   onRefresh: () => void;
   onSettingsChange?: (settings: AppSettings) => void;
+  isFocused?: boolean;
 }
 
 function getAccessiblePath(bookmark: Bookmark): string | null {
@@ -132,7 +133,7 @@ function BookmarkInfoDialog({ bookmark }: { bookmark: Bookmark }) {
   );
 }
 
-export function MountDirectoriesPage({ bookmarks, showFolderItemCounts, onRefresh, onSettingsChange }: MountDirectoriesPageProps) {
+export function MountDirectoriesPage({ bookmarks, showFolderItemCounts, onRefresh, onSettingsChange, isFocused = true }: MountDirectoriesPageProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<Bookmark[]>([]);
   const [orderedBookmarks, setOrderedBookmarks] = useState<Bookmark[]>(() => [...bookmarks]);
@@ -456,6 +457,12 @@ export function MountDirectoriesPage({ bookmarks, showFolderItemCounts, onRefres
                     highlightFile = decodeURIComponent(dirPath.slice(sepIdx + 2));
                     dirPath = dirPath.slice(0, sepIdx);
                   }
+                  // 判断当前实例是否是导航栈中最后一项（即当前显示的）
+                  // 结合父级的 isFocused 状态
+                  const navArray = navPath?.value && Array.isArray(navPath.value) ? navPath.value : [];
+                  const isNavigationFocused = navArray.length > 0 && navArray[navArray.length - 1] === page;
+                  const browserIsFocused = isFocused && isNavigationFocused;
+                  
                   return (
                     <GeneralBrowser
                       dirPath={dirPath}
@@ -466,6 +473,7 @@ export function MountDirectoriesPage({ bookmarks, showFolderItemCounts, onRefres
                       showFolderItemCounts={showFolderItemCounts}
                       onOpenSettings={handleOpenSettings}
                       refreshKey={directoryDropRefreshKey}
+                      isFocused={browserIsFocused}
                     />
                   );
                 }

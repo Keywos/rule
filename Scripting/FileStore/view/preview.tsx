@@ -144,6 +144,7 @@ export function HomeView({
               onSettingsChange={setSettings}
               bookmarks={bookmarks}
               initialHighlightPath={initialHighlightPath}
+              isFocused={tabIndex === 0}
             />
           </Group>
         </Tab>
@@ -151,7 +152,7 @@ export function HomeView({
 
         <Tab title="挂载目录" systemImage="tray.2.fill" value={1}>
           <Group labelStyle="titleAndIcon">
-            <MountDirectoriesPage bookmarks={bookmarks} showFolderItemCounts={settings.showFolderItemCounts} onRefresh={onRefresh} onSettingsChange={(newSettings) => setSettings(newSettings)} />
+            <MountDirectoriesPage bookmarks={bookmarks} showFolderItemCounts={settings.showFolderItemCounts} onRefresh={onRefresh} onSettingsChange={(newSettings) => setSettings(newSettings)} isFocused={tabIndex === 1} />
           </Group>
         </Tab>
 

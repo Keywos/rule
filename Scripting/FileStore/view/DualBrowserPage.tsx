@@ -1,6 +1,6 @@
 // 双浏览器页面 - 左右两个文件浏览器并排显示，中间可拖拽调整比例
 
-import { HStack, VStack, ZStack, Image, Text, GeometryReader, useState, useEffect, useRef, useCallback, Path, Button, ToolbarItem } from "scripting"
+import { HStack, VStack, ZStack, Image, Text, GeometryReader, useState, useEffect, useRef, useCallback, useMemo, Path, Button, ToolbarItem } from "scripting"
 import { GeneralBrowser } from "./GeneralBrowser"
 import { AppSettings, readSettings, saveSettings } from "../manager/Settings"
 import { Bookmark } from "../manager/BookmarkManager"
@@ -16,6 +16,8 @@ interface DualBrowserPageProps {
   secondaryToolbarLeadingItems?: any
   // 保存到 File Store 后需要高亮的文件完整路径
   initialHighlightPath?: string
+  // 是否处于焦点状态（TabView 当前 Tab）
+  isFocused?: boolean
 }
 
 export function DualBrowserPage({
@@ -26,6 +28,7 @@ export function DualBrowserPage({
   isHomeScreenHost,
   secondaryToolbarLeadingItems,
   initialHighlightPath,
+  isFocused = true,
 }: DualBrowserPageProps) {
   // 跨栏复制文件乐观更新注入
   const leftAddFilesRef = useRef<(files: FileInfo[]) => void>(() => { })
@@ -53,7 +56,7 @@ export function DualBrowserPage({
   }, [settings])
 
   // 各自独立的 settings 变更处理器
-  const handleLeftSettingsChange = (newSettings: AppSettings) => {
+  const handleLeftSettingsChange = useCallback((newSettings: AppSettings) => {
     // 检测导航变更 → 保存到专属键，同时保留对方的最新状态
     if (newSettings.homeCurrentPath !== leftSettings.homeCurrentPath) {
       saveSettings({
@@ -65,9 +68,9 @@ export function DualBrowserPage({
       })
     }
     setLeftSettings(newSettings)
-  }
+  }, [leftSettings, rightSettings, settings])
 
-  const handleRightSettingsChange = (newSettings: AppSettings) => {
+  const handleRightSettingsChange = useCallback((newSettings: AppSettings) => {
     if (newSettings.homeCurrentPath !== rightSettings.homeCurrentPath) {
       saveSettings({
         ...settings,
@@ -78,7 +81,7 @@ export function DualBrowserPage({
       })
     }
     setRightSettings(newSettings)
-  }
+  }, [leftSettings, rightSettings, settings])
 
   // 左右各自独立的 refreshKey，互不影响
   const [leftKey, setLeftKey] = useState(0)
@@ -298,7 +301,7 @@ export function DualBrowserPage({
       setLayoutDir((prev) => (prev === "horizontal" ? "vertical" : "horizontal"))
     } */
 
-  const dualModeToolbarItem = (
+  const dualModeToolbarItem = useMemo(() => (
     <ToolbarItem placement="topBarLeading">
       <Button
         title={isDualMode ? "关闭双栏模式" : "开启双栏模式"}
@@ -314,7 +317,7 @@ export function DualBrowserPage({
         }}
       />
     </ToolbarItem>
-  )
+  ), [isDualMode, settings, onSettingsChange])
 
   // ── layoutDir 变化时持久化保存 ──
   // useEffect(() => {
@@ -341,12 +344,75 @@ export function DualBrowserPage({
   // 切换横竖分栏布局的保存
   const handleToggleLayout = () => {
     const nextDir: "horizontal" | "vertical" = layoutDir === "horizontal" ? "vertical" : "horizontal"
-    setLayoutDir(nextDir)
+    withAnimation(Animation.smooth({ duration: 0.4 }), () => setLayoutDir(nextDir))
     const currentSettings = readSettings()
     const nextSettings = { ...currentSettings, dualLayoutDir: nextDir }
     saveSettings(nextSettings)
     onSettingsChange?.(nextSettings)
   }
+
+  const leftBrowser = useMemo(() => (
+    <GeneralBrowser
+      isHomePage={true}
+      isHomeScreenHost={isHomeScreenHost}
+      settings={leftSettings}
+      onSettingsChange={handleLeftSettingsChange}
+      refreshKey={leftKey}
+      showFolderItemCounts={settings.showFolderItemCounts ?? true}
+      highlightFile={leftHighlightFile}
+      externalCopiedPath={sharedCopiedPath}
+      onExternalCopy={handleExternalCopy}
+      onDirChange={handleLeftDirChange}
+      toolbarLeadingItems={dualModeToolbarItem}
+      oppositeDirName={rightDir ? (layoutDir === "horizontal" ? "复制到右侧目录" : "复制到下方目录") : undefined}
+      onCopyToOppositeDir={rightDir ? handleCopyLeftToRight : undefined}
+      addFilesRef={leftAddFilesRef}
+      folderCountUpdateRef={leftFolderCountUpdateRef}
+      bookmarks={bookmarks}
+      isFocused={isFocused}
+      onFolderCountChanged={(folderPath, count) => rightFolderCountUpdateRef.current(folderPath, count)}
+      onFilesAdded={(files) => {
+        if (leftDir === rightDir && rightDir) rightAddFilesRef.current(files)
+      }}
+      onDropCompleted={() => setRightKey((key) => key + 1)}
+    />
+  ), [
+    isHomeScreenHost, leftSettings, handleLeftSettingsChange, leftKey, settings.showFolderItemCounts,
+    leftHighlightFile, sharedCopiedPath, handleExternalCopy, handleLeftDirChange, dualModeToolbarItem,
+    rightDir, layoutDir, handleCopyLeftToRight, bookmarks, isFocused, leftDir,
+  ])
+
+  const rightBrowser = useMemo(() => (
+    <GeneralBrowser
+      isHomePage={true}
+      isHomeScreenHost={isHomeScreenHost}
+      settings={rightSettings}
+      onSettingsChange={handleRightSettingsChange}
+      refreshKey={rightKey}
+      showFolderItemCounts={settings.showFolderItemCounts ?? true}
+      highlightFile={rightHighlightFile}
+      externalCopiedPath={sharedCopiedPath}
+      onExternalCopy={handleExternalCopy}
+      onDirChange={handleRightDirChange}
+      toolbarLeadingItems={secondaryToolbarLeadingItems}
+      oppositeDirName={leftDir ? (layoutDir === "horizontal" ? "复制到左侧目录" : "复制到上方目录") : undefined}
+      onCopyToOppositeDir={leftDir ? handleCopyRightToLeft : undefined}
+      initialLoadDelay={300}
+      addFilesRef={rightAddFilesRef}
+      folderCountUpdateRef={rightFolderCountUpdateRef}
+      bookmarks={bookmarks}
+      isFocused={isFocused}
+      onFolderCountChanged={(folderPath, count) => leftFolderCountUpdateRef.current(folderPath, count)}
+      onFilesAdded={(files) => {
+        if (leftDir === rightDir && leftDir) leftAddFilesRef.current(files)
+      }}
+      onDropCompleted={() => setLeftKey((key) => key + 1)}
+    />
+  ), [
+    isHomeScreenHost, rightSettings, handleRightSettingsChange, rightKey, settings.showFolderItemCounts,
+    rightHighlightFile, sharedCopiedPath, handleExternalCopy, handleRightDirChange, secondaryToolbarLeadingItems,
+    leftDir, layoutDir, handleCopyRightToLeft, bookmarks, isFocused, rightDir,
+  ])
 
   return (
     <VStack
@@ -371,155 +437,30 @@ export function DualBrowserPage({
           const totalH = proxy.size.height
 
           return (
-            <ZStack>
+            <ZStack animation={{ animation: Animation.smooth({ duration: 0.5 }), value: layoutDir }}>
               {/* ── 内容分栏（根据 layoutDir 选择左右或上下） ── */}
               {!isDualMode ? (
                 <VStack frame={{ maxWidth: "infinity", maxHeight: "infinity" }} spacing={0}>
-                  <GeneralBrowser
-                    isHomePage={true}
-                    isHomeScreenHost={isHomeScreenHost}
-                    settings={leftSettings}
-                    onSettingsChange={handleLeftSettingsChange}
-                    refreshKey={leftKey}
-                    showFolderItemCounts={settings.showFolderItemCounts ?? true}
-                    highlightFile={leftHighlightFile}
-                    externalCopiedPath={sharedCopiedPath}
-                    onExternalCopy={handleExternalCopy}
-                    onDirChange={handleLeftDirChange}
-                    toolbarLeadingItems={dualModeToolbarItem}
-                    addFilesRef={leftAddFilesRef}
-                    folderCountUpdateRef={leftFolderCountUpdateRef}
-                    bookmarks={bookmarks}
-                    onFilesAdded={(files) => {
-                      if (leftDir === rightDir && rightDir) {
-                        rightAddFilesRef.current(files)
-                      }
-                    }}
-                    onDropCompleted={() => setRightKey((k) => k + 1)}
-                  />
+                  {leftBrowser}
                 </VStack>
               ) : layoutDir === "horizontal" ? (
                 <HStack spacing={0}>
                   <VStack frame={{ width: Math.max(40, totalW * ratio) }} spacing={0}>
-                    <GeneralBrowser
-                      isHomePage={true}
-                      isHomeScreenHost={isHomeScreenHost}
-                      settings={leftSettings}
-                      onSettingsChange={handleLeftSettingsChange}
-                      // onFullscreen={onFullscreen}
-                      refreshKey={leftKey}
-                      showFolderItemCounts={settings.showFolderItemCounts ?? true}
-                      highlightFile={leftHighlightFile}
-                      externalCopiedPath={sharedCopiedPath}
-                      onExternalCopy={handleExternalCopy}
-                      onDirChange={handleLeftDirChange}
-                      toolbarLeadingItems={dualModeToolbarItem}
-                      oppositeDirName={rightDir ? (layoutDir === "horizontal" ? "复制到右侧目录" : "复制到下方目录") : undefined}
-                      onCopyToOppositeDir={rightDir ? handleCopyLeftToRight : undefined}
-                      addFilesRef={leftAddFilesRef}
-                      folderCountUpdateRef={leftFolderCountUpdateRef}
-                      bookmarks={bookmarks}
-                      onFolderCountChanged={(folderPath, count) => {
-                        rightFolderCountUpdateRef.current(folderPath, count)
-                      }}
-                      onFilesAdded={(files) => {
-                        if (leftDir === rightDir && rightDir) {
-                          rightAddFilesRef.current(files)
-                        }
-                      }}
-                      onDropCompleted={() => setRightKey((k) => k + 1)}
-                    />
+                    {leftBrowser}
                   </VStack>
 
                   <VStack frame={{ width: Math.max(40, totalW * (1 - ratio)) }} spacing={0}>
-                    <GeneralBrowser
-                      isHomePage={true}
-                      isHomeScreenHost={isHomeScreenHost}
-                      settings={rightSettings}
-                      onSettingsChange={handleRightSettingsChange}
-                      refreshKey={rightKey}
-                      showFolderItemCounts={settings.showFolderItemCounts ?? true}
-                      highlightFile={rightHighlightFile}
-                      externalCopiedPath={sharedCopiedPath}
-                      onExternalCopy={handleExternalCopy}
-                      onDirChange={handleRightDirChange}
-                      toolbarLeadingItems={secondaryToolbarLeadingItems}
-                      oppositeDirName={leftDir ? (layoutDir === "horizontal" ? "复制到左侧目录" : "复制到上方目录") : undefined}
-                      onCopyToOppositeDir={leftDir ? handleCopyRightToLeft : undefined}
-                      initialLoadDelay={300}
-                      addFilesRef={rightAddFilesRef}
-                      folderCountUpdateRef={rightFolderCountUpdateRef}
-                      bookmarks={bookmarks}
-                      onFolderCountChanged={(folderPath, count) => {
-                        leftFolderCountUpdateRef.current(folderPath, count)
-                      }}
-                      onFilesAdded={(files) => {
-                        if (leftDir === rightDir && leftDir) {
-                          leftAddFilesRef.current(files)
-                        }
-                      }}
-                      onDropCompleted={() => setLeftKey((k) => k + 1)}
-                    />
+                    {rightBrowser}
                   </VStack>
                 </HStack>
               ) : (
                 <VStack spacing={0}>
                   <VStack frame={{ height: Math.max(40, totalH * ratio) }} spacing={0}>
-                    <GeneralBrowser
-                      isHomePage={true}
-                      isHomeScreenHost={isHomeScreenHost}
-                      settings={leftSettings}
-                      onSettingsChange={handleLeftSettingsChange}
-                      refreshKey={leftKey}
-                      showFolderItemCounts={settings.showFolderItemCounts ?? true}
-                      highlightFile={leftHighlightFile}
-                      externalCopiedPath={sharedCopiedPath}
-                      onExternalCopy={handleExternalCopy}
-                      onDirChange={handleLeftDirChange}
-                      toolbarLeadingItems={dualModeToolbarItem}
-                      oppositeDirName={rightDir ? "复制到下方目录" : undefined}
-                      onCopyToOppositeDir={rightDir ? handleCopyLeftToRight : undefined}
-                      addFilesRef={leftAddFilesRef}
-                      folderCountUpdateRef={leftFolderCountUpdateRef}
-                      bookmarks={bookmarks}
-                      onFolderCountChanged={(folderPath, count) => {
-                        rightFolderCountUpdateRef.current(folderPath, count)
-                      }}
-                      onFilesAdded={(files) => {
-                        if (leftDir === rightDir && rightDir) {
-                          rightAddFilesRef.current(files)
-                        }
-                      }}
-                      onDropCompleted={() => setRightKey((k) => k + 1)}
-                    />
+                    {leftBrowser}
                   </VStack>
 
                   <VStack frame={{ height: Math.max(40, totalH * (1 - ratio)) }} spacing={0}>
-                    <GeneralBrowser
-                      isHomePage={true}
-                      isHomeScreenHost={isHomeScreenHost}
-                      settings={rightSettings}
-                      onSettingsChange={handleRightSettingsChange}
-                      refreshKey={rightKey}
-                      showFolderItemCounts={settings.showFolderItemCounts ?? true}
-                      highlightFile={rightHighlightFile}
-                      externalCopiedPath={sharedCopiedPath}
-                      onExternalCopy={handleExternalCopy}
-                      onDirChange={handleRightDirChange}
-                      toolbarLeadingItems={secondaryToolbarLeadingItems}
-                      oppositeDirName={leftDir ? "复制到上方目录" : undefined}
-                      onCopyToOppositeDir={leftDir ? handleCopyRightToLeft : undefined}
-                      initialLoadDelay={300}
-                      addFilesRef={rightAddFilesRef}
-                      folderCountUpdateRef={rightFolderCountUpdateRef}
-                      bookmarks={bookmarks}
-                      onFilesAdded={(files) => {
-                        if (leftDir === rightDir && leftDir) {
-                          leftAddFilesRef.current(files)
-                        }
-                      }}
-                      onDropCompleted={() => setLeftKey((k) => k + 1)}
-                    />
+                    {rightBrowser}
                   </VStack>
                 </VStack>
               )}
@@ -566,6 +507,7 @@ function DraggableDivider({
   // 触感触发器：每次事件递增，触发 sensoryFeedback
   const [hapticTrigger, setHapticTrigger] = useState(0)
   const [hapticEndTrigger, setHapticEndTrigger] = useState(0)
+  const [isSwitchingLayout, setIsSwitchingLayout] = useState(false)
 
   const splitCenterX = totalW * ratio - totalW / 2
   const splitCenterY = totalH * ratio - totalH / 2
@@ -606,6 +548,8 @@ function DraggableDivider({
   const handleTap = () => {
     if (wasDraggedRef.current) return
     setHapticTrigger((v) => v + 1)
+    setIsSwitchingLayout(true)
+    setTimeout(() => setIsSwitchingLayout(false), 200)
     // 立即切换布局，无需等待触感反馈（触感反馈异步执行不阻塞渲染）
     onToggleLayout()
   }
@@ -634,7 +578,7 @@ function DraggableDivider({
         >
           <VStack
             frame={layoutDir === "horizontal" ? { width: 4, height: 130 } : { width: 100, height: 4 }}
-            background="regularMaterial"
+            // background={isSwitchingLayout ? "rgba(55, 145, 170, 0.5)" : "regularMaterial"}
             overlay={<VStack frame={{ maxWidth: "infinity", maxHeight: "infinity" }} background="rgba(128,128,128,0.25)" />}
             clipShape="capsule"
           />

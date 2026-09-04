@@ -1,5 +1,19 @@
 // 文件管理器工具函数
 import { Path } from "scripting"
+import { MIME_FALLBACK } from "./fileTypeData"
+import { uniquePath, writeToUniquePath } from "./pathUtils"
+import { searchFiles } from "./searchUtils"
+export { langMap, MIME_FALLBACK } from "./fileTypeData"
+export { uniquePath, writeToUniquePath, sanitizeExtractDirName } from "./pathUtils"
+export { searchFiles } from "./searchUtils"
+import {
+  countDirectoryItems,
+  invalidateDirectoryCount,
+  clearDirectoryCountCache,
+} from "./directoryCount"
+export { fmtSize, fmtDate } from "./formatUtils"
+export { readClipboardPath, writeClipboardPath } from "./clipboardUtils"
+export { countDirectoryItems, invalidateDirectoryCount, clearDirectoryCountCache } from "./directoryCount"
 
 
 /**
@@ -416,37 +430,6 @@ export function copiedMessage(text: string): string {
   return `已复制 ${preview}`
 }
 
-/** 格式化文件大小 */
-export function fmtSize(b: number): string {
-  if (b < 1024) return `${b} B`
-  if (b < 1048576) return `${(b / 1024).toFixed(1)} KB`
-  if (b < 1073741824) return `${(b / 1048576).toFixed(1)} MB`
-  return `${(b / 1073741824).toFixed(2)} GB`
-}
-
-/** 格式化日期 */
-export function fmtDate(ts: number): string {
-  const d = new Date(ts > 1e12 ? ts : ts * 1000)
-  const now = new Date()
-  const pad = (n: number) => String(n).padStart(2, "0")
-
-  if (d.toDateString() === now.toDateString()) {
-    return `今天 ${pad(d.getHours())}:${pad(d.getMinutes())}`
-  }
-
-  const yesterday = new Date(now)
-  yesterday.setDate(yesterday.getDate() - 1)
-  if (d.toDateString() === yesterday.toDateString()) {
-    return `昨天 ${pad(d.getHours())}:${pad(d.getMinutes())}`
-  }
-
-  if (d.getFullYear() === now.getFullYear()) {
-    return `${d.getMonth() + 1}月${d.getDate()}日`
-  }
-
-  return `${d.getFullYear()}/${pad(d.getMonth() + 1)}/${pad(d.getDate())}`
-}
-
 /** 文件类型分类 */
 export type FileCategory = "text" | "code" | "image" | "pdf" | "audio" | "video" | "archive" | "data" | "unknown" | "livephoto"
 
@@ -616,76 +599,6 @@ export function getFileIconColor(ext: string, isDirectory: boolean, category?: F
   }
 }
 
-/** 语言映射 */
-export const langMap: Record<string, string> = {
-  ".json": "JSON",
-  ".js": "JavaScript",
-  ".ts": "TypeScript",
-  ".tsx": "TypeScript (React)",
-  ".jsx": "JavaScript (React)",
-  ".md": "Markdown",
-  ".txt": "纯文本",
-  ".html": "HTML",
-  ".conf": "配置文件",
-  ".dcong": "配置文件",
-  ".htm": "HTML",
-  ".css": "CSS",
-  ".scss": "SCSS",
-  ".py": "Python",
-  ".swift": "Swift",
-  ".csv": "CSV",
-  ".log": "日志",
-  ".xml": "XML",
-  ".yaml": "YAML",
-  ".yml": "YAML",
-  ".sh": "Shell",
-  ".bash": "Bash",
-  ".sql": "SQL",
-  ".rtf": "富文本",
-  ".pdf": "PDF",
-  ".java": "Java",
-  ".kt": "Kotlin",
-  ".c": "C",
-  ".cpp": "C++",
-  ".rb": "Ruby",
-  ".go": "Go",
-  ".rs": "Rust",
-  ".php": "PHP",
-  ".lua": "Lua",
-  ".r": "R",
-  ".toml": "TOML",
-}
-
-/** 本地扩展名 MIME 回退表 */
-const MIME_FALLBACK: Record<string, string> = {
-  ".txt": "text/plain",
-  ".md": "text/markdown",
-  ".html": "text/html",
-  ".htm": "text/html",
-  ".css": "text/css",
-  ".js": "text/javascript",
-  ".ts": "text/typescript",
-  ".json": "application/json",
-  ".xml": "application/xml",
-  ".pdf": "application/pdf",
-  ".png": "image/png",
-  ".jpg": "image/jpeg",
-  ".jpeg": "image/jpeg",
-  ".gif": "image/gif",
-  ".svg": "image/svg+xml",
-  ".webp": "image/webp",
-  ".heic": "image/heic",
-  ".heif": "image/heif",
-  ".mp3": "audio/mpeg",
-  ".m4a": "audio/mp4",
-  ".wav": "audio/wav",
-  ".mp4": "video/mp4",
-  ".mov": "video/quicktime",
-  ".zip": "application/zip",
-  ".csv": "text/csv",
-  ".rtf": "application/rtf",
-}
-
 /**
  * 获取 MIME 类型（仅查本地映射，不做系统调用）。
  * FileManager.mimeType 是同步系统调用，列表构建时逐文件调用会阻塞 JS 线程
@@ -771,12 +684,14 @@ export function getCachedDirectoryListing(path: string): FileInfo[] | null {
 /** 清除所有缓存 */
 export function clearDirectoryCache() {
   _dirCache.clear()
+  clearDirectoryCountCache()
 }
 
 /** 清除指定目录的缓存（用于新建/粘贴/拖拽后立即刷新） */
 export function invalidateDirectoryCache(dirPath: string) {
   _dirCache.delete(dirPath)
   _inflightRequests.delete(dirPath)
+  invalidateDirectoryCount(dirPath)
 }
 
 /** 获取目录内容列表 */
@@ -819,14 +734,6 @@ export async function listDirectory(dirPath: string): Promise<FileInfo[]> {
   }
 }
 
-/** 快速获取目录条目数（只读目录，不做 getFileInfo）
- *  始终从磁盘实时读取，不使用列表缓存----文件夹计数徽标必须反映即时状态，
- *  避免跨栏拖拽后另一栏的计数因缓存过期而不刷新。 */
-export async function countDirectoryItems(dirPath: string): Promise<number> {
-  const entries = await FileManager.readDirectory(dirPath)
-  return entries.length
-}
-
 /** 排序方式 */
 export type SortMode = "name" | "date" | "size" | "type" | "createdate"
 export type SortOrder = "asc" | "desc"
@@ -862,116 +769,6 @@ export function sortFiles(files: FileInfo[], mode: SortMode, order: SortOrder): 
   })
 
   return sorted
-}
-
-/** 搜索文件 */
-export function searchFiles(files: FileInfo[], query: string): FileInfo[] {
-  if (!query.trim()) return files
-  const q = query.toLowerCase()
-  return files.filter((f) => f.name.toLowerCase().includes(q))
-}
-
-/* ─── 剪贴板路径管理（跨标签/子目录保留） ─── */
-
-const _CLIPBOARD_PATH_FILE = Path.join(FileManager.temporaryDirectory, ".fstore_copied_path")
-
-/** 读取剪贴板中存储的路径 */
-export async function readClipboardPath(): Promise<string | null> {
-  try {
-    if (await FileManager.exists(_CLIPBOARD_PATH_FILE)) {
-      return await FileManager.readAsString(_CLIPBOARD_PATH_FILE)
-    }
-  } catch { }
-  return null
-}
-
-/** 写入路径到剪贴板存储（传 null 清除） */
-export async function writeClipboardPath(path: string | null) {
-  try {
-    if (path) {
-      await FileManager.writeAsString(_CLIPBOARD_PATH_FILE, path)
-    } else {
-      if (await FileManager.exists(_CLIPBOARD_PATH_FILE)) {
-        await FileManager.remove(_CLIPBOARD_PATH_FILE)
-      }
-    }
-  } catch { }
-}
-
-const uniqueWriteQueues = new Map<string, Promise<void>>()
-
-/**
- * Serializes destination allocation and writing for one directory.
- * Provider reads may remain concurrent, while conflicting writes cannot overwrite each other.
- */
-export async function writeToUniquePath<T>(
-  targetPath: string,
-  write: (path: string) => Promise<T>,
-): Promise<{ path: string; value: T }> {
-  const dirPath = Path.dirname(targetPath)
-  const previous = uniqueWriteQueues.get(dirPath) ?? Promise.resolve()
-  let release: () => void = () => { }
-  const current = new Promise<void>((resolve) => {
-    release = resolve
-  })
-  const tail = previous.then(() => current)
-  uniqueWriteQueues.set(dirPath, tail)
-
-  await previous
-  try {
-    const path = await uniquePath(targetPath)
-    const value = await write(path)
-    return { path, value }
-  } finally {
-    release()
-    if (uniqueWriteQueues.get(dirPath) === tail) uniqueWriteQueues.delete(dirPath)
-  }
-}
-
-/** 生成不重名的路径，自动加 _01 _02 后缀 */
-export async function uniquePath(targetPath: string): Promise<string> {
-  if (!(await FileManager.exists(targetPath))) return targetPath
-  const ext = Path.extname(targetPath)
-  const base = targetPath.slice(0, targetPath.length - ext.length)
-  for (let i = 1; i <= 999; i++) {
-    const suffix = `_${String(i).padStart(2, "0")}`
-    const candidate = `${base}${suffix}${ext}`
-    if (!(await FileManager.exists(candidate))) return candidate
-  }
-  // fallback: use timestamp
-  return `${base}_${Date.now()}${ext}`
-}
-
-/**
- * 从压缩包文件名中提取安全的目录名。
- * 处理 .hidden.zip、无扩展名、特殊字符等边界情况。
- */
-export function sanitizeExtractDirName(archiveName: string): string {
-  // 持续剥离归档后缀，避免 .zip.gz 等多层压缩包在目录名中遗留后缀。
-  const knownExts = [".tar.gz", ".tar.bz2", ".tar.xz", ".zip", ".rar", ".7z", ".tgz", ".tar", ".gz", ".bz2", ".xz"];
-  let base = archiveName;
-  let removed = true;
-  while (removed) {
-    removed = false;
-    const lower = base.toLowerCase();
-    for (const ext of knownExts) {
-      if (lower.endsWith(ext)) {
-        base = base.slice(0, base.length - ext.length);
-        removed = true;
-        break;
-      }
-    }
-  }
-  // 未知归档格式同样移除其最后一层扩展名；保留以点开头的隐藏文件名。
-  const unknownExt = Path.extname(base);
-  if (unknownExt && base.length > unknownExt.length) {
-    base = base.slice(0, base.length - unknownExt.length);
-  }
-  // 删除路径分隔符和非法字符
-  base = base.replace(/[/\\:*?"<>|]/g, "_").trim()
-  // 防止空目录名或
-  if (!base || base === "." || base === "..") base = "extracted"
-  return base
 }
 
 /** 将任意路径编码为一个 shell 参数，避免空格、引号和命令替换字符被 shell 解释。 */

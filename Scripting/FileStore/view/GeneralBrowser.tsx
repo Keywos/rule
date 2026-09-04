@@ -16,6 +16,7 @@ import {
   useEffect,
   useMemo,
   useRef,
+  useCallback,
   Path,
   useObservable,
   Group,
@@ -52,6 +53,7 @@ import {
   buildSystemDirDefs,
 } from "../manager/utils";
 import { FileRowContent } from "./FileRowContent";
+import { FileRowContextMenu } from "./FileRowContextMenu";
 import { FolderCountStore } from "./FolderCountLabel";
 import { DeepSearchResult } from "./SearchPanel";
 import { SearchPanel } from "./SearchPanel";
@@ -152,7 +154,7 @@ function FileRowLink({
   onRequestDelete?: (file: FileInfo, afterSwipe?: boolean) => void;
   selectMode?: boolean;
   isSelected?: boolean;
-  onToggleSelect?: () => void;
+  onToggleSelect?: (path: string) => void;
   rootPath?: string;
   rootName?: string;
   navPath?: any;
@@ -241,6 +243,20 @@ function FileRowLink({
     }
   };
 
+  const handlePlainZipCompress = async () => {
+    try {
+      const parent = dirPath || Path.dirname(file.path);
+      const destPath = await uniquePath(Path.join(parent, file.name + ".zip"));
+      await FileManager.zip(file.path, destPath);
+      invalidateDirectoryCache(parent);
+      onRefresh();
+      showToast("压缩完成");
+    } catch (e) {
+      console.log("压缩失败:", e);
+      showToast("压缩失败");
+    }
+  };
+
   // ─ 统一智能解压到文件名子文件夹：真实识别 ZIP/7z，支持有密码和无密码 ─
   const handleExtractToFolder = async () => {
     try {
@@ -273,7 +289,7 @@ function FileRowLink({
         hideTopSeparator={hideTopSeparator}
         selectMode={{
           isSelected: isSelected || false,
-          onToggle: onToggleSelect || (() => { }),
+          onToggle: onToggleSelect ? () => onToggleSelect(file.path) : () => { },
         }}
       />
     );
@@ -283,6 +299,13 @@ function FileRowLink({
   const cat = getFileCategory(file.extension);
   const defaultOpener = file.isDirectory ? null : getDefaultOpener(Path.extname(file.path));
   const isDir = file.isDirectory;
+  const isLivePhoto = isLivePhotoFile(file.name);
+  const extension = file.extension.toLowerCase();
+  const isImage = !isLivePhoto && cat === "image";
+  const isVideo = !isLivePhoto && cat === "video";
+  const isPreviewableText = !isDir && (extension === ".html" || extension === ".htm" || extension === ".md");
+  const isMarkdown = extension === ".md";
+  const extractFolderName = !isDir ? sanitizeExtractDirName(file.name) : "";
 
   return (
     <Button
@@ -344,13 +367,39 @@ function FileRowLink({
       }}
       contextMenu={{
         menuItems: (
+          <>
+          <FileRowContextMenu
+            file={file}
+            defaultOpener={defaultOpener}
+            isLivePhoto={isLivePhoto}
+            isImage={isImage}
+            isVideo={isVideo}
+            isPreviewableText={isPreviewableText}
+            isMarkdown={isMarkdown}
+            extractFolderName={extractFolderName}
+            copyToDirTitle={copyToDirTitle}
+            onCopyPath={onCopyPath}
+            onCopyToDir={onCopyToDir}
+            onRefresh={onRefresh}
+            onRename={handleRename}
+            onDelete={handleDelete}
+            onShare={handleShare}
+            onOpenEditor={() => openEditor()}
+            onExtractToFolder={handleExtractToFolder}
+            onPlainZipCompress={handlePlainZipCompress}
+            onZipCompress={handleZipCompress}
+            onSevenZCompress={handleSevenZCompress}
+            navPath={navPath}
+            dirPath={dirPath}
+          />
+          {false && (
           <Group>
             <ControlGroup>
               <Button title="拷贝" systemImage="doc.on.doc" action={async () => { await onCopyPath?.(file.path); }} />
               <Button title="重命名" systemImage="pencil" action={handleRename} />
               <Button title="分享" systemImage="square.and.arrow.up" action={handleShare} />
             </ControlGroup>
-            {isLivePhotoFile(file.name) ? (
+            {isLivePhoto ? (
               <Button
                 title="保存到相册"
                 systemImage="square.and.arrow.down"
@@ -394,7 +443,7 @@ function FileRowLink({
             ) : (
               <EmptyView />
             )}
-            {!isLivePhotoFile(file.name) && getFileCategory(file.extension) === "image" ? (
+            {isImage ? (
               <Button
                 title="保存到相册"
                 systemImage="square.and.arrow.down"
@@ -411,7 +460,7 @@ function FileRowLink({
             ) : (
               <EmptyView />
             )}
-            {!isLivePhotoFile(file.name) && getFileCategory(file.extension) === "video" ? (
+            {isVideo ? (
               <Button
                 title="导出到相册"
                 systemImage="square.and.arrow.down"
@@ -428,9 +477,9 @@ function FileRowLink({
             ) : (
               <EmptyView />
             )}
-            {!file.isDirectory && (file.extension.toLowerCase() === '.html' || file.extension.toLowerCase() === '.htm' || file.extension.toLowerCase() === '.md') ? (
+            {isPreviewableText ? (
               <>
-                {file.extension.toLowerCase() === '.md' ? (
+                {isMarkdown ? (
                   <Button
                     title="预览 Markdown"
                     systemImage="doc.text.magnifyingglass"
@@ -464,10 +513,10 @@ function FileRowLink({
             )}
             {copyToDirTitle && onCopyToDir ? (
               <Button
-                title={copyToDirTitle}
+                title={copyToDirTitle!}
                 systemImage="arrow.right.doc.on.clipboard"
                 action={async () => {
-                  await onCopyToDir(file.path);
+                  await onCopyToDir!(file.path);
                 }}
               />
             ) : (
@@ -493,7 +542,7 @@ function FileRowLink({
             )}
             {!file.isDirectory ? (
               <Button
-                title={`解压到（${sanitizeExtractDirName(file.name)}）`}
+                title={`解压到（${extractFolderName}）`}
                 systemImage="lock.open"
                 action={() => handleExtractToFolder()}
               />
@@ -546,6 +595,8 @@ function FileRowLink({
             <Button title="简介" systemImage="info.circle" action={handleShowInfo} />
             <Button title="删除" systemImage="trash" role="destructive" action={handleDelete} />
           </Group>
+          )}
+          </>
         ),
       }}
       onDrag={file.isDirectory ? undefined : makeDragConfig(file.path)}
@@ -628,6 +679,7 @@ function GeneralBrowser({
   onFolderCountChanged,
   folderCountUpdateRef,
   isHomeScreenHost,
+  isFocused = true,
 }: {
   dirPath?: string;
   dirName?: string;
@@ -664,6 +716,7 @@ function GeneralBrowser({
   onFolderCountChanged?: (folderPath: string, count: number) => void;
   isHomeScreenHost?: boolean;
   folderCountUpdateRef?: { current?: (folderPath: string, count: number) => void };
+  isFocused?: boolean;
 }) {
   const cachedFiles = !items && dirPath ? getCachedDirectoryListing(dirPath) : null;
   const [files, setFiles] = useState<FileInfo[]>(cachedFiles || []);
@@ -695,6 +748,9 @@ function GeneralBrowser({
   // 选择模式
   const [selectMode, setSelectMode] = useState(false);
   const [selectedPaths, setSelectedPaths] = useState<Set<string>>(new Set());
+  const handleDeleteFile = useCallback((filePath: string) => {
+    setFiles((current) => current.filter((entry) => entry.path !== filePath));
+  }, []);
 
   // 搜索栏是否活跃
   const [copiedFilePath, setCopiedFilePath] = useState<string | null>(null);
@@ -735,7 +791,7 @@ function GeneralBrowser({
 
   // 组件挂载时立即显示 spinner，消除空内容闪屏
   // 第二次及以后的 isLoading 变化仍由上方 100ms 延迟控制，防闪烁
-  const updateCopiedPath = async (path: string | null) => {
+  const updateCopiedPath = useCallback(async (path: string | null) => {
     // 先更新 UI 状态，再异步写入文件（粘贴按钮立即出现）
     setCopiedFilePath(path);
     await _writeClipPath(path);
@@ -743,7 +799,10 @@ function GeneralBrowser({
     if (onExternalCopy) {
       onExternalCopy(path ?? "");
     }
-  };
+  }, [onExternalCopy]);
+  const handleRowCopyPath = useCallback((path: string) => {
+    updateCopiedPath(path);
+  }, [updateCopiedPath]);
 
   // 同步外部剪贴板路径到本地状态（覆盖脏数据，避免粘贴旧内容）
   useEffect(() => {
@@ -787,10 +846,10 @@ function GeneralBrowser({
   };
   const mergeFolderCountUpdatesRef = useRef(mergeFolderCountUpdates);
   mergeFolderCountUpdatesRef.current = mergeFolderCountUpdates;
-  const applyFolderCountUpdate = (folderPath: string, count: number, notifyPeer: boolean = true) => {
+  const applyFolderCountUpdate = useCallback((folderPath: string, count: number, notifyPeer: boolean = true) => {
     publishFolderCount(folderPath, count);
     if (notifyPeer) onFolderCountChanged?.(folderPath, count);
-  };
+  }, [onFolderCountChanged]);
   if (folderCountUpdateRef) {
     folderCountUpdateRef.current = (folderPath: string, count: number) => {
       applyFolderCountUpdate(folderPath, count, false);
@@ -900,7 +959,7 @@ function GeneralBrowser({
             const counts: { path: string; count: number }[] = [];
             for (const dir of dirs) {
               try {
-                const children = await countDirectoryItems(dir.path);
+                const children = await countDirectoryItems(dir.path, true);
                 counts.push({ path: dir.path, count: children });
               } catch { }
             }
@@ -1014,7 +1073,7 @@ function GeneralBrowser({
   const loadDirectoryRef = useRef(loadDirectory);
   loadDirectoryRef.current = loadDirectory;
 
-  const refreshDirectory = async () => {
+  const refreshDirectory = useCallback(async () => {
     // 强制清除缓存，确保从磁盘读取最新内容（拖拽/删除/重命名等操作依赖此行为）
     if (activeDirPath) invalidateDirectoryCache(activeDirPath);
     if (items && onItemsChange) {
@@ -1028,11 +1087,12 @@ function GeneralBrowser({
     } else {
       await loadDirectory(true);
     }
-  };
+  }, [activeDirPath, items, onItemsChange]);
 
 
   // 999ms 轮询检测目录内容变化 + 新增文件高亮（非 items 模式）
   // 每次先 stat 当前目录；目录未变化时跳过昂贵的 readDirectory + getFileInfo 全量扫描。
+  // isFocused 为 false 时停止轮询以节省 CPU
   const filesRef = useRef<FileInfo[]>(files);
   filesRef.current = files;
   const prevPollRef = useRef<FileInfo[] | null>(null);
@@ -1043,7 +1103,7 @@ function GeneralBrowser({
     // 自增序列号：新目录的轮询启动时，旧目录正在进行的异步操作可检测到序号不匹配并自动中止
     pollSeqRef.current += 1;
     const seq = pollSeqRef.current;
-    if (items || !activeDirPath) return;
+    if (items || !activeDirPath || !isFocused) return;
     // 切换目录时重置轮询快照，避免用旧目录的文件列表与新目录比较而误高亮
     prevPollRef.current = null;
     prevPollTokenRef.current = null;
@@ -1113,7 +1173,7 @@ function GeneralBrowser({
       clearTimeout(initialTimer);
       if (pollTimer) clearTimeout(pollTimer);
     };
-  }, [items, activeDirPath, initialLoadDelay]);
+  }, [items, activeDirPath, initialLoadDelay, isFocused]);
 
   // serverTick 由所有浏览器实例共同订阅的 HTTP 服务事件更新，
   // 因此双列中的两侧菜单都会重新读取服务列表。
@@ -1122,7 +1182,7 @@ function GeneralBrowser({
   );
   const activeServers = getActiveServers();
 
-  const requestFileDelete = (file: FileInfo, afterSwipe = false) => {
+  const requestFileDelete = useCallback((file: FileInfo, afterSwipe = false) => {
     // 右滑菜单关闭的原生动画比普通菜单长；结束前弹出 Dialog.confirm 会在下一次取消时触发系统崩溃。
     // 长按菜单没有此问题，仍立即使用原来的确认弹窗。
     if (deleteConfirmingRef.current) return;
@@ -1164,7 +1224,7 @@ function GeneralBrowser({
         }
       }
     }, dialogDelay);
-  };
+  }, [items]);
 
   // 卸载时清除待弹出的删除确认弹窗，防止在已销毁页面上呈现原生弹窗
   useEffect(() => {
@@ -1275,12 +1335,14 @@ function GeneralBrowser({
   const { folderCount, fileCount, totalSize } = fileStats;
 
   // ─ 选择操作 ─
-  const toggleSelect = (path: string) => {
-    const next = new Set(selectedPaths);
-    if (next.has(path)) next.delete(path);
-    else next.add(path);
-    setSelectedPaths(next);
-  };
+  const toggleSelect = useCallback((path: string) => {
+    setSelectedPaths((current) => {
+      const next = new Set(current);
+      if (next.has(path)) next.delete(path);
+      else next.add(path);
+      return next;
+    });
+  }, []);
 
   const selectAll = () => {
     setSelectedPaths(new Set(displayFiles.map((f) => f.path)));
@@ -2304,8 +2366,8 @@ function GeneralBrowser({
 
   const directoryBlankDropZone = (
     <Button action={() => { }} listRowSeparator={{ visibility: "hidden", edges: "all" }} listRowBackground={<Rectangle fill="clear" />} onDrop={currentDirectoryDrop}>
-      <VStack frame={{ maxWidth: "infinity", minHeight: 520 }} contentShape="rect">
-        <Spacer minLength={520} />
+      <VStack frame={{ maxWidth: "infinity", minHeight: 1 }} contentShape="rect">
+        <Spacer minLength={1} />
       </VStack>
     </Button>
   );
@@ -2828,17 +2890,17 @@ function GeneralBrowser({
                             key={file.path}
                             file={file}
                             onRefresh={refreshDirectory}
-                            onDeleteFile={(filePath) => setFiles((prev) => prev.filter((f) => f.path !== filePath))}
+                            onDeleteFile={handleDeleteFile}
                             onRequestDelete={requestFileDelete}
                             selectMode={selectMode}
                             isSelected={selectedPaths.has(file.path)}
-                            onToggleSelect={() => toggleSelect(file.path)}
+                            onToggleSelect={toggleSelect}
                             rootPath={rootPath || activeDirPath}
                             rootName={rootName || dirName}
                             navPath={activeNavPath}
                             hideTopSeparator={fileIdx === 0}
                             folderCountStore={folderCountStore}
-                            onCopyPath={(path) => updateCopiedPath(path)}
+                            onCopyPath={handleRowCopyPath}
                             isHighlighted={file.path === highlightedPath}
                             copyToDirTitle={oppositeDirName}
                             onCopyToDir={onCopyToOppositeDir}
@@ -3004,6 +3066,11 @@ function BrowserRouteView({
     dirPath = dirPath.slice(0, separatorIndex);
   }
 
+  // 判断当前实例是否是导航栈中最后一项（即当前显示的）
+  // 只有最后一项应该轮询，其他项应该停止轮询以节省 CPU
+  const navArray = navigationPath?.value && Array.isArray(navigationPath.value) ? navigationPath.value : [];
+  const isFocused = navArray.length > 0 && navArray[navArray.length - 1] === page;
+
   return (
     <GeneralBrowser
       key={page}
@@ -3015,6 +3082,7 @@ function BrowserRouteView({
       highlightFile={highlightFile}
       isHomePage={false}
       isHomeScreenHost={isHomeScreenHost}
+      isFocused={isFocused}
     />
   );
 }

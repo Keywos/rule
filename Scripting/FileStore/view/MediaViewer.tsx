@@ -363,11 +363,17 @@ export function ArchiveBrowserPage({ filePath, navigationPath }: { filePath: str
         if (!archiveIsSevenZ) await FileManager.createDirectory(tempDir, true)
         if (archiveIsSevenZ) {
           const password = await extractSevenZForEditing(filePath, tempDir)
-          if (password === false) return
+          if (password === false) {
+            if (!disposed) dismiss()
+            return
+          }
           if (!disposed) setSevenZPassword(password)
         } else {
           const password = await extractZipForEditing(filePath, tempDir)
-          if (password === false) return
+          if (password === false) {
+            if (!disposed) dismiss()
+            return
+          }
           if (!disposed) setZipPassword(password)
         }
         if (!disposed) setExtractDir(tempDir)
