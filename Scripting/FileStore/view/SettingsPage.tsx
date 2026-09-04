@@ -75,7 +75,7 @@ export function SettingsPage({ settings, onUpdateSettings, onToggleFullscreen }:
               {/* <Image systemName="folder" frame={{ width: 28, height: 28 }} foregroundStyle="systemBlue" /> */}
               <VStack alignment="leading" spacing={2}>
                 <Text font="body">选择文件夹</Text>
-                <Text font="caption2" foregroundStyle="secondaryLabel">
+                <Text font="caption2" monospaced foregroundStyle="secondaryLabel">
                   从文件 App 浏览选择
                 </Text>
               </VStack>
@@ -86,7 +86,7 @@ export function SettingsPage({ settings, onUpdateSettings, onToggleFullscreen }:
               {/* <Image systemName="text.cursor" frame={{ width: 28, height: 28 }} foregroundStyle="systemGreen" /> */}
               <VStack alignment="leading" spacing={2}>
                 <Text font="body">手动输入路径</Text>
-                <Text font="caption2" foregroundStyle="secondaryLabel">
+                <Text font="caption2" monospaced foregroundStyle="secondaryLabel">
                   直接输入文件夹路径
                 </Text>
               </VStack>
@@ -97,18 +97,18 @@ export function SettingsPage({ settings, onUpdateSettings, onToggleFullscreen }:
               {/* <Image systemName="arrow.counterclockwise" frame={{ width: 28, height: 28 }} foregroundStyle="systemOrange" /> */}
               <VStack alignment="leading" spacing={2}>
                 <Text font="body">恢复默认</Text>
-                <Text font="caption2" foregroundStyle="secondaryLabel">
+                <Text font="caption2" monospaced foregroundStyle="secondaryLabel">
                   重置为默认路径
                 </Text>
               </VStack>
             </HStack>
           </Button>
           <HStack spacing={8} alignment="center">
-            <Text font="caption2" foregroundStyle="secondaryLabel">
+            <Text font="caption2" monospaced foregroundStyle="secondaryLabel">
               当前路径:
             </Text>
             <Spacer />
-            <Text font="caption2" foregroundStyle="tertiaryLabel">
+            <Text font="caption2" monospaced foregroundStyle="tertiaryLabel">
               {currentPath}
             </Text>
           </HStack>
@@ -138,7 +138,7 @@ export function SettingsPage({ settings, onUpdateSettings, onToggleFullscreen }:
             <HStack spacing={12} alignment="center">
               <VStack alignment="leading" spacing={2}>
                 <Text font="body">索引最大文件限制</Text>
-                <Text font="caption2" foregroundStyle="secondaryLabel">
+                <Text font="caption2" monospaced foregroundStyle="secondaryLabel">
                   当前 {maxFileSizeKB} KB，点此修改
                 </Text>
               </VStack>

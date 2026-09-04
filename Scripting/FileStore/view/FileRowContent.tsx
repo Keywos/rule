@@ -2,14 +2,15 @@
 
 import { HStack, VStack, Spacer, Text, Image } from 'scripting'
 import { fmtSize, fmtDate, FileInfo } from '../manager/utils'
+import { FolderCountLabel, FolderCountStore } from './FolderCountLabel'
 
 export interface FileRowContentProps {
   file: FileInfo
-  folderCounts?: Map<string, number>
+  folderCountStore?: FolderCountStore
 }
 
 /** 文件行图标 + 名称 + 副标题布局 */
-export function FileRowContent({ file, folderCounts }: FileRowContentProps) {
+export function FileRowContent({ file, folderCountStore }: FileRowContentProps) {
   return (
     <HStack spacing={12} alignment="center">
       <Image
@@ -23,15 +24,13 @@ export function FileRowContent({ file, folderCounts }: FileRowContentProps) {
         </Text>
         <HStack spacing={6}>
           {file.isDirectory ? (
-            <Text font="caption2" lineLimit={1} foregroundStyle="secondaryLabel" >
-              {folderCounts?.get(file.path) !== undefined
-                ? `${folderCounts.get(file.path)} 项`
-                : '文件夹'}
-            </Text>
+            folderCountStore ? <FolderCountLabel path={file.path} store={folderCountStore} /> : (
+              <Text font="caption2" monospaced lineLimit={1} foregroundStyle="secondaryLabel">文件夹</Text>
+            )
           ) : (
             <>
-              <Text font="caption2" lineLimit={1} foregroundStyle="secondaryLabel">{fmtSize(file.size)}</Text>
-              <Text font="caption2" lineLimit={1} foregroundStyle="tertiaryLabel">{fmtDate(file.modificationDate)}</Text>
+              <Text font="caption2" monospaced lineLimit={1} foregroundStyle="secondaryLabel">{fmtSize(file.size)}</Text>
+              <Text font="caption2" monospaced lineLimit={1} foregroundStyle="tertiaryLabel">{fmtDate(file.modificationDate)}</Text>
             </>
           )}
         </HStack>

@@ -13,40 +13,49 @@ import { resolveOpenerForFile } from "./view/DefaultOpenerPicker";
 
 async function run() {
   // 检查 URL Scheme 动作：编辑器“保存到 File Store”（经 appGroup 中转的内容）
-  const action = Script.queryParameters?.action as string | undefined;
-  const queryFileURL = Script.queryParameters?.fileURL as string | undefined;
+  
+const action = Script.queryParameters?.action as string | undefined;
+const queryFileURL = Script.queryParameters?.fileURL as string | undefined;
+ 
   if (action === "saveToFileStore" && queryFileURL) {
-    try {
-      const content = await FileManager.readAsString(queryFileURL);
-      const srcName = Path.basename(queryFileURL);
-      const fileStoreDir = Path.join(FileManager.documentsDirectory, "File Store");
-      await FileManager.createDirectory(fileStoreDir, true);
-      let destPath = Path.join(fileStoreDir, srcName);
-      destPath = await uniquePath(destPath);
-      await FileManager.writeAsString(destPath, content);
-      // 保存成功后打开 EditorPage 展示文件，让用户确认保存结果
-      await Navigation.present({
-        element: (
-          <EditorPage
-            path={destPath}
-            fileName={srcName}
-            mode="present"
-            savedMessage="已保存到 File Store"
-          />
-        ),
-        modalPresentationStyle: "overFullScreen",
-      });
-    } catch (e) {
-      console.log("saveToFileStore 失败:", e);
-      await Navigation.present({
-        element: <HomeView initialToast="保存到 File Store 失败" />,
-        modalPresentationStyle: "overFullScreen",
-      });
-    }
-    Script.exit();
-    return;
+  try {
+    const content = await FileManager.readAsString(queryFileURL);
+    const srcName = Path.basename(queryFileURL);
+
+    const fileStoreDir = Path.join(
+      FileManager.documentsDirectory,
+      "File Store"
+    );
+
+    await FileManager.createDirectory(fileStoreDir, true);
+
+    let destPath = Path.join(fileStoreDir, srcName);
+    destPath = await uniquePath(destPath);
+
+    await FileManager.writeAsString(destPath, content);
+
+    // 保存成功后进入 File Store
+    await Navigation.present({
+      element: (
+        <HomeView
+          initialLeftPath={fileStoreDir}
+          initialToast="已保存到 File Store"
+        />
+      ),
+      modalPresentationStyle: "overFullScreen",
+    });
+  } catch (e) {
+    console.log("saveToFileStore 失败:", e);
+
+    await Navigation.present({
+      element: <HomeView initialToast="保存到 File Store 失败" />,
+      modalPresentationStyle: "overFullScreen",
+    });
   }
 
+  Script.exit();
+  return;
+  }
   // 实况照片导入：主 App 读取原始图片 + MOV 资源，打包为 FileStore 的 .live 文件
   const liveImagePath = Script.queryParameters?.imagePath as string | undefined;
   const liveVideoPath = Script.queryParameters?.videoPath as string | undefined;

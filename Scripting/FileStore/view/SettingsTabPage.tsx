@@ -39,7 +39,7 @@ function FeatureRow({
       <Image systemName={icon} frame={{ width: 26, height: 26 }} foregroundStyle={iconColor ?? "systemBlue"} />
       <VStack alignment="leading" spacing={2}>
         <Text font="body">{title}</Text>
-        <Text font="caption2" foregroundStyle="secondaryLabel">{caption}</Text>
+        <Text font="caption2" monospaced foregroundStyle="secondaryLabel">{caption}</Text>
       </VStack>
       <Spacer />
       {action ? (

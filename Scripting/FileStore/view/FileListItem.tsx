@@ -103,15 +103,15 @@ export function FileListItem(props: FileListItemProps) {
             </Text>
             <HStack spacing={6}>
               {file.isDirectory ? (
-                <Text font="caption2" lineLimit={1} foregroundStyle={(subtitleForegroundStyle as any) || "secondaryLabel"}>
+                <Text font="caption2" monospaced lineLimit={1} foregroundStyle={(subtitleForegroundStyle as any) || "secondaryLabel"}>
                   {subtitle || "文件夹"}
                 </Text>
               ) : (
                 <>
-                  <Text font="caption2" lineLimit={1} foregroundStyle="secondaryLabel">
+                  <Text font="caption2" monospaced lineLimit={1} foregroundStyle="secondaryLabel">
                     {fmtSize(file.size)}
                   </Text>
-                  <Text font="caption2" lineLimit={1} foregroundStyle="tertiaryLabel">
+                  <Text font="caption2" monospaced lineLimit={1} foregroundStyle="tertiaryLabel">
                     {fmtDate(file.modificationDate)}
                   </Text>
                 </>
@@ -151,15 +151,15 @@ export function FileListItem(props: FileListItemProps) {
             </Text>
             <HStack spacing={6}>
               {file.isDirectory ? (
-                <Text font="caption2" lineLimit={1} foregroundStyle={(subtitleForegroundStyle as any) || "secondaryLabel"}>
+                <Text font="caption2" monospaced lineLimit={1} foregroundStyle={(subtitleForegroundStyle as any) || "secondaryLabel"}>
                   {subtitle || "文件夹"}
                 </Text>
               ) : (
                 <>
-                  <Text font="caption2" lineLimit={1} foregroundStyle="secondaryLabel">
+                  <Text font="caption2" monospaced lineLimit={1} foregroundStyle="secondaryLabel">
                     {fmtSize(file.size)}
                   </Text>
-                  <Text font="caption2" lineLimit={1} foregroundStyle="tertiaryLabel">
+                  <Text font="caption2" monospaced lineLimit={1} foregroundStyle="tertiaryLabel">
                     {fmtDate(file.modificationDate)}
                   </Text>
                 </>
@@ -197,15 +197,15 @@ export function FileListItem(props: FileListItemProps) {
             </Text>
             <HStack spacing={6}>
               {file.isDirectory ? (
-                <Text font="caption2" lineLimit={1} foregroundStyle={(subtitleForegroundStyle as any) || "secondaryLabel"}>
+                <Text font="caption2" monospaced lineLimit={1} foregroundStyle={(subtitleForegroundStyle as any) || "secondaryLabel"}>
                   {subtitle || "文件夹"}
                 </Text>
               ) : (
                 <>
-                  <Text font="caption2" lineLimit={1} foregroundStyle="secondaryLabel">
+                  <Text font="caption2" monospaced lineLimit={1} foregroundStyle="secondaryLabel">
                     {fmtSize(file.size)}
                   </Text>
-                  <Text font="caption2" lineLimit={1} foregroundStyle="tertiaryLabel">
+                  <Text font="caption2" monospaced lineLimit={1} foregroundStyle="tertiaryLabel">
                     {fmtDate(file.modificationDate)}
                   </Text>
                 </>
@@ -238,15 +238,15 @@ export function FileListItem(props: FileListItemProps) {
           </Text>
           <HStack spacing={6}>
             {file.isDirectory ? (
-              <Text font="caption2" foregroundStyle="secondaryLabel">
+              <Text font="caption2" monospaced foregroundStyle="secondaryLabel">
                 {subtitle || "文件夹"}
               </Text>
             ) : (
               <>
-                <Text font="caption2" lineLimit={1} foregroundStyle="secondaryLabel">
+                <Text font="caption2" monospaced lineLimit={1} foregroundStyle="secondaryLabel">
                   {fmtSize(file.size)}
                 </Text>
-                <Text font="caption2" lineLimit={1} foregroundStyle="tertiaryLabel">
+                <Text font="caption2" monospaced lineLimit={1} foregroundStyle="tertiaryLabel">
                   {fmtDate(file.modificationDate)}
                 </Text>
               </>
@@ -255,7 +255,7 @@ export function FileListItem(props: FileListItemProps) {
         </VStack>
         <Spacer />
         {matchInfo ? (
-          <Text font="caption2" foregroundStyle="systemYellow" lineLimit={2}>
+          <Text font="caption2" monospaced foregroundStyle="systemYellow" lineLimit={2}>
             第{matchInfo.line}行: {matchInfo.content}
           </Text>
         ) : (

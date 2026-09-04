@@ -11,7 +11,6 @@ import {
   Rectangle,
   Text,
   Button,
-  Image,
   ScrollViewReader,
   useState,
   useEffect,
@@ -31,7 +30,6 @@ import {
 } from "scripting";
 import {
   fmtSize,
-  fmtDate,
   getFileCategory,
   getFileInfo,
   FileInfo,
@@ -47,7 +45,6 @@ import {
   uniquePath,
   sanitizeExtractDirName,
   safeUnzip,
-  isSevenZFile,
   extractArchiveSmartToNewDir,
   createSevenZArchive,
   createZipArchive,
@@ -55,6 +52,7 @@ import {
   buildSystemDirDefs,
 } from "../manager/utils";
 import { FileRowContent } from "./FileRowContent";
+import { FolderCountStore } from "./FolderCountLabel";
 import { DeepSearchResult } from "./SearchPanel";
 import { SearchPanel } from "./SearchPanel";
 import { onSearchStateChange } from "../manager/SearchState";
@@ -62,20 +60,20 @@ import { ArchiveBrowserPage, FileNavigationDest } from "./MediaViewer";
 import { ToolbarMenu } from "./ToolbarMenu";
 import { FileListItem, FileInfoDialog } from "./FileListItem";
 import { filterFiles, sortFilesByOrder, DEFAULT_SORT_ORDER, DEFAULT_FILTER_TYPE } from "../manager/sortFilter";
-import { isLivePhotoFile, unpackLivePhoto, packLivePhoto } from "../manager/LivePhotoPacker";
+import { isLivePhotoFile, unpackLivePhoto } from "../manager/LivePhotoPacker";
 import { resolveOpenerForFile } from "./DefaultOpenerPicker";
 import { getDefaultOpener, setDefaultOpener, OPENER_OPTIONS } from "../manager/DefaultOpener";
 import { AppSettings, saveSettings, readSettings } from "../manager/Settings";
 import { SettingsPage } from "./SettingsPage";
 import { MountDirectoriesPage } from "./MountDirectoriesPage";
-import { Bookmark, getAllBookmarks, addDirectoryBookmark, removeBookmark, renameBookmark, resolveBookmarkPath, onBookmarksChanged } from "../manager/BookmarkManager";
+import { Bookmark, getAllBookmarks, addDirectoryBookmark, removeBookmark, resolveBookmarkPath, onBookmarksChanged } from "../manager/BookmarkManager";
 import { ensureDir, makeTimestamp, importSinglePhotoResult } from "../manager/importHelpers";
 import { DROP_ACCEPTED_TYPES, handleDropToDirectory } from "../manager/dropHandler";
 import { makeDragConfig } from "./FileListItem";
 import { showToast, showRemountWarning } from "../manager/ToastManager";
 import { startLocalHttpServer, getActiveServers, stopServer, subscribe } from "../manager/LocalHttpServer";
 import { WebPreviewPage } from "./WebPreviewPage";
-import { EditorPage } from "./EditorPage";
+
 
 // 剪贴板路径文件（用文件持久化，跨 tab/子目录保留）
 const _readClipPath = readClipboardPath;
@@ -138,7 +136,7 @@ function FileRowLink({
   onToggleSelect,
   navPath,
   hideTopSeparator,
-  folderCounts,
+  folderCountStore,
   onCopyPath,
   isHighlighted,
   copyToDirTitle,
@@ -159,7 +157,7 @@ function FileRowLink({
   rootName?: string;
   navPath?: any;
   hideTopSeparator?: boolean;
-  folderCounts?: Map<string, number>;
+  folderCountStore: FolderCountStore;
   onCopyPath?: (path: string) => void;
   isHighlighted?: boolean;
   copyToDirTitle?: string;
@@ -199,13 +197,13 @@ function FileRowLink({
   };
 
   const openEditor = async (scrollToLine?: number) => {
-/*     if (isHomeScreenHost) {
-      await Navigation.present({
-        element: <EditorPage path={file.path} mode="present" scrollToLine={scrollToLine} />,
-        modalPresentationStyle: "pageSheet",
-      });
-      return;
-    } */
+    /*     if (isHomeScreenHost) {
+          await Navigation.present({
+            element: <EditorPage path={file.path} mode="present" scrollToLine={scrollToLine} />,
+            modalPresentationStyle: "pageSheet",
+          });
+          return;
+        } */
     if (navPath) {
       navPath.setValue([...navPath.value, "editor:" + file.path + (scrollToLine ? "::L" + scrollToLine : "")]);
     }
@@ -275,7 +273,7 @@ function FileRowLink({
         hideTopSeparator={hideTopSeparator}
         selectMode={{
           isSelected: isSelected || false,
-          onToggle: onToggleSelect || (() => {}),
+          onToggle: onToggleSelect || (() => { }),
         }}
       />
     );
@@ -285,230 +283,10 @@ function FileRowLink({
   const cat = getFileCategory(file.extension);
   const defaultOpener = file.isDirectory ? null : getDefaultOpener(Path.extname(file.path));
   const isDir = file.isDirectory;
-  const isTextFile = !isDir && (cat === "text" || cat === "code" || cat === "data");
-
-  if (isTextFile) {
-    return (
-      <Button
-        tag={file.path}
-        action={async () => {
-          if (navPath) {
-            const prefix = await resolveOpenerForFile(file.path, cat);
-            if (prefix) {
-              if (prefix === "extract:") {
-                // 直接解压到当前目录，不导航
-                try {
-                  const destDir = dirPath || Path.dirname(file.path);
-                  await safeUnzip(file.path, destDir);
-                  invalidateDirectoryCache(destDir);
-                  onRefresh();
-                  showToast("解压完成");
-                } catch (e) {
-                  console.log("解压失败:", e);
-                  showToast("解压失败");
-                }
-              } else if (prefix === "extractfolder:" || prefix === "extract7z:") {
-                // 统一智能解压：自动识别 ZIP/7z，支持有密码和无密码；兼容旧版已保存的 7z 默认方式
-                await handleExtractToFolder();
-              } else if (prefix === "archive:") {
-                await Navigation.present({
-                  element: <ArchiveBrowserPage filePath={file.path} />,
-                  modalPresentationStyle: "pageSheet",
-                });
-              } else if (prefix === "share:") {
-                await handleShare();
-              } else if (prefix === "pdf:") {
-                await QuickLook.previewURLs([file.path], true);
-              } else if (prefix === "editor:") {
-                await openEditor();
-              } else {
-                navPath.setValue([...navPath.value, prefix + file.path]);
-              }
-            }
-          }
-        }}
-        listRowSeparator={hideTopSeparator ? { visibility: "hidden", edges: "top" } : undefined}
-        listRowBackground={isHighlighted ? <Rectangle fill="systemGray" opacity={0.15} /> : undefined}
-        trailingSwipeActions={{
-          // 不设 destructive role：该角色会让 SwiftUI 将滑动动作按“立即删除”处理，
-            // 即使随后弹出确认框，取消后再次滑动也会触发原生状态崩溃。
-            actions: [<Button title="删除" action={handleSwipeDelete} />, <Button title="简介" action={handleShowInfo} />],
-        }}
-        leadingSwipeActions={{
-          actions: [<Button title="重命名" action={handleRename} />],
-        }}
-        contextMenu={{
-          menuItems: (
-            <Group>
-            <ControlGroup>
-              <Button title="拷贝" systemImage="doc.on.doc" action={async () => { await onCopyPath?.(file.path); }} />
-              <Button title="重命名" systemImage="pencil" action={handleRename} />
-              <Button title="分享" systemImage="square.and.arrow.up" action={handleShare} />
-            </ControlGroup>
-                          {!file.isDirectory && (file.extension.toLowerCase() === '.html' || file.extension.toLowerCase() === '.htm' || file.extension.toLowerCase() === '.md') ? (
-                <>
-                  {file.extension.toLowerCase() === '.md' ? (
-                    <Button
-                      title="预览 Markdown"
-                      systemImage="doc.text.magnifyingglass"
-                      action={async () => {
-                        if (navPath) {
-                          navPath.setValue([...navPath.value, 'markdown:' + file.path]);
-                        }
-                      }}
-                    />
-                  ) : (
-                    <Button
-                      title="预览网页"
-                      systemImage="safari"
-                      action={async () => {
-                        const wv = new WebViewController();
-                        await wv.loadFile(file.path);
-                        await wv.present({ fullscreen: true, navigationTitle: file.name });
-                        wv.dispose();
-                      }}
-                    />
-                  )}
-                  <Button
-                    title="编辑"
-                    systemImage="chevron.left.forwardslash.chevron.right"
-                    action={() => openEditor()}
-                  />
-                  <Divider />
-                </>
-              ) : (
-                <EmptyView />
-              )}
-              {copyToDirTitle && onCopyToDir ? (
-                <Button
-                  title={copyToDirTitle}
-                  systemImage="arrow.right.doc.on.clipboard"
-                  action={async () => {
-                    await onCopyToDir(file.path);
-                  }}
-                />
-              ) : (
-                <EmptyView />
-              )}
-              {/* 压缩/解压 — 所有文件都有压缩选项，归档文件额外有解压选项 */}
-              {getFileCategory(file.extension) === "archive" ? (
-                <>
-                  <Button
-                    title="查看压缩文件"
-                    systemImage="archivebox.fill"
-                    action={() => {
-                      Navigation.present({
-                        element: <ArchiveBrowserPage filePath={file.path} />,
-                        modalPresentationStyle: "pageSheet",
-                      });
-                    }}
-                  />
-                  <Divider />
-                </>
-              ) : (
-                <EmptyView />
-              )}
-              {!file.isDirectory ? (
-                <Button
-                  title={`解压到（${sanitizeExtractDirName(file.name)}）`}
-                  systemImage="lock.open"
-                  action={() => handleExtractToFolder()}
-                />
-              ) : (
-                <EmptyView />
-              )}
-              <Button
-                title="压缩"
-                systemImage="shippingbox"
-                action={async () => {
-                  try {
-                    const destPath = await uniquePath(Path.join(dirPath || Path.dirname(file.path), file.name + ".zip"));
-                    await FileManager.zip(file.path, destPath);
-                    invalidateDirectoryCache(dirPath || Path.dirname(file.path));
-                    onRefresh();
-                    showToast("压缩完成");
-                  } catch (e) {
-                    console.log("压缩失败:", e);
-                    showToast("压缩失败");
-                  }
-                }}
-              />
-              <Button
-                title="ZIP 加密压缩 (AES-256)"
-                systemImage="lock.doc"
-                action={handleZipCompress}
-              />
-              <Button
-                title="7z 加密压缩 (AES-256)"
-                systemImage="lock.doc"
-                action={handleSevenZCompress}
-              />
-              <Divider />
-              {!file.isDirectory ? (
-                <Menu title="默认打开方式" systemImage="gear">
-                  {OPENER_OPTIONS.map((opt) => (
-                    <Button
-                      title={opt.label}
-                      systemImage={defaultOpener === opt.prefix ? "checkmark" : undefined}
-                      action={async () => {
-                        setDefaultOpener(Path.extname(file.path), opt.prefix);
-                        onRefresh();
-                      }}
-                    />
-                  ))}
-                </Menu>
-              ) : (
-                <EmptyView />
-              )}
-              <Button title="简介" systemImage="info.circle" action={handleShowInfo} />
-              <Button title="删除" systemImage="trash" role="destructive" action={handleDelete} />
-            </Group>
-          ),
-        }}
-        onDrag={file.isDirectory ? undefined : makeDragConfig(file.path)}
-        onDrop={{
-          types: DROP_ACCEPTED_TYPES,
-          validateDrop: (info) => {
-            const ok = info.hasItemsConforming(DROP_ACCEPTED_TYPES);
-            return ok;
-          },
-          dropEntered: () => {},
-          performDrop: (info) => {
-            const destDir = file.isDirectory ? file.path : dirPath;
-            if (!destDir) return false;
-            if (file.isDirectory) invalidateDirectoryCache(destDir);
-            handleDropToDirectory(info, destDir, () => {})
-              .then(async () => {
-                if (file.isDirectory) {
-                  try {
-                    const children = await countDirectoryItems(destDir);
-                    onFolderCountChanged?.(destDir, children);
-                  } catch {}
-                }
-                try {
-                  await onRefresh();
-                } catch {}
-                onDropCompleted?.();
-              })
-              .catch(async () => {
-                try {
-                  await onRefresh();
-                } catch {}
-                onDropCompleted?.();
-              });
-            return true;
-          },
-        }}
-      >
-        <HStack spacing={12} alignment="center">
-          <FileRowContent file={file} />
-        </HStack>
-      </Button>
-    );
-  }
 
   return (
     <Button
+      tag={file.path}
       action={async () => {
         if (navPath) {
           if (isDir) {
@@ -540,6 +318,11 @@ function FileRowLink({
                 await handleShare();
               } else if (prefix === "pdf:") {
                 await QuickLook.previewURLs([file.path], true);
+              } else if (prefix === "webpage:") {
+                const wv = new WebViewController();
+                await wv.loadFile(file.path);
+                await wv.present({ fullscreen: true, navigationTitle: file.name });
+                wv.dispose();
               } else if (prefix === "editor:") {
                 await openEditor();
               } else {
@@ -553,8 +336,8 @@ function FileRowLink({
       listRowBackground={isHighlighted ? <Rectangle fill="systemGray" opacity={0.15} /> : undefined}
       trailingSwipeActions={{
         // 不设 destructive role：该角色会让 SwiftUI 将滑动动作按“立即删除”处理，
-            // 即使随后弹出确认框，取消后再次滑动也会触发原生状态崩溃。
-            actions: [<Button title="删除" action={handleSwipeDelete} />, <Button title="简介" action={handleShowInfo} />],
+        // 即使随后弹出确认框，取消后再次滑动也会触发原生状态崩溃。
+        actions: [<Button title="删除" action={handleSwipeDelete} />, <Button title="简介" action={handleShowInfo} />],
       }}
       leadingSwipeActions={{
         actions: [<Button title="重命名" action={handleRename} />],
@@ -562,239 +345,66 @@ function FileRowLink({
       contextMenu={{
         menuItems: (
           <Group>
-                         <ControlGroup>
-               <Button title="拷贝" systemImage="doc.on.doc" action={async () => { await onCopyPath?.(file.path); }} />
-               <Button title="重命名" systemImage="pencil" action={handleRename} />
-               <Button title="分享" systemImage="square.and.arrow.up" action={handleShare} />
-             </ControlGroup>
-             {isLivePhotoFile(file.name) ? (
-              <>
-                <Button
-                  title="替换图片"
-                  systemImage="photo.badge.arrow.down"
-                  action={async () => {
-                    let imagePath: string | null = null;
-                    let taggedImagePath: string | null = null;
-                    try {
-                      const results = await Photos.pick({ filter: PHPickerFilter.images(), limit: 1 });
-                      const result = results?.[0];
-                      if (!result) return;
-                      imagePath = await result.imagePath();
-                      if (!imagePath) {
-                        showToast("无法读取所选图片");
-                        return;
-                      }
-                      const imageData = await FileManager.readAsData(imagePath);
-                      const liveData = await FileManager.readAsData(file.path);
-                      if (!imageData || !liveData) {
-                        showToast("替换图片失败");
-                        return;
-                      }
-                      const unpacked = unpackLivePhoto(liveData);
-                      if (!unpacked) {
-                        showToast("不是有效的 live 文件");
-                        return;
-                      }
-
-                      // 新图片必须带上原 Live Photo 的 asset identifier，才能继续
-                      // 与原视频配对。直接替换图片二进制会导致 LivePhoto.from 加载失败。
-                      const originalMeta = await ImageIO.readMetadata(unpacked.imageData).catch(() => null);
-                      const assetIdentifier = originalMeta?.makerApple?.["17"];
-                      if (typeof assetIdentifier !== "string" || !assetIdentifier) {
-                        showToast("原 live 缺少配对信息，无法替换图片");
-                        return;
-                      }
-
-                      taggedImagePath = Path.join(FileManager.temporaryDirectory, `_live_replace_${Date.now()}.heic`);
-                      await ImageIO.writeImage({
-                        source: imageData,
-                        to: taggedImagePath,
-                        format: "heic",
-                        metadata: { makerApple: { "17": assetIdentifier } },
-                      });
-                      const taggedImageData = await FileManager.readAsData(taggedImagePath);
-                      if (!taggedImageData) {
-                        showToast("无法生成配对图片");
-                        return;
-                      }
-
-                      const packed = packLivePhoto(taggedImageData, "heic", unpacked.videoData);
-                      await FileManager.writeAsData(file.path, packed);
-                      invalidateDirectoryCache(dirPath || Path.dirname(file.path));
-                      onRefresh();
-                      showToast("已替换图片");
-                    } catch (e) {
-                      console.log("替换图片失败:", e);
-                      showToast("替换图片失败");
-                    } finally {
-                      if (imagePath) {
-                        try {
-                          await FileManager.remove(imagePath);
-                        } catch {}
-                      }
-                      if (taggedImagePath) {
-                        try {
-                          await FileManager.remove(taggedImagePath);
-                        } catch {}
-                      }
+            <ControlGroup>
+              <Button title="拷贝" systemImage="doc.on.doc" action={async () => { await onCopyPath?.(file.path); }} />
+              <Button title="重命名" systemImage="pencil" action={handleRename} />
+              <Button title="分享" systemImage="square.and.arrow.up" action={handleShare} />
+            </ControlGroup>
+            {isLivePhotoFile(file.name) ? (
+              <Button
+                title="保存到相册"
+                systemImage="square.and.arrow.down"
+                action={async () => {
+                  let tmpImg: string | null = null;
+                  let tmpVid: string | null = null;
+                  try {
+                    const data = await FileManager.readAsData(file.path);
+                    if (!data) {
+                      showToast("读取文件失败");
+                      return;
                     }
-                  }}
-                />
-                <Button
-                  title="替换视频"
-                  systemImage="video.badge.plus"
-                  action={async () => {
-                    let videoPath: string | null = null;
-                    const generatedPairPaths: string[] = [];
-                    try {
-                      const results = await Photos.pick({ filter: PHPickerFilter.videos(), limit: 1 });
-                      const result = results?.[0];
-                      if (!result) return;
-                      videoPath = await result.videoPath();
-                      if (!videoPath) {
-                        showToast("无法读取所选视频");
-                        return;
-                      }
-                      const videoData = await FileManager.readAsData(videoPath);
-                      const liveData = await FileManager.readAsData(file.path);
-                      if (!videoData || !liveData) {
-                        showToast("替换视频失败");
-                        return;
-                      }
-                      const unpacked = unpackLivePhoto(liveData);
-                      if (!unpacked) {
-                        showToast("不是有效的 live 文件");
-                        return;
-                      }
-
-                      // 普通相册视频不一定带 Live Photo 所需的配对元数据。
-                      // 先用系统 API 生成标准的 Live Photo 配对视频，避免直接
-                      // 将普通 MP4/MOV 塞入 .live 后无法被 LivePhoto.from 加载。
-                      const originalMeta = await ImageIO.readMetadata(unpacked.imageData).catch(() => null);
-                      const originalAssetIdentifier = originalMeta?.makerApple?.["17"];
-                      const pair = await LivePhoto.createFromVideo({
-                        videoPath,
-                        assetIdentifier: typeof originalAssetIdentifier === "string" ? originalAssetIdentifier : undefined,
-                        maxDuration: 10,
-                        imageFormat: "heic",
-                      });
-                      generatedPairPaths.push(pair.imagePath, pair.videoPath);
-                      const pairedVideoData = await FileManager.readAsData(pair.videoPath);
-                      if (!pairedVideoData) {
-                        showToast("无法生成 Live Photo 视频");
-                        return;
-                      }
-
-                      // 原图片已有配对标识时保留原图片；没有标识时使用系统生成的
-                      // 配套静态图，否则图片和视频的标识无法匹配。
-                      let imageData = unpacked.imageData;
-                      if (typeof originalAssetIdentifier !== "string") {
-                        const generatedImageData = await FileManager.readAsData(pair.imagePath);
-                        if (generatedImageData) imageData = generatedImageData;
-                      }
-                      const packed = packLivePhoto(imageData, typeof originalAssetIdentifier === "string" ? unpacked.imageExt : "heic", pairedVideoData);
-                      await FileManager.writeAsData(file.path, packed);
-                      invalidateDirectoryCache(dirPath || Path.dirname(file.path));
-                      onRefresh();
-                      showToast("已替换视频");
-                    } catch (e) {
-                      console.log("替换视频失败:", e);
-                      showToast("替换视频失败");
-                    } finally {
-                      if (videoPath) {
-                        try {
-                          await FileManager.remove(videoPath);
-                        } catch {}
-                      }
-                      for (const generatedPath of generatedPairPaths) {
-                        try {
-                          await FileManager.remove(generatedPath);
-                        } catch {}
-                      }
+                    const unpacked = unpackLivePhoto(data);
+                    if (!unpacked) {
+                      showToast("Live Photo 格式无效");
+                      return;
                     }
-                  }}
-                />
-                <Button
-                  title="提取图片"
-                  systemImage="photo"
-                  action={async () => {
-                    try {
-                      const data = await FileManager.readAsData(file.path);
-                      if (data) {
-                        const unpacked = unpackLivePhoto(data);
-                        if (unpacked) {
-                          const imgPath = Path.join(Path.dirname(file.path), Path.basename(file.name, ".live") + "." + unpacked.imageExt);
-                          await FileManager.writeAsData(imgPath, unpacked.imageData);
-                          onRefresh();
-                        }
-                      }
-                    } catch (e) {
-                      console.log("提取图片失败:", e);
+                    const tmpDir = FileManager.temporaryDirectory;
+                    tmpImg = tmpDir + `/_lp_save_${Date.now()}.${unpacked.imageExt}`;
+                    tmpVid = tmpDir + `/_lp_save_${Date.now()}.mov`;
+                    await FileManager.writeAsData(tmpImg, unpacked.imageData);
+                    await FileManager.writeAsData(tmpVid, unpacked.videoData);
+                    await Photos.saveLivePhoto({
+                      imagePath: tmpImg,
+                      videoPath: tmpVid,
+                    });
+                    showToast("已保存到相册");
+                  } catch (e) {
+                    console.log("保存到相册失败:", e);
+                    showToast("保存失败");
+                  } finally {
+                    if (tmpImg) {
+                      try { await FileManager.remove(tmpImg); } catch { }
                     }
-                  }}
-                />
-                <Button
-                  title="提取视频"
-                  systemImage="video"
-                  action={async () => {
-                    try {
-                      const data = await FileManager.readAsData(file.path);
-                      if (data) {
-                        const unpacked = unpackLivePhoto(data);
-                        if (unpacked) {
-                          const vidPath = Path.join(Path.dirname(file.path), Path.basename(file.name, ".live") + ".mov");
-                          await FileManager.writeAsData(vidPath, unpacked.videoData);
-                          onRefresh();
-                        }
-                      }
-                    } catch (e) {
-                      console.log("提取视频失败:", e);
+                    if (tmpVid) {
+                      try { await FileManager.remove(tmpVid); } catch { }
                     }
-                  }}
-                />
-                <Button
-                  title="导出到相册"
-                  systemImage="square.and.arrow.down"
-                  action={async () => {
-                    try {
-                      const data = await FileManager.readAsData(file.path);
-                      if (data) {
-                        const unpacked = unpackLivePhoto(data);
-                        if (unpacked) {
-                          const baseName = Path.basename(file.name, ".live");
-                          const stamp = String(Date.now());
-                          const imgTmp = Path.join(FileManager.temporaryDirectory, baseName + "_" + stamp + "." + unpacked.imageExt);
-                          const vidTmp = Path.join(FileManager.temporaryDirectory, baseName + "_" + stamp + ".mov");
-                          await FileManager.writeAsData(imgTmp, unpacked.imageData);
-                          await FileManager.writeAsData(vidTmp, unpacked.videoData);
-                          await Photos.saveLivePhoto({ imagePath: imgTmp, videoPath: vidTmp });
-                          try {
-                            FileManager.remove(imgTmp);
-                          } catch {}
-                          try {
-                            FileManager.remove(vidTmp);
-                          } catch {}
-                        }
-                      }
-                    } catch (e) {
-                      console.log("导出到相册失败:", e);
-                    }
-                  }}
-                />
-              </>
+                  }
+                }}
+              />
             ) : (
               <EmptyView />
             )}
-            {/* 普通图片/视频导出到相册 */}
             {!isLivePhotoFile(file.name) && getFileCategory(file.extension) === "image" ? (
               <Button
-                title="导出到相册"
+                title="保存到相册"
                 systemImage="square.and.arrow.down"
                 action={async () => {
                   try {
                     await Photos.savePhoto(file.path);
+                    showToast("已保存到相册");
                   } catch (e) {
-                    console.log("导出图片失败:", e);
+                    console.log("保存图片失败:", e);
+                    showToast("保存失败");
                   }
                 }}
               />
@@ -808,100 +418,50 @@ function FileRowLink({
                 action={async () => {
                   try {
                     await Photos.saveVideo(file.path);
+                    showToast("已导出到相册");
                   } catch (e) {
                     console.log("导出视频失败:", e);
+                    showToast("导出失败");
                   }
                 }}
               />
             ) : (
               <EmptyView />
             )}
-            {/* 压缩/解压 — 所有非目录文件都有压缩选项，归档文件额外有解压选项 */}
-            {!file.isDirectory && getFileCategory(file.extension) === "archive" ? (
+            {!file.isDirectory && (file.extension.toLowerCase() === '.html' || file.extension.toLowerCase() === '.htm' || file.extension.toLowerCase() === '.md') ? (
               <>
-                <Button
-                  title="查看压缩文件"
-                  systemImage="archivebox.fill"
-                  action={() => {
-                    Navigation.present({
-                      element: <ArchiveBrowserPage filePath={file.path} />,
-                      modalPresentationStyle: "pageSheet",
-                    });
-                  }}
-                />
-                <Button
-                  title={`解压到（${sanitizeExtractDirName(file.name)}）`}
-                  systemImage="lock.open"
-                  action={() => handleExtractToFolder()}
-                />
-                <Divider />
-                <Button
-                  title="压缩"
-                  systemImage="shippingbox"
-                  action={async () => {
-                    try {
-                      const destPath = await uniquePath(Path.join(dirPath || Path.dirname(file.path), file.name + ".zip"));
-                      await FileManager.zip(file.path, destPath);
-                      invalidateDirectoryCache(dirPath || Path.dirname(file.path));
-                      onRefresh();
-                      showToast("压缩完成");
-                    } catch (e) {
-                      console.log("压缩失败:", e);
-                      showToast("压缩失败");
-                    }
-                  }}
-                />
-                <Button
-                  title="ZIP 加密压缩 (AES-256)"
-                  systemImage="lock.doc"
-                  action={handleZipCompress}
-                />
-                <Button
-                  title="7z 加密压缩 (AES-256)"
-                  systemImage="lock.doc"
-                  action={handleSevenZCompress}
-                />
-              </>
-            ) : (
-              <>
-                {!file.isDirectory ? (
+                {file.extension.toLowerCase() === '.md' ? (
                   <Button
-                    title={`解压到（${sanitizeExtractDirName(file.name)}）`}
-                    systemImage="lock.open"
-                    action={() => handleExtractToFolder()}
+                    title="预览 Markdown"
+                    systemImage="doc.text.magnifyingglass"
+                    action={async () => {
+                      if (navPath) {
+                        navPath.setValue([...navPath.value, 'markdown:' + file.path]);
+                      }
+                    }}
                   />
                 ) : (
-                  <EmptyView />
+                  <Button
+                    title="预览网页"
+                    systemImage="safari"
+                    action={async () => {
+                      const wv = new WebViewController();
+                      await wv.loadFile(file.path);
+                      await wv.present({ fullscreen: true, navigationTitle: file.name });
+                      wv.dispose();
+                    }}
+                  />
                 )}
                 <Button
-                  title="压缩"
-                  systemImage="shippingbox"
-                  action={async () => {
-                    try {
-                      const destPath = await uniquePath(Path.join(dirPath || Path.dirname(file.path), file.name + ".zip"));
-                      await FileManager.zip(file.path, destPath);
-                      invalidateDirectoryCache(dirPath || Path.dirname(file.path));
-                      onRefresh();
-                      showToast("压缩完成");
-                    } catch (e) {
-                      console.log("压缩失败:", e);
-                      showToast("压缩失败");
-                    }
-                  }}
+                  title="编辑"
+                  systemImage="chevron.left.forwardslash.chevron.right"
+                  action={() => openEditor()}
                 />
-                <Button
-                  title="ZIP 加密压缩 (AES-256)"
-                  systemImage="lock.doc"
-                  action={handleZipCompress}
-                />
-                <Button
-                  title="7z 加密压缩 (AES-256)"
-                  systemImage="lock.doc"
-                  action={handleSevenZCompress}
-                />
+                <Divider />
               </>
+            ) : (
+              <EmptyView />
             )}
-            {/*  */}
             {copyToDirTitle && onCopyToDir ? (
               <Button
                 title={copyToDirTitle}
@@ -913,6 +473,60 @@ function FileRowLink({
             ) : (
               <EmptyView />
             )}
+            {/* 压缩/解压 — 所有文件都有压缩选项，归档文件额外有解压选项 */}
+            {getFileCategory(file.extension) === "archive" ? (
+              <>
+                <Button
+                  title="查看压缩文件"
+                  systemImage="archivebox.fill"
+                  action={() => {
+                    Navigation.present({
+                      element: <ArchiveBrowserPage filePath={file.path} />,
+                      modalPresentationStyle: "pageSheet",
+                    });
+                  }}
+                />
+                <Divider />
+              </>
+            ) : (
+              <EmptyView />
+            )}
+            {!file.isDirectory ? (
+              <Button
+                title={`解压到（${sanitizeExtractDirName(file.name)}）`}
+                systemImage="lock.open"
+                action={() => handleExtractToFolder()}
+              />
+            ) : (
+              <EmptyView />
+            )}
+            <Button
+              title="压缩"
+              systemImage="shippingbox"
+              action={async () => {
+                try {
+                  const destPath = await uniquePath(Path.join(dirPath || Path.dirname(file.path), file.name + ".zip"));
+                  await FileManager.zip(file.path, destPath);
+                  invalidateDirectoryCache(dirPath || Path.dirname(file.path));
+                  onRefresh();
+                  showToast("压缩完成");
+                } catch (e) {
+                  console.log("压缩失败:", e);
+                  showToast("压缩失败");
+                }
+              }}
+            />
+            <Button
+              title="ZIP 加密压缩 (AES-256)"
+              systemImage="lock.doc"
+              action={handleZipCompress}
+            />
+            <Button
+              title="7z 加密压缩 (AES-256)"
+              systemImage="lock.doc"
+              action={handleSevenZCompress}
+            />
+            <Divider />
             {!file.isDirectory ? (
               <Menu title="默认打开方式" systemImage="gear">
                 {OPENER_OPTIONS.map((opt) => (
@@ -929,7 +543,6 @@ function FileRowLink({
             ) : (
               <EmptyView />
             )}
-            <Button title="重命名" systemImage="pencil" action={handleRename} />
             <Button title="简介" systemImage="info.circle" action={handleShowInfo} />
             <Button title="删除" systemImage="trash" role="destructive" action={handleDelete} />
           </Group>
@@ -942,28 +555,28 @@ function FileRowLink({
           const ok = info.hasItemsConforming(DROP_ACCEPTED_TYPES);
           return ok;
         },
-        dropEntered: () => {},
+        dropEntered: () => { },
         performDrop: (info) => {
           const destDir = file.isDirectory ? file.path : dirPath;
           if (!destDir) return false;
           if (file.isDirectory) invalidateDirectoryCache(destDir);
-          handleDropToDirectory(info, destDir, () => {})
+          handleDropToDirectory(info, destDir, () => { })
             .then(async () => {
               if (file.isDirectory) {
                 try {
                   const children = await countDirectoryItems(destDir);
                   onFolderCountChanged?.(destDir, children);
-                } catch {}
+                } catch { }
               }
               try {
                 await onRefresh();
-              } catch {}
+              } catch { }
               onDropCompleted?.();
             })
             .catch(async () => {
               try {
                 await onRefresh();
-              } catch {}
+              } catch { }
               onDropCompleted?.();
             });
           return true;
@@ -971,7 +584,7 @@ function FileRowLink({
       }}
     >
       <HStack spacing={12} alignment="center">
-        <FileRowContent file={file} folderCounts={folderCounts} />
+        <FileRowContent file={file} folderCountStore={folderCountStore} />
       </HStack>
     </Button>
   );
@@ -1068,48 +681,6 @@ function GeneralBrowser({
     };
   }
 
-  // 100ms 防闪烁 - 用 ref 避免 useEffect 延迟
-  const spinnerReadyRef = useRef(false);
-  const spinnerTimerRef = useRef<number | null>(null);
-  const [tick, setTick] = useState(0);
-  const spinTickRef = useRef(0);
-
-  useEffect(() => {
-    if (spinnerTimerRef.current) {
-      clearTimeout(spinnerTimerRef.current);
-      spinnerTimerRef.current = null;
-    }
-    if (isLoading) {
-      spinnerReadyRef.current = false;
-      spinTickRef.current = 0;
-      let cancelled = false;
-      const spin = () => {
-        if (cancelled || !spinnerReadyRef.current) return;
-        setTick((t) => t + 1);
-        spinnerTimerRef.current = setTimeout(spin, 80);
-      };
-      spinnerTimerRef.current = setTimeout(() => {
-        if (cancelled) return;
-        spinnerReadyRef.current = true;
-        setTick((t) => t + 1);
-        spinnerTimerRef.current = setTimeout(spin, 80);
-      }, 100);
-      return () => {
-        cancelled = true;
-        if (spinnerTimerRef.current) {
-          clearTimeout(spinnerTimerRef.current);
-          spinnerTimerRef.current = null;
-        }
-        spinnerReadyRef.current = false;
-        spinTickRef.current = 0;
-      };
-    } else {
-      spinnerReadyRef.current = false;
-      spinTickRef.current = 0;
-    }
-  }, [isLoading]);
-  const showSpinner = isLoading && spinnerReadyRef.current;
-
   let sourceFiles = items ?? files;
   /* ── 防止 displayFiles 变化时重复滚动到高亮文件 ── */
   const [searchQuery, setSearchQuery] = useState("");
@@ -1164,12 +735,6 @@ function GeneralBrowser({
 
   // 组件挂载时立即显示 spinner，消除空内容闪屏
   // 第二次及以后的 isLoading 变化仍由上方 100ms 延迟控制，防闪烁
-  useEffect(() => {
-    if (isLoading) {
-      spinnerReadyRef.current = true;
-      setTick(1);
-    }
-  }, []);
   const updateCopiedPath = async (path: string | null) => {
     // 先更新 UI 状态，再异步写入文件（粘贴按钮立即出现）
     setCopiedFilePath(path);
@@ -1194,30 +759,36 @@ function GeneralBrowser({
   // 深度搜索结果
   const [deepSearchResults, setDeepSearchResults] = useState<DeepSearchResult[]>([]);
 
-  // 每个子文件夹内的项目数
-  const [folderCounts, setFolderCounts] = useState<Map<string, number>>(new Map());
-  const mergeFolderCountUpdates = (counts: { path: string; count: number }[]) => {
-    if (counts.length === 0) return;
-    setFolderCounts((prev) => {
-      let next: Map<string, number> | null = null;
-      for (const c of counts) {
-        if (prev.get(c.path) !== c.count) {
-          if (!next) next = new Map(prev);
-          next.set(c.path, c.count);
-        }
+  // 每个子文件夹内的项目数。使用订阅 store，避免计数更新触发整个列表重渲染。
+  const folderCountsRef = useRef<Map<string, number>>(new Map());
+  const folderCountListenersRef = useRef<Map<string, Set<(count: number) => void>>>(new Map());
+  const folderCountStore = useMemo<FolderCountStore>(() => ({
+    get: (path) => folderCountsRef.current.get(path),
+    subscribe: (path, listener) => {
+      let listeners = folderCountListenersRef.current.get(path);
+      if (!listeners) {
+        listeners = new Set();
+        folderCountListenersRef.current.set(path, listeners);
       }
-      return next ?? prev;
-    });
+      listeners.add(listener);
+      return () => {
+        listeners?.delete(listener);
+        if (listeners && listeners.size === 0) folderCountListenersRef.current.delete(path);
+      };
+    },
+  }), []);
+  const publishFolderCount = (path: string, count: number) => {
+    if (folderCountsRef.current.get(path) === count) return;
+    folderCountsRef.current.set(path, count);
+    folderCountListenersRef.current.get(path)?.forEach((listener) => listener(count));
+  };
+  const mergeFolderCountUpdates = (counts: { path: string; count: number }[]) => {
+    counts.forEach(({ path, count }) => publishFolderCount(path, count));
   };
   const mergeFolderCountUpdatesRef = useRef(mergeFolderCountUpdates);
   mergeFolderCountUpdatesRef.current = mergeFolderCountUpdates;
   const applyFolderCountUpdate = (folderPath: string, count: number, notifyPeer: boolean = true) => {
-    setFolderCounts((prev) => {
-      if (prev.get(folderPath) === count) return prev;
-      const next = new Map(prev);
-      next.set(folderPath, count);
-      return next;
-    });
+    publishFolderCount(folderPath, count);
     if (notifyPeer) onFolderCountChanged?.(folderPath, count);
   };
   if (folderCountUpdateRef) {
@@ -1228,6 +799,9 @@ function GeneralBrowser({
 
   const [serverTick, setServerTick] = useState(0);
   const deleteConfirmingRef = useRef(false);
+  // 删除确认弹窗的延迟定时器：滑删后快速返回上一页时在卸载 effect 里清除，
+  // 避免 Dialog.confirm 在已 pop 的页面上呈现。
+  const deleteDialogTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // 所有目录浏览器订阅同一服务状态；任一侧启停服务时双列都会刷新。
   useEffect(() => subscribe(() => setServerTick((t) => t + 1)), []);
 
@@ -1311,7 +885,7 @@ function GeneralBrowser({
             try {
               const refreshed = await listDirectory(_activeDirPath);
               _onItemsChange(refreshed);
-            } catch {}
+            } catch { }
           }
         } else {
           await loadDirectoryRef.current(true);
@@ -1328,19 +902,19 @@ function GeneralBrowser({
               try {
                 const children = await countDirectoryItems(dir.path);
                 counts.push({ path: dir.path, count: children });
-              } catch {}
+              } catch { }
             }
             if (counts.length > 0) {
               mergeFolderCountUpdatesRef.current(counts);
             }
-          } catch {}
+          } catch { }
         }
       };
       doRefresh();
     }
   }, [refreshKey]);
 
-  const loadDirectory = async (silent = false) => {
+  const loadDirectory = async (silent = false, retryCount = 0) => {
     if (items || !activeDirPath) return;
     const loadSeq = ++loadSeqRef.current;
     const loadingDir = activeDirPath;
@@ -1381,6 +955,20 @@ function GeneralBrowser({
       setIsLoading(false);
     } catch (e) {
       console.log("加载目录失败:", e);
+      // iCloud 未下载的目录：readDirectory 可能抛错。触发一次目录级下载后自动重试，
+      // 避免点进 iCloud 目录“点不进去”且列表永远为空。
+      if (retryCount < 1 && loadingDir) {
+        try {
+          if (typeof FileManager.isFileStoredIniCloud === "function" && FileManager.isFileStoredIniCloud(loadingDir)) {
+            console.log("目录在 iCloud 中，尝试触发下载后重试:", loadingDir);
+            await FileManager.downloadFileFromiCloud(loadingDir).catch(() => false);
+            if (isLatestLoad()) {
+              invalidateDirectoryCache(loadingDir);
+              return await loadDirectory(silent, retryCount + 1);
+            }
+          }
+        } catch { }
+      }
       // 首页根目录不存在或不可读取（如残留书签指向无权限的缓存目录）时，回退到默认目录并修正存档
       if (isHomePage && loadingDir) {
         try {
@@ -1390,7 +978,7 @@ function GeneralBrowser({
             try {
               const bp = FileManager.bookmarkedPath(settings.homeDirectoryBookmarkName);
               if (bp) homeRoot = bp;
-            } catch {}
+            } catch { }
           }
           const norm = (p: string) => p.replace(/\/+$/, "");
           // 加载的就是首页根目录、且它不是默认目录本身时才回退（进入此 catch 说明目录已不可读/不存在）
@@ -1418,7 +1006,7 @@ function GeneralBrowser({
             if (!isLatestLoad()) return;
             setFiles(itemsList);
           }
-        } catch {}
+        } catch { }
       }
       if (isLatestLoad()) setIsLoading(false);
     }
@@ -1435,27 +1023,13 @@ function GeneralBrowser({
         try {
           const refreshed = await listDirectory(activeDirPath);
           onItemsChange(refreshed);
-        } catch {}
+        } catch { }
       }
     } else {
       await loadDirectory(true);
     }
   };
 
-  const refresh = async () => {
-    if (!activeDirPath) return;
-    invalidateDirectoryCache(activeDirPath);
-    try {
-      if (items && onItemsChange) {
-        const refreshed = await listDirectory(activeDirPath);
-        onItemsChange(refreshed);
-      } else {
-        await loadDirectory(true);
-      }
-    } catch (e) {
-      console.error("Refresh failed:", e);
-    }
-  };
 
   // 999ms 轮询检测目录内容变化 + 新增文件高亮（非 items 模式）
   // 每次先 stat 当前目录；目录未变化时跳过昂贵的 readDirectory + getFileInfo 全量扫描。
@@ -1529,7 +1103,7 @@ function GeneralBrowser({
         }
         prevPollRef.current = newList;
         prevPollTokenRef.current = token;
-      } catch (e) {}
+      } catch (e) { }
       if (isLatestPoll()) {
         scheduleNextPoll();
       }
@@ -1554,7 +1128,9 @@ function GeneralBrowser({
     if (deleteConfirmingRef.current) return;
     deleteConfirmingRef.current = true;
     const dialogDelay = afterSwipe ? 350 : 0;
-    setTimeout(async () => {
+    if (deleteDialogTimerRef.current) clearTimeout(deleteDialogTimerRef.current);
+    deleteDialogTimerRef.current = setTimeout(async () => {
+      deleteDialogTimerRef.current = null;
       try {
         const confirmed = await Dialog.confirm({
           title: "删除文件",
@@ -1565,20 +1141,40 @@ function GeneralBrowser({
         if (!confirmed) return;
 
         await FileManager.remove(file.path);
-        withAnimation(Animation.smooth({ duration: 0.35 }), () => {
-          setFiles((prev) => prev.filter((entry) => entry.path !== file.path));
-        });
+        // 双栏 items 模式下 setFiles 对显示无效果（sourceFiles = items ?? files），
+        // 必须经 refreshDirectory 通知父组件刷新，否则磁盘已删但行仍留在列表。
+        await refreshDirectory();
+        if (!items) {
+          withAnimation(Animation.smooth({ duration: 0.35 }), () => {
+            setFiles((prev) => prev.filter((entry) => entry.path !== file.path));
+          });
+        }
       } catch (e) {
         console.log("删除失败:", e);
         showToast("删除失败");
       } finally {
         // 右滑路径额外保留一个完整的原生动画周期，避免紧接着再左滑复用旧 presentation 状态。
-        setTimeout(() => {
+        const unlockDelay = afterSwipe ? 350 : 0;
+        const unlockTimer = setTimeout(() => {
           deleteConfirmingRef.current = false;
-        }, afterSwipe ? 350 : 0);
+        }, unlockDelay);
+        // 若组件已卸载，无需再保留解锁定时器
+        if (deleteDialogTimerRef.current === null && unlockDelay > 0) {
+          deleteDialogTimerRef.current = unlockTimer;
+        }
       }
     }, dialogDelay);
   };
+
+  // 卸载时清除待弹出的删除确认弹窗，防止在已销毁页面上呈现原生弹窗
+  useEffect(() => {
+    return () => {
+      if (deleteDialogTimerRef.current) {
+        clearTimeout(deleteDialogTimerRef.current);
+        deleteDialogTimerRef.current = null;
+      }
+    };
+  }, []);
 
   const displayFiles = useMemo(() => {
     let result = sourceFiles;
@@ -1616,6 +1212,10 @@ function GeneralBrowser({
 
   // ─ 分页：大数据量时只渲染可见部分 ─
   const [visibleCount, setVisibleCount] = useState(100);
+  // 目录切换或搜索变化时重置分页，防止跨目录/搜索后首帧按上次累积行数渲染
+  useEffect(() => {
+    setVisibleCount(100);
+  }, [activeDirPath, searchQuery]);
   const visibleFiles = useMemo(() => displayFiles.slice(0, visibleCount), [displayFiles, visibleCount]);
   const hasMore = displayFiles.length > visibleCount;
   const preloadNextPage = (expectedVisibleCount: number) => {
@@ -1743,7 +1343,7 @@ function GeneralBrowser({
         } finally {
           try {
             await FileManager.remove(tmpDir);
-          } catch {}
+          } catch { }
         }
       }
       invalidateDirectoryCache(activeDirPath || "");
@@ -1781,18 +1381,33 @@ function GeneralBrowser({
       confirmLabel: "移动",
     });
     if (dest == null || !dest.trim()) return;
+    const destDir = dest.trim();
+    const failedNames: string[] = [];
     for (const p of selectedPaths) {
+      const name = Path.basename(p);
       try {
-        const name = Path.basename(p);
-        await FileManager.rename(p, Path.join(dest.trim(), name));
+        const targetPath = Path.join(destDir, name);
+        try {
+          await FileManager.rename(p, targetPath);
+        } catch {
+          // rename 跨卷（如 iCloud→本地）会整体失败：回退 copyFile + remove
+          await FileManager.copyFile(p, targetPath);
+          await FileManager.remove(p);
+        }
       } catch (e) {
-        console.log("移动失败:", e);
+        console.log("移动失败:", p, e);
+        failedNames.push(name);
       }
     }
     setSelectedPaths(new Set());
     setSelectMode(false);
     if (activeDirPath) invalidateDirectoryCache(activeDirPath);
+    // 目标目录可能是另一栏正在显示的目录，同时失效目标缓存
+    invalidateDirectoryCache(destDir);
     loadDirectory(true);
+    if (failedNames.length > 0) {
+      showToast(`移动失败 ${failedNames.length} 项: ${failedNames.slice(0, 3).join("、")}${failedNames.length > 3 ? " …" : ""}`);
+    }
   };
 
   // ─ 多选导出到相册 ─
@@ -1819,10 +1434,10 @@ function GeneralBrowser({
               await Photos.saveLivePhoto({ imagePath: imgTmp, videoPath: vidTmp });
               try {
                 FileManager.remove(imgTmp);
-              } catch {}
+              } catch { }
               try {
                 FileManager.remove(vidTmp);
-              } catch {}
+              } catch { }
             }
           }
         }
@@ -1949,7 +1564,7 @@ function GeneralBrowser({
           invalidateDirectoryCache(activeDirPath);
           loadDirectory(true);
           return;
-        } catch (e2) {}
+        } catch (e2) { }
       }
       await Dialog.alert({
         title: "创建失败",
@@ -2046,7 +1661,7 @@ function GeneralBrowser({
           if (activeDirPath) invalidateDirectoryCache(activeDirPath);
           loadDirectory(true);
           return;
-        } catch (e2) {}
+        } catch (e2) { }
       }
       await Dialog.alert({ title: "创建失败", message: String(e), buttonLabel: "确定" });
     }
@@ -2080,7 +1695,7 @@ function GeneralBrowser({
   // 搜索栏始终显示
 
   // ── 导入/相机/实况照片（所有页面可用）──
-  let handleOpenSettingsInternal: () => void = () => {};
+  let handleOpenSettingsInternal: () => void = () => { };
   let homeNavigationDest = null as any;
 
   const handleImportFromFiles = async () => {
@@ -2113,7 +1728,7 @@ function GeneralBrowser({
                   modificationDate: Date.now(),
                   extension: ext,
                   category: getFileCategory(ext),
-                  mimeType: getMimeType(ext, p),
+                  mimeType: getMimeType(ext),
                   icon: "doc.text",
                   iconColor: "systemGray",
                 } as FileInfo;
@@ -2270,7 +1885,7 @@ function GeneralBrowser({
         await FileManager.copyFile(result.imagePath, dest);
         try {
           await FileManager.remove(result.imagePath);
-        } catch {}
+        } catch { }
         // 乐观更新：立即在 UI 中显示新照片
         const photoExt = ext;
         const photoItem: FileInfo = {
@@ -2313,7 +1928,7 @@ function GeneralBrowser({
         await FileManager.copyFile(result.mediaPath, dest);
         try {
           await FileManager.remove(result.mediaPath);
-        } catch {}
+        } catch { }
         // 乐观更新：立即在 UI 中显示新视频
         const videoItem: FileInfo = {
           name: Path.basename(dest),
@@ -2407,7 +2022,7 @@ function GeneralBrowser({
     <Group>
       <Divider />
       <Button title="从相册导入" systemImage="photo.on.rectangle" action={handleImportFromPhotos} />
-   {/*     <Button title="实况照片" systemImage="livephoto" action={handleImportLivePhotosOnly} /> */}
+      {/*     <Button title="实况照片" systemImage="livephoto" action={handleImportLivePhotosOnly} /> */}
       <Button title="从文件导入" systemImage="doc.badge.plus" action={handleImportFromFiles} />
       <Divider />
       {/* <Menu title="更多导入" systemImage="ellipsis">
@@ -2495,7 +2110,7 @@ function GeneralBrowser({
           if (path) {
             entries.push({ name: def.name, path, icon: def.icon, tag: def.tag });
           }
-        } catch {}
+        } catch { }
       }
       setSystemDirEntries(entries);
     })();
@@ -2513,7 +2128,11 @@ function GeneralBrowser({
     if (activeDirPath === root) {
       return effectiveRootName;
     }
-    const relativePath = activeDirPath.replace(root, "").replace(/^\//, "");
+    // 严格前缀匹配后剥离；replace(root, "") 会替换第一个出现位置，
+    // root="/a/b"、active="/a/bc/d" 时会错误地得到 "c/d"。
+    const relativePath = activeDirPath.startsWith(root)
+      ? activeDirPath.slice(root.length).replace(/^\//, "")
+      : "";
     return relativePath ? `${effectiveRootName}/${relativePath}` : effectiveRootName;
   }, [activeDirPath, dirName, rootPath, rootName, settings?.homeDirectoryBookmarkName, isHomePage, allBookmarks]);
   const titleDisplayPath = useMemo(() => tailDisplayPath(displayPath), [displayPath]);
@@ -2569,16 +2188,6 @@ function GeneralBrowser({
     }
   };
 
-  const handleResetPath = async () => {
-    if (isHomePage && settings && onSettingsChange) {
-      const newSettings = { ...settings, homeCurrentPath: null, homeDirectoryBookmarkName: null };
-      saveSettings(newSettings);
-      onSettingsChange(newSettings);
-    } else if (activeNavPath) {
-      const target = rootPath || defaultDir;
-      activeNavPath.setValue([...activeNavPath.value, "browser:" + target]);
-    }
-  };
 
   const handleCopyPath = async () => {
     if (!activeDirPath) return;
@@ -2586,30 +2195,6 @@ function GeneralBrowser({
     showToast("已复制路径");
   };
 
-  const handlePastePath = async () => {
-    try {
-      const text = await Pasteboard.getString();
-      if (!text || !text.trim()) {
-        await Dialog.alert({ title: "提示", message: "剪贴板为空", buttonLabel: "确定" });
-        return;
-      }
-      const trimmed = text.trim();
-      const exists = await FileManager.exists(trimmed);
-      if (!exists) {
-        await Dialog.alert({ title: "提示", message: "路径不存在：" + trimmed, buttonLabel: "确定" });
-        return;
-      }
-      if (isHomePage && settings && onSettingsChange) {
-        const newSettings = { ...settings, homeCurrentPath: trimmed, homeDirectoryBookmarkName: null };
-        saveSettings(newSettings);
-        onSettingsChange(newSettings);
-      } else if (activeNavPath) {
-        activeNavPath.setValue([...activeNavPath.value, "browser:" + trimmed]);
-      }
-    } catch (e) {
-      console.log("粘贴路径失败:", e);
-    }
-  };
 
   // ─ 收藏夹操作 ─
   const handleAddBookmark = async () => {
@@ -2655,32 +2240,7 @@ function GeneralBrowser({
     }
   };
 
-  const handleRenameBookmark = async (bookmark: Bookmark) => {
-    const newName = await Dialog.prompt({
-      title: "重命名收藏",
-      defaultValue: bookmark.name,
-      placeholder: "名称",
-      cancelLabel: "取消",
-      confirmLabel: "确定",
-    });
-    if (newName && newName.trim() && newName.trim() !== bookmark.name) {
-      renameBookmark(bookmark.name, newName.trim());
-      setBookmarkRefreshKey((k) => k + 1);
-    }
-  };
 
-  const handleDeleteBookmark = async (bookmark: Bookmark) => {
-    const confirmed = await Dialog.confirm({
-      title: "删除收藏",
-      message: `确定删除「${bookmark.name}」？`,
-      cancelLabel: "取消",
-      confirmLabel: "删除",
-    });
-    if (confirmed) {
-      removeBookmark(bookmark.name);
-      setBookmarkRefreshKey((k) => k + 1);
-    }
-  };
 
   // 监听全局搜索关闭事件
   useEffect(() => {
@@ -2721,13 +2281,13 @@ function GeneralBrowser({
     try {
       const children = await countDirectoryItems(effectiveDropDir);
       applyFolderCountUpdate(effectiveDropDir, children);
-    } catch {}
+    } catch { }
     onDropCompleted?.();
   };
 
   const handleDropToCurrentDirectory = (info: DropInfo) => {
     if (!effectiveDropDir) return false;
-    handleDropToDirectory(info, effectiveDropDir, () => {})
+    handleDropToDirectory(info, effectiveDropDir, () => { })
       .then(finishDroppedPaths)
       .catch(() => {
         refreshDirectory();
@@ -2743,7 +2303,7 @@ function GeneralBrowser({
   };
 
   const directoryBlankDropZone = (
-    <Button action={() => {}} listRowSeparator={{ visibility: "hidden", edges: "all" }} listRowBackground={<Rectangle fill="clear" />} onDrop={currentDirectoryDrop}>
+    <Button action={() => { }} listRowSeparator={{ visibility: "hidden", edges: "all" }} listRowBackground={<Rectangle fill="clear" />} onDrop={currentDirectoryDrop}>
       <VStack frame={{ maxWidth: "infinity", minHeight: 520 }} contentShape="rect">
         <Spacer minLength={520} />
       </VStack>
@@ -3026,21 +2586,21 @@ function GeneralBrowser({
                         }
                         otherItems={
                           <Group>
-                            
-            <ControlGroup>
-                            <Button title="新建文件" systemImage="doc.text" action={handleCreateNewFile} />
-                            <Button title="新建文件夹" systemImage="folder.badge.plus" action={() => handleCreateFile("folder")} />
-                            <Button title="新建 JS" systemImage="chevron.left.forwardslash.chevron.right" action={() => handleCreateFile("js", true)} />
-                            {isHomePage ? (
-                              importToolbarItems
-                            ) : (
-                              <>
-                                {importToolbarItems}
-                                {toolbarOtherItems ?? <EmptyView />}
-                              </>
-                            )}
-                
-            </ControlGroup>
+
+                            <ControlGroup>
+                              <Button title="新建文件" systemImage="doc.text" action={handleCreateNewFile} />
+                              <Button title="新建文件夹" systemImage="folder.badge.plus" action={() => handleCreateFile("folder")} />
+                              <Button title="新建 JS" systemImage="chevron.left.forwardslash.chevron.right" action={() => handleCreateFile("js", true)} />
+                              {isHomePage ? (
+                                importToolbarItems
+                              ) : (
+                                <>
+                                  {importToolbarItems}
+                                  {toolbarOtherItems ?? <EmptyView />}
+                                </>
+                              )}
+
+                            </ControlGroup>
                           </Group>
                         }
                         bottomItem={
@@ -3052,21 +2612,21 @@ function GeneralBrowser({
                                 ? handleOpenSettingsInternal
                                 : settings && onSettingsChange
                                   ? () => {
-                                      Navigation.present({
-                                        element: (
-                                          <SettingsPage
-                                            settings={settings!}
-                                            onUpdateSettings={(updates) => {
-                                              const newSettings = { ...settings, ...updates } as AppSettings;
-                                              saveSettings(newSettings);
-                                              onSettingsChange(newSettings);
-                                            }}
-                                          />
-                                        ),
-                                        modalPresentationStyle: "pageSheet",
-                                      });
-                                    }
-                                  : onOpenSettings || (() => {})
+                                    Navigation.present({
+                                      element: (
+                                        <SettingsPage
+                                          settings={settings!}
+                                          onUpdateSettings={(updates) => {
+                                            const newSettings = { ...settings, ...updates } as AppSettings;
+                                            saveSettings(newSettings);
+                                            onSettingsChange(newSettings);
+                                          }}
+                                        />
+                                      ),
+                                      modalPresentationStyle: "pageSheet",
+                                    });
+                                  }
+                                  : onOpenSettings || (() => { })
                             }
                           />
                         }
@@ -3265,40 +2825,40 @@ function GeneralBrowser({
                       {visibleFiles.map((file, fileIdx) => (
                         <Group key={file.path}>
                           <FileRowLink
-                          key={file.path}
-                          file={file}
-                          onRefresh={refreshDirectory}
-                          onDeleteFile={(filePath) => setFiles((prev) => prev.filter((f) => f.path !== filePath))}
-                          onRequestDelete={requestFileDelete}
-                          selectMode={selectMode}
-                          isSelected={selectedPaths.has(file.path)}
-                          onToggleSelect={() => toggleSelect(file.path)}
-                          rootPath={rootPath || activeDirPath}
-                          rootName={rootName || dirName}
-                          navPath={activeNavPath}
-                          hideTopSeparator={fileIdx === 0}
-                          folderCounts={folderCounts}
-                          onCopyPath={(path) => updateCopiedPath(path)}
-                          isHighlighted={file.path === highlightedPath}
-                          copyToDirTitle={oppositeDirName}
-                          onCopyToDir={onCopyToOppositeDir}
-                          dirPath={effectiveDropDir}
-                          onDropCompleted={onDropCompleted}
-                          onFolderCountChanged={applyFolderCountUpdate}
-                          isHomeScreenHost={isHomeScreenHost}
-                        />
-                        {hasMore && fileIdx === Math.max(0, visibleFiles.length - 26) ? (
-                          <HStack
-                            frame={{ maxWidth: "infinity", height: 1 }}
-                            listRowBackground={<Rectangle fill="clear" />}
-                            listRowSeparator={{ visibility: "hidden", edges: "all" }}
-                            onAppear={() => preloadNextPage(visibleFiles.length)}
-                          >
+                            key={file.path}
+                            file={file}
+                            onRefresh={refreshDirectory}
+                            onDeleteFile={(filePath) => setFiles((prev) => prev.filter((f) => f.path !== filePath))}
+                            onRequestDelete={requestFileDelete}
+                            selectMode={selectMode}
+                            isSelected={selectedPaths.has(file.path)}
+                            onToggleSelect={() => toggleSelect(file.path)}
+                            rootPath={rootPath || activeDirPath}
+                            rootName={rootName || dirName}
+                            navPath={activeNavPath}
+                            hideTopSeparator={fileIdx === 0}
+                            folderCountStore={folderCountStore}
+                            onCopyPath={(path) => updateCopiedPath(path)}
+                            isHighlighted={file.path === highlightedPath}
+                            copyToDirTitle={oppositeDirName}
+                            onCopyToDir={onCopyToOppositeDir}
+                            dirPath={effectiveDropDir}
+                            onDropCompleted={onDropCompleted}
+                            onFolderCountChanged={applyFolderCountUpdate}
+                            isHomeScreenHost={isHomeScreenHost}
+                          />
+                          {hasMore && fileIdx === Math.max(0, visibleFiles.length - 26) ? (
+                            <HStack
+                              frame={{ maxWidth: "infinity", height: 1 }}
+                              listRowBackground={<Rectangle fill="clear" />}
+                              listRowSeparator={{ visibility: "hidden", edges: "all" }}
+                              onAppear={() => preloadNextPage(visibleFiles.length)}
+                            >
+                              <EmptyView />
+                            </HStack>
+                          ) : (
                             <EmptyView />
-                          </HStack>
-                        ) : (
-                          <EmptyView />
-                        )}
+                          )}
                         </Group>
                       ))}
                       {hasMore ? <Button title="加载更多" action={() => preloadNextPage(visibleFiles.length)} /> : <EmptyView />}
@@ -3312,7 +2872,7 @@ function GeneralBrowser({
                   <Section>
                     <HStack spacing={12} alignment="center" listRowBackground={<></>} listRowSeparator={{ visibility: "hidden", edges: "all" }} padding={{ top: 20, bottom: 20 }}>
                       <Spacer />
-                      <Text foregroundStyle="tertiaryLabel">
+                      <Text foregroundStyle="tertiaryLabel" font={10} monospaced>
                         文件夹 {folderCount} 文件 {fileCount} 大小 {fmtSize(totalSize)}
                       </Text>
                       <Spacer />
@@ -3371,7 +2931,7 @@ function GeneralBrowser({
             }
             console.log("NavStack performDrop, dir:", destDir);
             if (!destDir) return false;
-            handleDropToDirectory(info, destDir, () => {})
+            handleDropToDirectory(info, destDir, () => { })
               .then(async (createdPaths) => {
                 invalidateDirectoryCache(destDir);
                 // 乐观更新：立即显示新增文件
@@ -3404,7 +2964,7 @@ function GeneralBrowser({
                 try {
                   const children = await countDirectoryItems(destDir);
                   applyFolderCountUpdate(destDir, children);
-                } catch {}
+                } catch { }
                 onDropCompleted?.();
               })
               .catch(() => {

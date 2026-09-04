@@ -40,7 +40,7 @@ async function run() {
     const imagePath = allFiles.find((p) => /\.(heic|heif|jpg|jpeg|png|dng)$/i.test(p));
     const videoPath = allFiles.find((p) => /\.(mov|mp4|m4v)$/i.test(p));
     if (imagePath && videoPath) {
-      await Safari.openURL(Script.createRunURLScheme(Script.name, {
+      await Safari.openURL(Script.createRunSingleURLScheme(Script.name, {
         action: "importLivePhoto",
         imagePath,
         videoPath,
@@ -79,12 +79,12 @@ async function run() {
       // 主 App 再立即移动到 File Store。中转目录不是最终保存位置。
       const transferPath = await copyToAppGroupTransfer(path);
       if (transferPath) {
-        await Safari.openURL(Script.createRunURLScheme(Script.name, { fileURL: transferPath, action: "importNonText" }));
+        await Safari.openURL(Script.createRunSingleURLScheme(Script.name, { fileURL: transferPath, action: "importNonText" }));
         Script.exit();
         return;
       }
       // 中转失败时再尝试直接传原路径，让主 App 通过 bookmark 解析。
-      await Safari.openURL(Script.createRunURLScheme(Script.name, { fileURL: path, action: "importNonText" }));
+      await Safari.openURL(Script.createRunSingleURLScheme(Script.name, { fileURL: path, action: "importNonText" }));
       Script.exit();
       return;
     }
@@ -95,7 +95,7 @@ async function run() {
   if (fileSize > INTENT_MAX_SIZE) {
     const transferPath = await copyToAppGroupTransfer(path);
     if (transferPath) {
-      const runURL = Script.createRunURLScheme(Script.name, { fileURL: transferPath });
+      const runURL = Script.createRunSingleURLScheme(Script.name, { fileURL: transferPath });
       await Safari.openURL(runURL);
       return;
     }
@@ -163,7 +163,7 @@ async function run() {
         const transferPath = await copyToAppGroupTransfer(path);
         if (transferPath) {
           // 复制到 appGroup 成功，跳转主 App 处理
-          const runURL = Script.createRunURLScheme(Script.name, { fileURL: transferPath });
+          const runURL = Script.createRunSingleURLScheme(Script.name, { fileURL: transferPath });
           await Safari.openURL(runURL);
           return;
         }

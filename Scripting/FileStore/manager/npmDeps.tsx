@@ -48,11 +48,6 @@ export async function ensureNpmDependencies(): Promise<boolean> {
 async function runInstall(missing: string[]): Promise<boolean> {
   try {
     console.log(`缺少 npm 依赖: ${missing.join(", ")}，执行 npm install …`)
-    // 注意：不要用 `cd "${Script.directory}" && npm install` ——
-    // ios_system 的 cd 无法进入 iCloud 脚本目录（permission denied），
-    // npm 会在默认目录里找不到 package.json，返回 exitCode=0 但什么都没装。
-    // 用 Shell.run 的 cwd 选项指定工作目录；timeout 单位是秒。
-    // Shell.run 返回 Promise（原生线程异步执行），await 不会阻塞 UI。
     const result = await Shell.run("npm install", {
       cwd: Script.directory,
       timeout: 300,

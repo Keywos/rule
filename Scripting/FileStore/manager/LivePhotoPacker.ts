@@ -98,9 +98,6 @@ export function unpackLivePhoto(data: Data): LivePhotoUnpacked | null {
   return { imageData, imageExt, videoData }
 }
 
-/**
- * 检查文件名是否为 .live 实况照片文件
- */
 export function isLivePhotoFile(name: string): boolean {
   return /\.live$/i.test(name)
 }

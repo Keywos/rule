@@ -7,7 +7,7 @@
 
 import { useColorScheme, Navigation, NavigationStack, VStack, HStack, Text, Button, Divider, Image, useState, useEffect, useMemo, useRef, Editor, Path, EmptyView, Menu, ScrollView, Markdown, Script, ZStack } from "scripting"
 import { getEditorExt } from "../manager/editorConfig"
-import { getFileIcon, fmtSize, langMap, ensureLocalFile, isPlausibleText, uniquePath } from "../manager/utils"
+import { getFileIcon, fmtSize, langMap, ensureLocalFile, isUndownloadediCloudPath, isPlausibleText } from "../manager/utils"
 import { minifyJSPreserveNames, minifyJSPreserveNamesAndComments, minifyJSAggressive } from "../manager/jsFormatter"
 import { minifyHTML } from "../manager/htmlFormatter"
 import { formatWithPrettier } from "../manager/prettierFormatter"
@@ -137,16 +137,20 @@ export function EditorPage(props: EditorPageProps) {
     if (newEncoding === actualEncoding && !decodeFailed) return
     if (mode === "preview") return
 
-    // 1. 彻底清除排队中的自动保存计时器，防止乱码被延时写入磁盘
+    // 1. 彻底清除排队中的自动保存计时器（含 max-wait 强制落盘），防止旧内容/乱码被延时写入磁盘
     if (saveTimerRef.current) {
       clearTimeout(saveTimerRef.current)
       saveTimerRef.current = null
     }
+    if (saveMaxWaitTimerRef.current) {
+      clearTimeout(saveMaxWaitTimerRef.current)
+      saveMaxWaitTimerRef.current = null
+    }
+    pendingSaveContentRef.current = null
 
     // 2. 切断保存许可并重置界面就绪状态
     setLoadError(false)
     setSaveEnabled(false)
-    if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
     setReady(false)
     setContent(null)
     setEncoding(newEncoding)
@@ -155,28 +159,6 @@ export function EditorPage(props: EditorPageProps) {
     setLoadTrigger((t) => t + 1)
   }
 
-  
-  /* const handleEncodingChange = async (newEncoding: string) => {
-    // 解码失败后允许重新选择同一编码重试；正常状态下重复选择直接忽略。
-    if (newEncoding === encoding && !decodeFailed) return
-    if (mode === "preview") return
-    try {
-      await flushFinalSave()
-    } catch (e) {
-      console.log("切换编码前保存失败:", e)
-      showToast("保存失败，未切换编码")
-      return
-    }
-    setLoadError(false)
-    setSaveEnabled(false)
-    if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
-    setReady(false)
-    setContent(null)
-    setEncoding(newEncoding)
-    userPickedEncodingRef.current = newEncoding
-    setLoadTrigger(t => t + 1)
-  }
- */
   /**
    * 统一执行格式化/压缩：结果通过编辑器的 selectAll + replaceSelection 写回
    * （避免直接赋值 content 触发整份文档重载卡顿），完成后排队保存。
@@ -186,7 +168,7 @@ export function EditorPage(props: EditorPageProps) {
    * 大文件先弹窗确认并展示提示条、超大文件直接拒绝，避免界面长时间无响应甚至崩溃。
    */
   const FORMAT_WARN_LIMIT = 256 * 1024 // 超过该字符数先弹窗确认 + 展示提示条
-  const FORMAT_HARD_LIMIT = 3 * 1024 * 1024 // 超过该字符数直接拒绝（防止卡死/崩溃）
+  const FORMAT_HARD_LIMIT = 6 * 1024 * 1024 // 超过该字符数直接拒绝（防止卡死/崩溃）
 
   const runFormatting = async (compute: (current: string) => Promise<string> | string) => {
     const controller = controllerRef.current
@@ -349,7 +331,7 @@ export function EditorPage(props: EditorPageProps) {
     return () => clearTimeout(t)
   }, [savedMessage])
 
- 
+
   useEffect(() => {
     // preview 模式使用传进来的内容，不从文件读
     if (mode === "preview") return
@@ -357,12 +339,27 @@ export function EditorPage(props: EditorPageProps) {
     let cancelled = false
     const load = async () => {
       try {
+        // iCloud 未下载占位文件：点击后主动触发下载并等待（带 30s 超时）。
+        // 原先 readAsData 对占位文件返空/抛错 → 直接走 decodeFailed 分支，
+        // 用户看到的是“点开没反应/空文件警告”，实际上文件还没下载。
+        if (isUndownloadediCloudPath(path)) {
+          if (!cancelled) {
+            setReady(false)
+            setLoadError(false)
+            showToast("正在从 iCloud 下载…")
+          }
+          const ok = await ensureLocalFile(path, 30000)
+          if (cancelled) return
+          if (!ok) {
+            showToast("iCloud 下载未完成，请稍后重试")
+          }
+        }
         await ensureLocalFile(path)
         let fileSize = -1
         try {
           const stat = await FileManager.stat(path)
           fileSize = typeof stat.size === "number" ? stat.size : -1
-        } catch {}
+        } catch { }
 
         // 大文件保护：超过 50MB 拦截进入编辑器
         const EDITOR_OPEN_HARD_LIMIT = 50 * 1024 * 1024
@@ -397,33 +394,33 @@ export function EditorPage(props: EditorPageProps) {
           candidates = ["utf-8", "gb18030", "gbk", "utf-16", "ascii"]
         }
 
-     /*    // 2. 通过 readAsString 尝试候选编码
-        for (const enc of candidates) {
-          try {
-            const alt = await FileManager.readAsString(path, enc as any)
-            if (isUsableText(alt)) {
-              if (!cancelled) {
-                setContent(alt)
-                baseContentRef.current = alt
-                // 保持勾选与实际选择一致（如果是别名解开的，依然保留用户选的 gbk）
-                const finalEnc = userPickedEncodingRef.current ?? enc
-                setActualEncoding(finalEnc)
-                setEncoding(finalEnc)
-                setSaveEnabled(true)
-                setDecodeFailed(false)
-                setLoadError(false)
-                setReady(true)
-              }
-              return
-            }
-          } catch {}
-        } */
+        /*    // 2. 通过 readAsString 尝试候选编码
+           for (const enc of candidates) {
+             try {
+               const alt = await FileManager.readAsString(path, enc as any)
+               if (isUsableText(alt)) {
+                 if (!cancelled) {
+                   setContent(alt)
+                   baseContentRef.current = alt
+                   // 保持勾选与实际选择一致（如果是别名解开的，依然保留用户选的 gbk）
+                   const finalEnc = userPickedEncodingRef.current ?? enc
+                   setActualEncoding(finalEnc)
+                   setEncoding(finalEnc)
+                   setSaveEnabled(true)
+                   setDecodeFailed(false)
+                   setLoadError(false)
+                   setReady(true)
+                 }
+                 return
+               }
+             } catch {}
+           } */
 
         // 读取原始 Data 进行内存解码兜底
         let data: any = null
         try {
           data = await FileManager.readAsData(path)
-        } catch {}
+        } catch { }
 
         const dataSize = data?.size ?? 0
         if (data) {
@@ -444,7 +441,7 @@ export function EditorPage(props: EditorPageProps) {
                 }
                 return
               }
-            } catch {}
+            } catch { }
           }
 
           // 仅在自动探测模式下，才做 UTF-8 容错字符替换兜底
@@ -464,7 +461,7 @@ export function EditorPage(props: EditorPageProps) {
                 }
                 return
               }
-            } catch {}
+            } catch { }
           }
         }
 
@@ -507,7 +504,7 @@ export function EditorPage(props: EditorPageProps) {
 
 
 
-  
+
   // ─── 创建 EditorController ───
   const controller = useMemo(() => {
     if (content == null) return null
@@ -520,6 +517,10 @@ export function EditorPage(props: EditorPageProps) {
 
   // ─── 自动保存（preview 模式无自动保存） ───
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // max-wait 定时器：即使持续输入不断重置 1s 防抖，也每隔一段时间强制落盘一次，
+  // 避免长时间连续编辑期间崩溃/被杀丢失全部改动。
+  const saveMaxWaitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const pendingSaveContentRef = useRef<string | null>(null)
   const controllerRef = useRef<EditorController | null>(null)
   const disposedRef = useRef(false)
   const saveQueueRef = useRef<Promise<void>>(Promise.resolve())
@@ -562,6 +563,11 @@ export function EditorPage(props: EditorPageProps) {
       clearTimeout(saveTimerRef.current)
       saveTimerRef.current = null
     }
+    if (saveMaxWaitTimerRef.current) {
+      clearTimeout(saveMaxWaitTimerRef.current)
+      saveMaxWaitTimerRef.current = null
+    }
+    pendingSaveContentRef.current = null
     const finalContent = controllerRef.current?.content ?? latestContentRef.current
     // 内容与磁盘加载结果一致时无需写回：避免只读/安全域位置在关闭时误报保存失败，
     // 也避免"仅查看未编辑"的会话产生不必要的写入。
@@ -588,15 +594,49 @@ export function EditorPage(props: EditorPageProps) {
       if (!saveEnabledRef.current && newContent.length === 0) return
       if (!saveEnabledRef.current && newContent.length > 0) setSaveEnabled(true)
 
-      if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
+      // 记录最新待保存内容；防抖 + max-wait 双阈值落盘
+      pendingSaveContentRef.current = newContent
       const encodingToSave = actualEncodingRef.current
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
       saveTimerRef.current = setTimeout(() => {
-        void enqueueSave(newContent, encodingToSave).catch(() => { })
+        scheduleDebouncedFlush(encodingToSave)
       }, 1000)
+      // max-wait：首个未落盘改动起 5s 后无条件强制 flush
+      if (!saveMaxWaitTimerRef.current) {
+        saveMaxWaitTimerRef.current = setTimeout(() => {
+          saveMaxWaitTimerRef.current = null
+          if (saveTimerRef.current) {
+            clearTimeout(saveTimerRef.current)
+            saveTimerRef.current = null
+          }
+          const content = pendingSaveContentRef.current
+          if (content != null) {
+            pendingSaveContentRef.current = null
+            void enqueueSave(content, encodingToSave).catch(() => { })
+          }
+        }, 5000)
+      }
+    }
+
+    // 1s 防抖到点：落盘并解除 max-wait 等待
+    const scheduleDebouncedFlush = (encodingToSave: string) => {
+      saveTimerRef.current = null
+      if (saveMaxWaitTimerRef.current) {
+        clearTimeout(saveMaxWaitTimerRef.current)
+        saveMaxWaitTimerRef.current = null
+      }
+      const content = pendingSaveContentRef.current
+      if (content != null) {
+        pendingSaveContentRef.current = null
+        void enqueueSave(content, encodingToSave).catch(() => { })
+      }
     }
 
     return () => {
       if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
+      if (saveMaxWaitTimerRef.current) clearTimeout(saveMaxWaitTimerRef.current)
+      saveTimerRef.current = null
+      saveMaxWaitTimerRef.current = null
       if (controller) controller.onContentChanged = undefined
     }
   }, [controller, path, mode])
@@ -667,7 +707,7 @@ export function EditorPage(props: EditorPageProps) {
       await FileManager.createDirectory(saveDir, true)
       const tmpPath = Path.join(saveDir, fileName)
       await FileManager.writeAsString(tmpPath, content, actualEncodingRef.current as any)
-      const runURL = Script.createRunURLScheme(Script.name, {
+      const runURL = Script.createRunSingleURLScheme(Script.name, {
         fileURL: tmpPath,
         action: "saveToFileStore",
       })
@@ -701,6 +741,11 @@ export function EditorPage(props: EditorPageProps) {
         clearTimeout(saveTimerRef.current)
         saveTimerRef.current = null
       }
+      if (saveMaxWaitTimerRef.current) {
+        clearTimeout(saveMaxWaitTimerRef.current)
+        saveMaxWaitTimerRef.current = null
+      }
+      pendingSaveContentRef.current = null
       controllerRef.current?.dispose()
       disposedRef.current = true
       dismiss()
@@ -793,6 +838,13 @@ export function EditorPage(props: EditorPageProps) {
           <VStack spacing={0} frame={{ maxWidth: "infinity", maxHeight: "infinity" }} tabBarVisibility="hidden"
             navigationTitle={fileName}
             ignoresSafeArea={{ regions: "container", edges: ["bottom"] }} navigationBarTitleDisplayMode="inline"
+            onDisappear={() => {
+              // pageSheet 下拉手势会绕过 handleClose 直接卸载页面，
+              // 必须在 onDisappear 里兕底保存防抖窗口内未落盘的改动。
+              if (!closingRef.current) {
+                void flushFinalSave()
+              }
+            }}
             toolbar={{
               topBarLeading: [
                 <Button key="close" title="关闭" systemImage="xmark" action={handleClose} />,
@@ -880,7 +932,7 @@ export function EditorPage(props: EditorPageProps) {
           frame={{ maxWidth: "infinity", maxHeight: "infinity" }}
           tabBarVisibility="hidden"
           navigationTitle={fileName}
-          ignoresSafeArea={{ regions: "container", edges: ["bottom"] }}navigationBarTitleDisplayMode="inline"
+          ignoresSafeArea={{ regions: "container", edges: ["bottom"] }} navigationBarTitleDisplayMode="inline"
           onDisappear={() => {
             if (!closingRef.current) {
               void flushFinalSave()

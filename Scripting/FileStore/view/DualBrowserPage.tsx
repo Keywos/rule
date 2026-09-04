@@ -3,7 +3,7 @@
 import { HStack, VStack, ZStack, Image, Text, GeometryReader, useState, useEffect, useRef, useCallback, Path, Button, ToolbarItem } from "scripting"
 import { GeneralBrowser } from "./GeneralBrowser"
 import { AppSettings, readSettings, saveSettings } from "../manager/Settings"
-import { Bookmark, getAllBookmarks } from "../manager/BookmarkManager"
+import { Bookmark } from "../manager/BookmarkManager"
 import { invalidateDirectoryCache, FileInfo, getFileCategory } from "../manager/utils"
 
 interface DualBrowserPageProps {
@@ -236,9 +236,9 @@ export function DualBrowserPage({ settings, refreshKey, bookmarks, onSettingsCha
     copyTimeoutRef.current = setTimeout(() => setShowCopyToast(false), 2000)
   }
 
-/*   const handleToggleLayout = () => {
-    setLayoutDir((prev) => (prev === "horizontal" ? "vertical" : "horizontal"))
-  } */
+  /*   const handleToggleLayout = () => {
+      setLayoutDir((prev) => (prev === "horizontal" ? "vertical" : "horizontal"))
+    } */
 
   const dualModeToolbarItem = (
     <ToolbarItem placement="topBarLeading">
