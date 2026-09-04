@@ -14,9 +14,19 @@ interface DualBrowserPageProps {
   bookmarks?: Bookmark[]
   isHomeScreenHost?: boolean
   secondaryToolbarLeadingItems?: any
+  // 保存到 File Store 后需要高亮的文件完整路径
+  initialHighlightPath?: string
 }
 
-export function DualBrowserPage({ settings, refreshKey, bookmarks, onSettingsChange, isHomeScreenHost, secondaryToolbarLeadingItems }: DualBrowserPageProps) {
+export function DualBrowserPage({
+  settings,
+  refreshKey,
+  bookmarks,
+  onSettingsChange,
+  isHomeScreenHost,
+  secondaryToolbarLeadingItems,
+  initialHighlightPath,
+}: DualBrowserPageProps) {
   // 跨栏复制文件乐观更新注入
   const leftAddFilesRef = useRef<(files: FileInfo[]) => void>(() => { })
   const rightAddFilesRef = useRef<(files: FileInfo[]) => void>(() => { })
@@ -74,9 +84,32 @@ export function DualBrowserPage({ settings, refreshKey, bookmarks, onSettingsCha
   const [leftKey, setLeftKey] = useState(0)
   const [rightKey, setRightKey] = useState(0)
 
-  // ── 高亮对方新增的文件 ──
-  const [leftHighlightFile, setLeftHighlightFile] = useState<string>()
+  // ── 高亮新增或刚刚导入的文件 ──
+  // GeneralBrowser 的 highlightFile 使用文件名，所以这里从完整路径提取 basename。
+  const [leftHighlightFile, setLeftHighlightFile] = useState<string | undefined>(
+    initialHighlightPath
+      ? Path.basename(initialHighlightPath)
+      : undefined
+  )
+
   const [rightHighlightFile, setRightHighlightFile] = useState<string>()
+
+  // 从 URL Scheme 保存到 File Store 后，高亮左栏对应文件 3 秒。
+  useEffect(() => {
+    if (!initialHighlightPath) return
+
+    const fileName = Path.basename(initialHighlightPath)
+    setLeftHighlightFile(fileName)
+
+    const timer = setTimeout(() => {
+      // 避免旧定时器清除之后产生的新高亮
+      setLeftHighlightFile((current) =>
+        current === fileName ? undefined : current
+      )
+    }, 3000)
+
+    return () => clearTimeout(timer)
+  }, [initialHighlightPath])
 
   // 当全局 refreshKey 变化时，两边都刷新
   useEffect(() => {
