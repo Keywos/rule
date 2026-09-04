@@ -86,30 +86,55 @@ export function DualBrowserPage({
 
   // ── 高亮新增或刚刚导入的文件 ──
   // GeneralBrowser 的 highlightFile 使用文件名，所以这里从完整路径提取 basename。
-  const [leftHighlightFile, setLeftHighlightFile] = useState<string | undefined>(
-    initialHighlightPath
-      ? Path.basename(initialHighlightPath)
-      : undefined
-  )
+  const [leftHighlightFile, setLeftHighlightFile] =
+    useState<string | undefined>(() =>
+      initialHighlightPath
+        ? Path.basename(initialHighlightPath)
+        : undefined
+    )
 
-  const [rightHighlightFile, setRightHighlightFile] = useState<string>()
+  const [rightHighlightFile, setRightHighlightFile] =
+    useState<string | undefined>()
+
+  useEffect(() => {
+    if (!leftHighlightFile) return
+
+    const target = leftHighlightFile
+
+    const timer = setTimeout(() => {
+      setLeftHighlightFile((current) =>
+        current === target ? undefined : current
+      )
+    }, 3000)
+
+    return () => clearTimeout(timer)
+  }, [leftHighlightFile])
+
+  useEffect(() => {
+    if (!rightHighlightFile) return
+
+    const target = rightHighlightFile
+
+    const timer = setTimeout(() => {
+      setRightHighlightFile((current) =>
+        current === target ? undefined : current
+      )
+    }, 3000)
+
+    return () => clearTimeout(timer)
+  }, [rightHighlightFile])
 
   // 从 URL Scheme 保存到 File Store 后，高亮左栏对应文件 3 秒。
   useEffect(() => {
     if (!initialHighlightPath) return
 
     const fileName = Path.basename(initialHighlightPath)
-    setLeftHighlightFile(fileName)
 
-    const timer = setTimeout(() => {
-      // 避免旧定时器清除之后产生的新高亮
-      setLeftHighlightFile((current) =>
-        current === fileName ? undefined : current
-      )
-    }, 3000)
-
-    return () => clearTimeout(timer)
+    setLeftHighlightFile((current) =>
+      current === fileName ? current : fileName
+    )
   }, [initialHighlightPath])
+
 
   // 当全局 refreshKey 变化时，两边都刷新
   useEffect(() => {
@@ -186,7 +211,7 @@ export function DualBrowserPage({
         invalidateDirectoryCache(rightDir)
         setRightHighlightFile(Path.basename(destPath))
         setRightKey((k) => k + 1)
-        setTimeout(() => setRightHighlightFile(undefined), 3000)
+        // setTimeout(() => setRightHighlightFile(undefined), 3000)
         // 左右分栏提示右侧，上下分栏提示下方
         showCopyToastAction(layoutDir === "horizontal" ? "已复制到右侧目录" : "已复制到下方目录")
       } catch (e) {
@@ -239,7 +264,7 @@ export function DualBrowserPage({
         invalidateDirectoryCache(leftDir)
         setLeftHighlightFile(Path.basename(destPath))
         setLeftKey((k) => k + 1)
-        setTimeout(() => setLeftHighlightFile(undefined), 3000)
+        // setTimeout(() => setLeftHighlightFile(undefined), 3000)
         // 左右分栏提示左侧，上下分栏提示上方
         showCopyToastAction(layoutDir === "horizontal" ? "已复制到左侧目录" : "已复制到上方目录")
       } catch (e) {
@@ -292,9 +317,9 @@ export function DualBrowserPage({
   )
 
   // ── layoutDir 变化时持久化保存 ──
-  useEffect(() => {
-    saveSettings({ ...settings, dualLayoutDir: layoutDir })
-  }, [layoutDir])
+  // useEffect(() => {
+  //   saveSettings({ ...settings, dualLayoutDir: layoutDir })
+  // }, [layoutDir])
 
   // ── ratio 变化时持久化保存（拖动结束才更新，避免拖动过程中频繁写入） ──
   /*  useEffect(() => {

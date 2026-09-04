@@ -31,7 +31,7 @@ export function HomeView({
     : loadedSettings
   const [bookmarks, setBookmarks] = useState<Bookmark[]>(() => getAllBookmarks())
   const [refreshKey, setRefreshKey] = useState(0)
-  const [clipboardSyncTrigger, setClipboardSyncTrigger] = useState(0)
+  // const [clipboardSyncTrigger, setClipboardSyncTrigger] = useState(0)
   // 仅允许 0、1、2 作为可恢复页面；退出 Tab 永不参与启动恢复。
   const initialTabIndex = initialSettings.defaultTab >= 0 && initialSettings.defaultTab <= 2 ? initialSettings.defaultTab : 0
   const [tabIndex, setTabIndex] = useState(initialTabIndex)
@@ -106,15 +106,24 @@ export function HomeView({
       }, 233)
     }
     // 切换到首页时刷新剪贴板路径（跨 tab 拷贝文件后粘贴）
-    if (index === 0) {
-      setClipboardSyncTrigger((k) => k + 1)
-    }
-  };
+    // if (index === 0) {
+    //   setClipboardSyncTrigger((k) => k + 1)
+    // }
+  }
   // UI 已就绪（ToastOverlay 已挂载）后，再检查 npm 运行环境，缺失时自动安装并 Toast 提示
 
-  (async () => {
-    await ensureNpmDependencies()
-  })()
+  // (async () => {
+  //   await ensureNpmDependencies()
+  // })()
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      void ensureNpmDependencies().catch((error) => {
+        console.log("检查 npm 依赖失败:", error)
+      })
+    }, 0)
+
+    return () => clearTimeout(timer)
+  }, [])
   return (
     <ZStack alignment="bottomTrailing" frame={{ maxWidth: "infinity", maxHeight: "infinity" }}>
       <TabView
