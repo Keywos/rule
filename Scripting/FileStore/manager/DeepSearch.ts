@@ -162,21 +162,60 @@ export async function getIndexStats(dirPath: string): Promise<IndexStats> {
   }
 }
 
-let _activeIndexTask: { cancelled: boolean } | null = null
+interface IndexTask {
+  cancelled: boolean
+}
+
+let _activeIndexTask: IndexTask | null = null
+// 同一时刻只允许一个索引任务接触 SQLite。新请求会取消旧任务；队列确保旧任务
+// 已完全退出（包括最后一次批量写入）后，才允许新任务清空/重建索引。
+let _indexBuildQueue: Promise<void> = Promise.resolve()
+let _latestIndexBuildRequest = 0
+
+function createIndexCancelledError(): Error {
+  const error = new Error("索引构建已取消")
+  ;(error as any).__buildCancelled = true
+  return error
+}
 
 export function cancelBuildIndex(): void {
+  _latestIndexBuildRequest++
   if (_activeIndexTask) _activeIndexTask.cancelled = true
 }
 
 export async function buildIndex(
   dirPath: string,
   onProgress?: (count: number, currentPath: string) => void,
-  forceRebuild: boolean = false
+  forceRebuild: boolean = false,
 ): Promise<number> {
-  const task = { cancelled: false }
+  cancelBuildIndex()
+  const requestId = ++_latestIndexBuildRequest
+  const previous = _indexBuildQueue
+  let releaseQueue: () => void = () => {}
+  _indexBuildQueue = new Promise<void>((resolve) => { releaseQueue = resolve })
+  await previous.catch(() => {})
+  try {
+    // 等待期间又出现更晚的重建请求时，直接放弃本请求，避免排队任务依次重复建库。
+    if (requestId !== _latestIndexBuildRequest) throw createIndexCancelledError()
+    return await buildIndexExclusive(dirPath, onProgress, forceRebuild)
+  } finally {
+    releaseQueue()
+  }
+}
+
+async function buildIndexExclusive(
+  dirPath: string,
+  onProgress?: (count: number, currentPath: string) => void,
+  forceRebuild: boolean = false,
+): Promise<number> {
+  const task: IndexTask = { cancelled: false }
   _activeIndexTask = task
+  const assertTaskActive = () => {
+    if (task.cancelled || _activeIndexTask !== task) throw createIndexCancelledError()
+  }
 
   if (!forceRebuild && await isIndexValid(dirPath)) {
+    assertTaskActive()
     const stats = await getIndexStats(dirPath)
     if (stats.total > 0) {
       if (_activeIndexTask === task) _activeIndexTask = null
@@ -185,7 +224,13 @@ export async function buildIndex(
   }
   
   const database = await openDatabase(dirPath)
+  assertTaskActive()
+  // 先废止旧完成标记，再清空旧内容。若重建取消/失败，半截索引绝不能沿用旧
+  // last_updated 而被 isIndexValid 误判为 48 小时内有效。
+  await database.execute("DELETE FROM metadata WHERE key = 'last_updated'")
+  indexStatsCache.delete(dirPath)
   await database.execute('DELETE FROM files')
+  assertTaskActive()
   
   let count = 0
   const maxIndexBytes = getMaxIndexFileSizeKB() * 1024
@@ -196,6 +241,7 @@ export async function buildIndex(
 
   async function flushBatch(): Promise<void> {
     if (pendingRows.length === 0) return
+    assertTaskActive()
     const batch = pendingRows
     pendingRows = []
     const placeholders = Array(batch.length).fill(INSERT_ROW).join(',')
@@ -206,6 +252,8 @@ export async function buildIndex(
         `INSERT OR REPLACE INTO files (${INSERT_COLS}) VALUES ${placeholders}`,
         flatArgs
       )
+      // 写入不可撤销；若此时已取消，阻止后续遍历与完成标记提交。
+      assertTaskActive()
     } catch (e) {
       const wrapped = e instanceof Error ? e : new Error(String(e))
       ;(wrapped as any).__batchFlushError = true
@@ -238,7 +286,7 @@ async function traverse(currentDir: string, relativePath: string): Promise<void>
   }
 
   for (const entry of entries) {
-    if (task.cancelled) break
+    assertTaskActive()
 
     const diskPath = Path.join(currentDir, entry)
     
@@ -254,6 +302,7 @@ async function traverse(currentDir: string, relativePath: string): Promise<void>
       
       // 使用修复后的 getFileInfo
       const info = await getFileInfo(diskPath)
+      assertTaskActive()
       
       if (!info.isDirectory && info.size > maxIndexBytes) {
         continue
@@ -276,6 +325,7 @@ async function traverse(currentDir: string, relativePath: string): Promise<void>
         }
         if (isDownloaded) {
           content = await readTextContent(diskPath, maxIndexBytes)
+          assertTaskActive()
         }
       }
 
@@ -314,25 +364,27 @@ async function traverse(currentDir: string, relativePath: string): Promise<void>
     await FileManager.readDirectory(dirPath)
     await traverse(dirPath, '')
 
-    if (task.cancelled) {
-      pendingRows = []
-      if (_activeIndexTask === task) _activeIndexTask = null
-      const cancelErr = new Error('索引构建已取消')
-      ;(cancelErr as any).__buildCancelled = true
-      throw cancelErr
-    }
-
+    assertTaskActive()
     await flushBatch()
+    // flush 期间仍可能收到取消；完成时间只能由仍处于活动状态的任务写入。
+    assertTaskActive()
     await database.execute(
       "INSERT OR REPLACE INTO metadata (key, value) VALUES ('last_updated', ?)",
       [String(Date.now())]
     )
+    assertTaskActive()
   } catch (e) {
     console.log('建立索引失败:', e)
+    // 即使取消发生在 last_updated 写入之后，也撤销完成标记，避免半截索引被复用。
+    if ((e as any)?.__buildCancelled) {
+      try { await database.execute("DELETE FROM metadata WHERE key = 'last_updated'") } catch { }
+      indexStatsCache.delete(dirPath)
+    }
     if (_activeIndexTask === task) _activeIndexTask = null
     throw e
   }
   
+  assertTaskActive()
   indexStatsCache.set(dirPath, {
     total: count,
     lastUpdated: Date.now(),

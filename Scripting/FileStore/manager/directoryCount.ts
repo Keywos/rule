@@ -40,3 +40,32 @@ export async function countDirectoryItems(dirPath: string, forceRefresh: boolean
     if (countInflight.get(dirPath) === request) countInflight.delete(dirPath);
   }
 }
+
+/**
+ * 批量读取目录条目数，并限制实际 readDirectory 的并发量。
+ * 大量文件夹同时出现在列表中时，避免 Promise.all 造成瞬时 I/O 峰值；
+ * 单个路径仍复用 countDirectoryItems 的缓存与进行中请求。
+ */
+export async function countDirectoryItemsBatch(
+  dirPaths: string[],
+  forceRefresh: boolean = false,
+  concurrency: number = 8,
+): Promise<Array<{ path: string; count: number | null }>> {
+  const results = new Array<{ path: string; count: number | null }>(dirPaths.length);
+  let nextIndex = 0;
+  const workerCount = Math.min(Math.max(1, concurrency), dirPaths.length);
+
+  await Promise.all(Array.from({ length: workerCount }, async () => {
+    while (nextIndex < dirPaths.length) {
+      const index = nextIndex++;
+      const path = dirPaths[index];
+      try {
+        results[index] = { path, count: await countDirectoryItems(path, forceRefresh) };
+      } catch {
+        results[index] = { path, count: null };
+      }
+    }
+  }));
+
+  return results;
+}

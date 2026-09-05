@@ -102,6 +102,11 @@ async function readAndImportProvider(
   const dragSource = getDragSourcePath()
   if (dragSource) {
     setDragSourcePath(null)
+    // 双栏及目录内拖放只复制文件；递归复制文件夹未实现，禁止进入 copyFile 路径。
+    if (await FileManager.isDirectory(dragSource)) {
+      console.log(`跳过文件夹拖拽复制: ${dragSource}`)
+      return null
+    }
     await directoryReady
     const name = Path.basename(dragSource)
     const { path: dest } = await writeToUniquePath(Path.join(dirPath, name), (targetPath) => FileManager.copyFile(dragSource, targetPath))

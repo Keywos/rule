@@ -101,6 +101,8 @@ export function SearchPanel({
   const [searchOffset, setSearchOffset] = useState(0);
   const [hasMoreResults, setHasMoreResults] = useState(false);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
+  // 当前搜索页中已不在磁盘上的结果数；索引不会自动感知外部删除。
+  const [missingResultCount, setMissingResultCount] = useState(0);
   const pageSize = 200;
 
   const deletedPathsRef = useRef(new Set<string>());
@@ -125,6 +127,26 @@ export function SearchPanel({
 
   const deepSearchInitedRef = useRef(false);
   const mountedRef = useRef(true);
+  const dirPathRef = useRef(dirPath);
+  dirPathRef.current = dirPath;
+
+  // SearchPanel 会随目录导航复用；切换目录时必须清除旧结果和初始化标记，
+  // 否则会继续使用上一个目录的索引与结果。
+  useEffect(() => {
+    // 构建任务全局唯一；切换目录后停止旧目录构建，避免其继续占用 I/O 或覆写状态。
+    cancelBuildIndex();
+    searchSeqRef.current++;
+    deepSearchInitedRef.current = false;
+    deletedPathsRef.current.clear();
+    setDeepSearchResults([]);
+    deepSearchResultsRef.current = [];
+    setIndexStats(null);
+    setIsBuildingIndex(false);
+    setIndexingCount(0);
+    setSearchOffset(0);
+    setHasMoreResults(false);
+    setMissingResultCount(0);
+  }, [dirPath]);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -137,32 +159,35 @@ export function SearchPanel({
   useEffect(() => {
     if (!deepSearchEnabled || deepSearchInitedRef.current || !dirPath) return;
     deepSearchInitedRef.current = true;
+    const targetDirPath = dirPath;
     (async () => {
       try {
-        const stats = await getIndexStats(dirPath);
-        if (!mountedRef.current) return;
+        const stats = await getIndexStats(targetDirPath);
+        if (!mountedRef.current || dirPathRef.current !== targetDirPath) return;
         setIndexStats(stats);
-        if (stats.total === 0 || !(await isIndexValid(dirPath))) {
+        if (stats.total === 0 || !(await isIndexValid(targetDirPath))) {
+          if (!mountedRef.current || dirPathRef.current !== targetDirPath) return;
           setIsBuildingIndex(true);
           try {
-            await buildIndex(dirPath, (count) => {
+            await buildIndex(targetDirPath, (count) => {
+              if (dirPathRef.current !== targetDirPath) return;
               indexingCountRef.current = count;
               maybeReportIndexingProgress();
             });
-            if (!mountedRef.current) return;
-            const freshStats = await getIndexStats(dirPath);
-            if (!mountedRef.current) return;
+            if (!mountedRef.current || dirPathRef.current !== targetDirPath) return;
+            const freshStats = await getIndexStats(targetDirPath);
+            if (!mountedRef.current || dirPathRef.current !== targetDirPath) return;
             setIsBuildingIndex(false);
             setIndexStats(freshStats);
           } catch (buildErr) {
             console.log("自动构建索引失败:", buildErr);
-            if (!mountedRef.current) return;
+            if (!mountedRef.current || dirPathRef.current !== targetDirPath) return;
             setIsBuildingIndex(false);
           }
         }
       } catch {}
     })();
-  }, [deepSearchEnabled]);
+  }, [deepSearchEnabled, dirPath]);
 
   const buildDeepSearchIndex = async (forceRebuild: boolean = false) => {
     setIsBuildingIndex(true);
@@ -193,11 +218,44 @@ export function SearchPanel({
     }
   };
 
+  /**
+   * 搜索索引可能落后于文件系统。以有限并发校验当前结果，避免 200 条结果同时触发 I/O。
+   * 对 iCloud 云端但尚未下载的文件，isFileStoredIniCloud 仍会返回 true，不应误报为删除。
+   */
+  const findMissingSearchResultPaths = async (results: DeepSearchResult[]): Promise<Set<string>> => {
+    const missing = new Set<string>();
+    let nextIndex = 0;
+    const workerCount = Math.min(8, results.length);
+    await Promise.all(Array.from({ length: workerCount }, async () => {
+      while (nextIndex < results.length) {
+        const result = results[nextIndex++];
+        try {
+          if (await FileManager.exists(result.path)) continue;
+          const isInICloud = typeof FileManager.isFileStoredIniCloud === "function" && FileManager.isFileStoredIniCloud(result.path);
+          if (!isInICloud) missing.add(result.path);
+        } catch {
+          // 无法确认时不当作已删除，避免权限或临时 I/O 故障产生误报。
+        }
+      }
+    }));
+    return missing;
+  };
+
+  const isSearchResultAvailable = async (path: string): Promise<boolean> => {
+    try {
+      if (await FileManager.exists(path)) return true;
+      return typeof FileManager.isFileStoredIniCloud === "function" && FileManager.isFileStoredIniCloud(path);
+    } catch {
+      return true;
+    }
+  };
+
   const performDeepSearch = async (query: string, append: boolean = false) => {
     const currentDirPath = dirPath;
     if (!query.trim()) {
       setSearchOffset(0);
       setHasMoreResults(false);
+      setMissingResultCount(0);
       notifyResults([]);
       return;
     }
@@ -205,7 +263,9 @@ export function SearchPanel({
     try {
       const offset = append ? searchOffset : 0;
       const results = await searchFromIndex(currentDirPath, query, pageSize, offset);
+      const missingPaths = await findMissingSearchResultPaths(results);
       if (seq !== searchSeqRef.current) return;
+      setMissingResultCount((previous) => append ? previous + missingPaths.size : missingPaths.size);
       if (append) {
         const updated = [...deepSearchResultsRef.current, ...results];
         setDeepSearchResults(updated);
@@ -242,10 +302,11 @@ export function SearchPanel({
       setDeepSearchPref(dirPath, enabled);
     }
     if (enabled) {
-      if (!indexStats || indexStats.total === 0) {
+      if (!indexStats || indexStats.total === 0 || !(await isIndexValid(dirPath))) {
         const stats = await getIndexStats(dirPath);
         setIndexStats(stats);
-        if (stats.total === 0) {
+        // 已有条目但完成标记缺失/过期时也必须重建，不能拿半截索引继续搜索。
+        if (stats.total === 0 || !(await isIndexValid(dirPath))) {
           await buildDeepSearchIndex();
         }
       }
@@ -285,6 +346,7 @@ export function SearchPanel({
       deepSearchResultsRef.current = [];
       setSearchOffset(0);
       setHasMoreResults(false);
+      setMissingResultCount(0);
     }
   }, [searchQuery]);
 
@@ -323,6 +385,11 @@ export function SearchPanel({
 
       const _onResultTap = onResultTapRef.current;
       const _navPath = navPathRef.current;
+
+      if (!(await isSearchResultAvailable(result.path))) {
+        showToast("文件已删除，索引可能已过期，请重建索引");
+        return;
+      }
 
       if (result.isDirectory) {
         if (_onResultTap) {
@@ -609,6 +676,14 @@ export function SearchPanel({
               {deepSearchEnabled && !isBuildingIndex && indexStats ? (
                 <Text font="caption" monospaced foregroundStyle="tertiaryLabel">
                   文件数 {indexStats.total}
+                </Text>
+              ) : (
+                <EmptyView />
+              )}
+
+              {deepSearchEnabled && missingResultCount > 0 ? (
+                <Text font="caption" foregroundStyle="systemOrange">
+                  索引过期 {missingResultCount} 项
                 </Text>
               ) : (
                 <EmptyView />

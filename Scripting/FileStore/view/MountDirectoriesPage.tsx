@@ -14,6 +14,7 @@ import {
   ZStack,
   useState,
   useEffect,
+  useRef,
   Menu,
   Divider,
   useObservable,
@@ -149,25 +150,37 @@ export function MountDirectoriesPage({ bookmarks, showFolderItemCounts, onRefres
     setOrderedBookmarks(bookmarks);
   }, [bookmarks]);
 
-  // 异步检查每个书签的目录是否存在 + 统计文件个数
+  // 异步检查每个书签的目录是否存在 + 统计文件个数。
+  // 有界并发避免书签较多或 iCloud/WebDAV 路径同时触发大量 I/O；序号防止旧请求覆盖新列表。
+  const bookmarkCheckSeqRef = useRef(0);
   useEffect(() => {
+    const seq = ++bookmarkCheckSeqRef.current;
+    let nextIndex = 0;
+    const results = new Array<{ path: string; inaccessible: boolean; count: number }>(bookmarks.length);
+    const concurrency = Math.min(6, bookmarks.length);
+
     (async () => {
-      const results = await Promise.all(
-        bookmarks.map(async (bm) => {
+      await Promise.all(Array.from({ length: concurrency }, async () => {
+        while (nextIndex < bookmarks.length) {
+          const index = nextIndex++;
+          const bm = bookmarks[index];
           try {
             const exists = await FileManager.exists(bm.path);
             if (!exists) {
-              return { path: bm.path, inaccessible: true, count: 0 };
+              results[index] = { path: bm.path, inaccessible: true, count: 0 };
             } else if (showFolderItemCounts !== false) {
               const items = await FileManager.readDirectory(bm.path);
-              return { path: bm.path, inaccessible: false, count: items.length };
+              results[index] = { path: bm.path, inaccessible: false, count: items.length };
+            } else {
+              results[index] = { path: bm.path, inaccessible: false, count: 0 };
             }
-            return { path: bm.path, inaccessible: false, count: 0 };
           } catch {
-            return { path: bm.path, inaccessible: true, count: 0 };
+            results[index] = { path: bm.path, inaccessible: true, count: 0 };
           }
-        }),
-      );
+        }
+      }));
+
+      if (seq !== bookmarkCheckSeqRef.current) return;
       const badPaths = new Set<string>();
       const counts = new Map<string, number>();
       for (const r of results) {
@@ -177,7 +190,7 @@ export function MountDirectoriesPage({ bookmarks, showFolderItemCounts, onRefres
       setInaccessiblePaths((prev) => (sameStringSet(prev, badPaths) ? prev : badPaths));
       setFolderCounts((prev) => (sameNumberMap(prev, counts) ? prev : counts));
     })();
-  }, [bookmarks]);
+  }, [bookmarks, showFolderItemCounts]);
 
   // 导航路径（用于文件夹侧滑进入）
   const navPath = useObservable<string[]>([]);

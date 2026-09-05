@@ -36,6 +36,7 @@ import {
   FileInfo,
   listDirectory,
   countDirectoryItems,
+  countDirectoryItemsBatch,
   searchFiles,
   getCachedDirectoryListing,
   readClipboardPath,
@@ -81,7 +82,8 @@ import { WebPreviewPage } from "./WebPreviewPage";
 const _readClipPath = readClipboardPath;
 const _writeClipPath = writeClipboardPath;
 
-const DIRECTORY_POLL_INTERVAL_MS = 999;
+const DIRECTORY_POLL_MIN_INTERVAL_MS = 999;
+const DIRECTORY_POLL_MAX_INTERVAL_MS = 60000;
 const DIRECTORY_POLL_FORCE_FULL_EVERY = 10;
 
 function ManagedBookmarksSheet({
@@ -956,16 +958,10 @@ function GeneralBrowser({
             const freshItems = await listDirectory(_activeDirPath);
             const dirs = freshItems.filter((f) => f.isDirectory);
             if (dirs.length === 0) return;
-            const counts: { path: string; count: number }[] = [];
-            for (const dir of dirs) {
-              try {
-                const children = await countDirectoryItems(dir.path, true);
-                counts.push({ path: dir.path, count: children });
-              } catch { }
-            }
-            if (counts.length > 0) {
-              mergeFolderCountUpdatesRef.current(counts);
-            }
+            // 有界并发读取，避免大量子目录计数串行阻塞刷新，同时不使磁盘 I/O 突增。
+            const counts = (await countDirectoryItemsBatch(dirs.map((dir) => dir.path), true))
+              .filter((entry): entry is { path: string; count: number } => entry.count !== null);
+            if (counts.length > 0) mergeFolderCountUpdatesRef.current(counts);
           } catch { }
         }
       };
@@ -1076,6 +1072,8 @@ function GeneralBrowser({
   const refreshDirectory = useCallback(async () => {
     // 强制清除缓存，确保从磁盘读取最新内容（拖拽/删除/重命名等操作依赖此行为）
     if (activeDirPath) invalidateDirectoryCache(activeDirPath);
+    // 用户主动刷新时恢复短轮询，之后无变化再逐步退避。
+    pollResetRef.current += 1;
     if (items && onItemsChange) {
       // items mode: reload from disk to get refreshed items
       if (activeDirPath) {
@@ -1099,6 +1097,7 @@ function GeneralBrowser({
   const prevPollTokenRef = useRef<string | null>(null);
   const pollCountRef = useRef(0);
   const pollSeqRef = useRef(0);
+  const pollResetRef = useRef(0);
   useEffect(() => {
     // 自增序列号：新目录的轮询启动时，旧目录正在进行的异步操作可检测到序号不匹配并自动中止
     pollSeqRef.current += 1;
@@ -1109,14 +1108,20 @@ function GeneralBrowser({
     prevPollTokenRef.current = null;
     pollCountRef.current = 0;
     let pollTimer: number | null = null;
+    let pollIntervalMs = DIRECTORY_POLL_MIN_INTERVAL_MS;
+    let seenPollReset = pollResetRef.current;
     const isLatestPoll = () => seq === pollSeqRef.current;
     const scheduleNextPoll = () => {
       if (isLatestPoll()) {
-        pollTimer = setTimeout(poll, DIRECTORY_POLL_INTERVAL_MS);
+        pollTimer = setTimeout(poll, pollIntervalMs);
       }
     };
     const poll = async () => {
       if (!isLatestPoll()) return;
+      if (seenPollReset !== pollResetRef.current) {
+        seenPollReset = pollResetRef.current;
+        pollIntervalMs = DIRECTORY_POLL_MIN_INTERVAL_MS;
+      }
       try {
         pollCountRef.current += 1;
         const token = await getDirectoryPollToken(activeDirPath);
@@ -1124,9 +1129,13 @@ function GeneralBrowser({
         const forceFullScan = pollCountRef.current % DIRECTORY_POLL_FORCE_FULL_EVERY === 0;
         const tokenChanged = token == null || prevPollTokenRef.current == null || token !== prevPollTokenRef.current;
         if (!tokenChanged && !forceFullScan) {
+          // 稳定目录指数退避，最高 60 秒；任何 token 变化或周期性全量检查都会恢复短间隔。
+          pollIntervalMs = Math.min(DIRECTORY_POLL_MAX_INTERVAL_MS, pollIntervalMs * 2);
           scheduleNextPoll();
           return;
         }
+        // 目录有变化或到达兜底全量检查：恢复快速轮询，及时捕获后续外部变更。
+        pollIntervalMs = DIRECTORY_POLL_MIN_INTERVAL_MS;
         // 需要全量扫描时必须清除缓存，否则 listDirectory 返回缓存数据（30秒有效期），发现不了外部变化
         invalidateDirectoryCache(activeDirPath);
         const newList = await listDirectory(activeDirPath);
@@ -1163,7 +1172,10 @@ function GeneralBrowser({
         }
         prevPollRef.current = newList;
         prevPollTokenRef.current = token;
-      } catch (e) { }
+      } catch (e) {
+        // 读取失败时不要高频重试；退避后继续保持可恢复的轮询。
+        pollIntervalMs = Math.min(DIRECTORY_POLL_MAX_INTERVAL_MS, pollIntervalMs * 2);
+      }
       if (isLatestPoll()) {
         scheduleNextPoll();
       }
@@ -1296,17 +1308,10 @@ function GeneralBrowser({
     folderCountTimerRef.current = setTimeout(() => {
       folderCountTimerRef.current = null;
       (async () => {
-        const counts: { path: string; count: number }[] = [];
-        for (const dir of dirs) {
-          if (cancelled) return;
-          try {
-            const children = await countDirectoryItems(dir.path);
-            counts.push({ path: dir.path, count: children });
-          } catch {
-            counts.push({ path: dir.path, count: 0 });
-          }
-        }
-        if (!cancelled) mergeFolderCountUpdates(counts);
+        const batch = await countDirectoryItemsBatch(dirs.map((dir) => dir.path));
+        if (cancelled) return;
+        // 保持原有失败显示为 0 的行为。
+        mergeFolderCountUpdates(batch.map(({ path, count }) => ({ path, count: count ?? 0 })));
       })();
     }, 666);
     return () => {
@@ -2629,6 +2634,8 @@ function GeneralBrowser({
                                       refreshDirectory();
                                     } catch (e) {
                                       console.log("粘贴失败:", e);
+                                      // 不清除复制来源，用户可在权限/iCloud 等问题解决后直接重试。
+                                      showToast("粘贴失败，请重试");
                                     }
                                   }}
                                 />
@@ -2649,7 +2656,8 @@ function GeneralBrowser({
                         otherItems={
                           <Group>
 
-                            <ControlGroup>
+                            {/* Menu 内使用 Group 保留各项独立点击区域；ControlGroup 会将相邻按钮合并，可能误触发首项动作。 */}
+                            <Group>
                               <Button title="新建文件" systemImage="doc.text" action={handleCreateNewFile} />
                               <Button title="新建文件夹" systemImage="folder.badge.plus" action={() => handleCreateFile("folder")} />
                               <Button title="新建 JS" systemImage="chevron.left.forwardslash.chevron.right" action={() => handleCreateFile("js", true)} />
@@ -2662,7 +2670,7 @@ function GeneralBrowser({
                                 </>
                               )}
 
-                            </ControlGroup>
+                            </Group>
                           </Group>
                         }
                         bottomItem={
@@ -2703,57 +2711,26 @@ function GeneralBrowser({
                     dirPath={activeDirPath}
                     onResultsChange={setDeepSearchResults}
                     navPath={activeNavPath}
-                    resultLeadingActions={(result) => [
-                      {
-                        title: "重命名",
-                        systemImage: "pencil",
-                        action: async () => {
-                          const newName = await renameWithPrompt(result.name);
-                          if (newName) {
-                            try {
-                              const newPath = Path.join(Path.dirname(result.path), newName);
-                              await FileManager.rename(result.path, newPath);
-                              refreshDirectory();
-                            } catch (e) {
-                              console.log("重命名失败:", e);
-                            }
-                          }
-                        },
-                      },
-                    ]}
                     resultTrailingActions={(result) => [
-                      {
-                        title: "删除",
-                        systemImage: "trash",
-                        role: "destructive",
-                        action: async () => {
-                          try {
-                            await FileManager.remove(result.path);
-                            refreshDirectory();
-                          } catch (e) {
-                            console.log("删除失败:", e);
-                          }
-                        },
-                      },
                       {
                         title: "简介",
                         systemImage: "info.circle",
                         action: () => {
-                          const fileInfo = {
+                          const fileInfo: FileInfo = {
                             path: result.path,
                             name: result.name,
                             size: result.size,
                             modificationDate: result.modificationDate,
                             isDirectory: result.isDirectory,
                             extension: Path.extname(result.name),
-                            category: result.category,
+                            category: result.category as FileInfo["category"],
                             isLink: false,
                             mimeType: "",
                             icon: result.icon,
-                            iconColor: result.iconColor,
+                            iconColor: result.iconColor as FileInfo["iconColor"],
                             creationDate: 0,
                           };
-                          Navigation.present({ element: <FileInfoDialog file={fileInfo as FileInfo} />, modalPresentationStyle: "pageSheet" });
+                          Navigation.present({ element: <FileInfoDialog file={fileInfo} />, modalPresentationStyle: "pageSheet" });
                         },
                       },
                     ]}
@@ -2853,7 +2830,9 @@ function GeneralBrowser({
                             } else */ if (activeNavPath) {
                               activeNavPath.setValue([...activeNavPath.value, prefix + result.path + (line ? "::L" + line : "")]);
                             }
-                          } else if (prefix === "archive:" && isHomeScreenHost) {
+                          } else if (prefix === "archive:") {
+                            // 深度搜索打开压缩包始终使用 pageSheet；不走 NavigationStack 路由，
+                            // 以保持与目录列表中“查看压缩文件”一致的弹窗体验。
                             await Navigation.present({
                               element: <ArchiveBrowserPage filePath={result.path} />,
                               modalPresentationStyle: "pageSheet",

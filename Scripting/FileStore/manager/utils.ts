@@ -16,12 +16,13 @@ export function markFileImported(filePath: string, timestamp: number = Date.now(
 
 import {
   countDirectoryItems,
+  countDirectoryItemsBatch,
   invalidateDirectoryCount,
   clearDirectoryCountCache,
 } from "./directoryCount"
 export { fmtSize, fmtDate } from "./formatUtils"
 export { readClipboardPath, writeClipboardPath } from "./clipboardUtils"
-export { countDirectoryItems, invalidateDirectoryCount, clearDirectoryCountCache } from "./directoryCount"
+export { countDirectoryItems, countDirectoryItemsBatch, invalidateDirectoryCount, clearDirectoryCountCache } from "./directoryCount"
 
 
 /**
@@ -109,12 +110,13 @@ export async function getFileInfo(filePath: string): Promise<FileInfo> {
   const name = isCloud ? originalName.slice(1, -7) : originalName;
   const targetPath = isCloud ? Path.join(parent, name) : filePath;
 
+  // 不同文件提供者的 stat.type 返回值并不完全一致；以 isDirectory 的原生判断为准，
+  // 避免真实目录在列表中被错误显示为普通文件。
   const [isLink, isDirHint, stat] = await Promise.all([
     FileManager.isLink(filePath).catch(() => false),
     FileManager.isDirectory(filePath).catch(() => false),
     FileManager.stat(filePath).catch(() => null),
   ]);
-
   const isDir = (!!isDirHint && !isLink) || (!isLink && !!stat && stat.type === "directory");
 
   if (isDir) {

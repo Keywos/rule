@@ -192,21 +192,22 @@ export function DualBrowserPage({
         await FileManager.copyFile(filePath, destPath)
         // 乐观更新：立即在右侧显示复制的文件（同步注入，不等 isDirectory）
         {
-          const destExt = Path.extname(destPath)
+          const sourceIsDirectory = await FileManager.isDirectory(filePath).catch(() => false)
+          const destExt = sourceIsDirectory ? "" : Path.extname(destPath)
           rightAddFilesRef.current([
             {
               name: Path.basename(destPath),
               path: destPath,
-              isDirectory: false,
+              isDirectory: sourceIsDirectory,
               isLink: false,
               size: 0,
               creationDate: Date.now(),
               modificationDate: Date.now(),
               extension: destExt,
-              category: getFileCategory(destExt) as any,
+              category: sourceIsDirectory ? "unknown" : getFileCategory(destExt) as any,
               mimeType: "",
-              icon: "doc.text",
-              iconColor: "systemGray",
+              icon: sourceIsDirectory ? "folder.fill" : "doc.text",
+              iconColor: sourceIsDirectory ? "systemBlue" : "systemGray",
             },
           ])
         }
@@ -245,21 +246,22 @@ export function DualBrowserPage({
         await FileManager.copyFile(filePath, destPath)
         // 乐观更新：立即在左侧显示复制的文件（同步注入，不等 isDirectory）
         {
-          const destExt = Path.extname(destPath)
+          const sourceIsDirectory = await FileManager.isDirectory(filePath).catch(() => false)
+          const destExt = sourceIsDirectory ? "" : Path.extname(destPath)
           leftAddFilesRef.current([
             {
               name: Path.basename(destPath),
               path: destPath,
-              isDirectory: false,
+              isDirectory: sourceIsDirectory,
               isLink: false,
               size: 0,
               creationDate: Date.now(),
               modificationDate: Date.now(),
               extension: destExt,
-              category: getFileCategory(destExt) as any,
+              category: sourceIsDirectory ? "unknown" : getFileCategory(destExt) as any,
               mimeType: "",
-              icon: "doc.text",
-              iconColor: "systemGray",
+              icon: sourceIsDirectory ? "folder.fill" : "doc.text",
+              iconColor: sourceIsDirectory ? "systemBlue" : "systemGray",
             },
           ])
         }
@@ -333,7 +335,8 @@ export function DualBrowserPage({
   // 拖拽松手后的比例保存
   const handleRatioChangeEnd = (newRatio: number) => {
     const rounded = Math.round(newRatio * 1000) / 1000
-    setRatio(rounded)
+    // 分隔线松手后，两个页面尺寸平滑过渡，避免瞬间跳变。
+    withAnimation(Animation.smooth({ duration: 0.35 }), () => setRatio(rounded))
     // 读取当前磁盘上的最新配置，防止覆盖左右栏刚刚切换的路径
     const currentSettings = readSettings()
     const nextSettings = { ...currentSettings, dualRatio: rounded }
