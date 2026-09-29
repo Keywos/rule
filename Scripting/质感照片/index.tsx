@@ -211,7 +211,7 @@ function Home() {
         </Section>
         <Section title="限制">
           <Text>请先在照片 App 中“共享 → 存储到文件”，再在这里选择；照片图库选择器常会把 HEIC 转成 JPEG。</Text>
-          <Text>当前 Scripting 没有公开 libheif/Core Image/HEVC 编码桥接，因此使用上游验证过的 donor fallback；不会生成目标照片的 scene statistics/light maps。</Text>
+          {/* <Text>当前 Scripting 没有公开 libheif/Core Image/HEVC 编码桥接，因此使用上游验证过的 donor fallback；不会生成目标照片的 scene statistics/light maps。</Text> */}
           <Text>只处理静态 HEIC，不包含实况照片动态画面和声音。请保留原片。</Text>
         </Section>
       </List>
