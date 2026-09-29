@@ -1,0 +1,13 @@
+<x:xmpmeta xmlns:x="adobe:ns:meta/" x:xmptk="XMP Core 6.0.0">
+   <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
+      <rdf:Description rdf:about=""
+            xmlns:apdi="http://ns.apple.com/pixeldatainfo/1.0/"
+            xmlns:portraitEffectsMatte="http://ns.apple.com/portraitEffectsMatte/1.0/">
+         <apdi:AuxiliaryImageSubType>portraiteffectsmatte</apdi:AuxiliaryImageSubType>
+         <apdi:NativeFormat>1278226488</apdi:NativeFormat>
+         <apdi:AuxiliaryImageType>depth</apdi:AuxiliaryImageType>
+         <apdi:StoredFormat>1278226488</apdi:StoredFormat>
+         <portraitEffectsMatte:PortraitEffectsMatteVersion>65537</portraitEffectsMatte:PortraitEffectsMatteVersion>
+      </rdf:Description>
+   </rdf:RDF>
+</x:xmpmeta>

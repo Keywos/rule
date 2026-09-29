@@ -1,0 +1,48 @@
+{
+  "remoteResource": {
+    "hash": "",
+    "url": "https:\/\/github.com\/Keywos\/rule\/tree\/main\/Scripting\/%E8%B4%A8%E6%84%9F%E7%85%A7%E7%89%87",
+    "autoUpdateInterval": null
+  },
+  "localizedNames": {
+    "pt": "",
+    "it": "",
+    "fr": "",
+    "es": "",
+    "zh": "",
+    "en": "",
+    "ja": "",
+    "de": "",
+    "ru": ""
+  },
+  "author": {
+    "email": null,
+    "homepage": "https:\/\/github.com\/Keywos",
+    "name": "Keywos"
+  },
+  "iconImage": null,
+  "name": "质感照片",
+  "icon": "photo.on.rectangle",
+  "color": "rgba(102, 196, 235,1)",
+  "intentInputTypes": [
+  ],
+  "version": "1.0.0",
+  "localizedDescriptions": {
+    "pt": "",
+    "it": "",
+    "fr": "",
+    "es": "",
+    "zh": "",
+    "en": "",
+    "ja": "",
+    "de": "",
+    "ru": ""
+  },
+  "permissions": null,
+  "description": null,
+  "runInApp": false,
+  "entry": "index.tsx",
+  "contributors": [
+
+  ]
+}
