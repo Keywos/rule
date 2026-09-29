@@ -53,6 +53,8 @@ export interface FileListItemProps {
 function buildSwipeConfig(actions?: ContextMenuItem[]) {
   if (!actions || actions.length === 0) return undefined;
   return {
+    // 禁止全幅滑动自动提交首个动作，避免滑动结束时误触发行点击。
+    allowsFullSwipe: false,
     actions: actions.map((a) => <Button title={a.title} role={a.role} action={a.action} />),
   };
 }
@@ -93,7 +95,7 @@ export function FileListItem(props: FileListItemProps) {
 
   if (selectMode) {
     return (
-      <Button action={selectMode.onToggle} listRowSeparator={hideTopSeparator ? { visibility: "hidden", edges: "top" } : undefined} onDrag={onDrag}>
+      <HStack onTapGesture={selectMode.onToggle} listRowSeparator={hideTopSeparator ? { visibility: "hidden", edges: "top" } : undefined} onDrag={onDrag}>
         <HStack spacing={12} alignment="center" padding={{ vertical: 4 }} frame={{ maxWidth: "infinity" }} contentShape="rect">
           <Image systemName={selectMode.isSelected ? "checkmark.circle.fill" : "circle"} frame={{ width: 28, height: 28 }} foregroundStyle={selectMode.isSelected ? "systemBlue" : "tertiaryLabel"} />
           <Image systemName={file.icon} frame={{ width: 28, height: 28 }} foregroundStyle={file.iconColor} />
@@ -120,7 +122,7 @@ export function FileListItem(props: FileListItemProps) {
           </VStack>
           <Spacer />
         </HStack>
-      </Button>
+      </HStack>
     );
   }
 
@@ -131,8 +133,8 @@ export function FileListItem(props: FileListItemProps) {
   if (destination && file.isDirectory && navPath && navPageId) {
     // 文件夹 + 有 navPath → Button 触发 navPath push
     return (
-      <Button
-        action={() => navPath.setValue([...navPath.value, navPageId])}
+      <HStack
+        onTapGesture={() => navPath.setValue([...navPath.value, navPageId])}
         listRowSeparator={hideTopSeparator ? { visibility: "hidden", edges: "top" } : undefined}
         trailingSwipeActions={trailingSwipeConfig}
         leadingSwipeActions={leadingSwipeConfig}
@@ -172,15 +174,15 @@ export function FileListItem(props: FileListItemProps) {
           {trailingContent ?? <EmptyView />}
           {showChevron ? <Image systemName="chevron.right" frame={{ width: 12, height: 12 }} foregroundStyle="tertiaryLabel" /> : <EmptyView />}
         </HStack>
-      </Button>
+      </HStack>
     );
   }
 
   if (destination) {
     // 非目录或没有 navPath → Navigation.present() 上滑/全屏
     return (
-      <Button
-        action={() => Navigation.present({ element: destination, modalPresentationStyle: "fullScreen" })}
+      <HStack
+        onTapGesture={() => Navigation.present({ element: destination, modalPresentationStyle: "fullScreen" })}
         listRowSeparator={hideTopSeparator ? { visibility: "hidden", edges: "top" } : undefined}
         trailingSwipeActions={trailingSwipeConfig}
         leadingSwipeActions={leadingSwipeConfig}
@@ -220,13 +222,13 @@ export function FileListItem(props: FileListItemProps) {
           {trailingContent ?? <EmptyView />}
           {showChevron ? <Image systemName="chevron.right" frame={{ width: 12, height: 12 }} foregroundStyle="tertiaryLabel" /> : <EmptyView />}
         </HStack>
-      </Button>
+      </HStack>
     );
   }
 
   return (
-    <Button
-      action={() => {}}
+    <HStack
+      onTapGesture={() => {}}
       disabled={disabled}
       listRowSeparator={hideTopSeparator ? { visibility: "hidden", edges: "top" } : undefined}
       trailingSwipeActions={trailingSwipeConfig}
@@ -266,7 +268,7 @@ export function FileListItem(props: FileListItemProps) {
           <EmptyView />
         )}
       </HStack>
-    </Button>
+    </HStack>
   );
 }
 

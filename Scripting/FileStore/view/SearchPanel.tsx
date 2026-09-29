@@ -555,9 +555,8 @@ export function SearchPanel({
           return (
             <Group key={result.path}>
               {hasMatches ? (
-                <Button
-                  action={() => toggleExpanded(result.path)}
-                  buttonStyle="plain"
+                <HStack
+                  onTapGesture={() => toggleExpanded(result.path)}
                   frame={{ maxWidth: "infinity", alignment: "leading" }}
                   contentShape="rect"
                   contextMenu={{ menuItems: renderContextMenu(result) }}
@@ -602,11 +601,10 @@ export function SearchPanel({
                       </Text>
                     </HStack>
                   </HStack>
-                </Button>
-              ) : (
-                <Button
-                  action={() => navigateToFile(result)}
-                  buttonStyle="plain"
+                  </HStack>
+                ) : (
+                <HStack
+                  onTapGesture={() => navigateToFile(result)}
                   frame={{ maxWidth: "infinity", alignment: "leading" }}
                   contentShape="rect"
                   contextMenu={{ menuItems: renderContextMenu(result) }}
@@ -640,7 +638,7 @@ export function SearchPanel({
                       <Spacer />
                     </HStack>
                   </HStack>
-                </Button>
+                </HStack>
               )}
 
               {isExpanded && hasMatches ? (
